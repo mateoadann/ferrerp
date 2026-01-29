@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+
+echo "Ejecutando tests antes de push..."
+make test-dev-run
