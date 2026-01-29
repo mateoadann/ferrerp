@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}Productos - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Productos</h2>
+    <a href="{{ url_for('productos.nuevo') }}" class="btn btn-primary">
+        <span class="material-symbols-rounded me-2">add</span>
+        Nuevo Producto
+    </a>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form class="filter-bar" method="GET">
+            <div class="search-bar flex-grow-1" style="max-width: 400px;">
+                <span class="material-symbols-rounded">search</span>
+                <input type="text" name="q" class="form-control"
+                       placeholder="Buscar por código o nombre..."
+                       value="{{ busqueda }}"
+                       hx-get="{{ url_for('productos.tabla') }}"
+                       hx-trigger="keyup changed delay:300ms"
+                       hx-target="#tabla-productos"
+                       hx-include="[name='categoria'], [name='activos'], [name='bajo_stock']">
+            </div>
+
+            <select name="categoria" class="form-select" style="width: 200px;"
+                    hx-get="{{ url_for('productos.index') }}"
+                    hx-trigger="change"
+                    hx-target="#tabla-productos"
+                    hx-include="[name='q'], [name='activos'], [name='bajo_stock']">
+                <option value="">Todas las categorías</option>
+                {% for cat in categorias %}
+                <option value="{{ cat.id }}" {% if categoria_id == cat.id %}selected{% endif %}>{{ cat.nombre }}</option>
+                {% endfor %}
+            </select>
+
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" name="activos" value="1" id="activos"
+                       {% if solo_activos %}checked{% endif %}
+                       hx-get="{{ url_for('productos.index') }}"
+                       hx-trigger="change"
+                       hx-target="#tabla-productos">
+                <label class="form-check-label" for="activos">Solo activos</label>
+            </div>
+
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" name="bajo_stock" value="1" id="bajo_stock"
+                       {% if solo_bajo_stock %}checked{% endif %}
+                       hx-get="{{ url_for('productos.index') }}"
+                       hx-trigger="change"
+                       hx-target="#tabla-productos">
+                <label class="form-check-label" for="bajo_stock">Bajo stock</label>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla -->
+<div class="card">
+    <div class="card-body p-0" id="tabla-productos">
+        {% include 'productos/_tabla.html' %}
+    </div>
+</div>
+{% endblock %}

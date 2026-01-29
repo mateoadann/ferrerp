@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block title %}Caja - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Caja del Día</h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('caja.historial') }}" class="btn btn-secondary">
+            <span class="material-symbols-rounded me-2">history</span>Historial
+        </a>
+        <a href="{{ url_for('caja.cerrar') }}" class="btn btn-warning">
+            <span class="material-symbols-rounded me-2">lock</span>Cerrar Caja
+        </a>
+    </div>
+</div>
+
+<!-- Resumen -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="metric-card">
+            <span class="metric-label">Monto Inicial</span>
+            <div class="metric-value">{{ caja.monto_inicial|currency }}</div>
+            <span class="metric-sub">Apertura: {{ caja.fecha_apertura|datetime }}</span>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric-card">
+            <span class="metric-label">Total Ingresos</span>
+            <div class="metric-value text-success">{{ caja.total_ingresos|currency }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric-card">
+            <span class="metric-label">Total Egresos</span>
+            <div class="metric-value text-danger">{{ caja.total_egresos|currency }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric-card">
+            <span class="metric-label">Saldo en Caja</span>
+            <div class="metric-value">{{ (caja.monto_inicial + caja.total_ingresos - caja.total_egresos)|currency }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Movimientos -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">Movimientos del Día</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Hora</th>
+                                <th>Tipo</th>
+                                <th>Concepto</th>
+                                <th>Descripción</th>
+                                <th class="text-end">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mov in movimientos %}
+                            <tr>
+                                <td>{{ mov.created_at.strftime('%H:%M') }}</td>
+                                <td>
+                                    {% if mov.tipo == 'ingreso' %}
+                                    <span class="badge badge-success">Ingreso</span>
+                                    {% else %}
+                                    <span class="badge badge-danger">Egreso</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ mov.concepto_display }}</td>
+                                <td>{{ mov.descripcion or '-' }}</td>
+                                <td class="text-end fw-bold {% if mov.tipo == 'ingreso' %}text-success{% else %}text-danger{% endif %}">
+                                    {% if mov.tipo == 'ingreso' %}+{% else %}-{% endif %}{{ mov.monto|currency }}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="text-center py-4 text-muted">Sin movimientos</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registrar Egreso -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">Registrar Egreso</div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('caja.egreso') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label class="form-label">Concepto</label>
+                        <select name="concepto" class="form-select" required>
+                            <option value="pago_proveedor">Pago a Proveedor</option>
+                            <option value="gasto">Gasto General</option>
+                            <option value="retiro">Retiro de Efectivo</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción *</label>
+                        <input type="text" name="descripcion" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Monto *</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="monto" class="form-control" step="0.01" min="0.01" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-danger w-100">
+                        <span class="material-symbols-rounded me-2">remove_circle</span>Registrar Egreso
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

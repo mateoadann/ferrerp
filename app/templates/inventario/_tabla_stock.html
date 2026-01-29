@@ -1,0 +1,66 @@
+<table class="table mb-0">
+    <thead>
+        <tr>
+            <th>Codigo</th>
+            <th>Producto</th>
+            <th>Categoria</th>
+            <th class="text-center">Stock</th>
+            <th class="text-center">Minimo</th>
+            <th class="text-end">Costo</th>
+            <th class="text-end">Valor Stock</th>
+            <th class="text-center">Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for producto in productos.items %}
+        <tr class="{% if producto.stock_actual < producto.stock_minimo %}row-stock-bajo{% endif %}">
+            <td class="table-code">{{ producto.codigo }}</td>
+            <td>
+                <a href="{{ url_for('productos.detalle', id=producto.id) }}">
+                    {{ producto.nombre }}
+                </a>
+            </td>
+            <td>{{ producto.categoria.nombre if producto.categoria else '-' }}</td>
+            <td class="text-center">
+                {% if producto.stock_actual < producto.stock_minimo %}
+                <span class="badge badge-danger">{{ producto.stock_actual|int }}</span>
+                {% else %}
+                {{ producto.stock_actual|int }}
+                {% endif %}
+            </td>
+            <td class="text-center">{{ producto.stock_minimo|int }}</td>
+            <td class="text-end">{{ producto.precio_costo|currency }}</td>
+            <td class="text-end fw-bold">{{ (producto.stock_actual * producto.precio_costo)|currency }}</td>
+            <td>
+                <div class="action-icons">
+                    <a href="{{ url_for('inventario.ajuste', producto_id=producto.id) }}"
+                       class="action-icon"
+                       title="Ajustar stock">
+                        <span class="material-symbols-rounded">tune</span>
+                    </a>
+                    <a href="{{ url_for('inventario.movimientos_producto', producto_id=producto.id) }}"
+                       class="action-icon"
+                       title="Ver movimientos">
+                        <span class="material-symbols-rounded">history</span>
+                    </a>
+                </div>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="8">
+                <div class="empty-state">
+                    <span class="material-symbols-rounded">inventory_2</span>
+                    <p>No se encontraron productos</p>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if productos.pages > 1 %}
+<div class="p-3">
+    {% include 'components/pagination.html' %}
+</div>
+{% endif %}

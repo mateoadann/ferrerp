@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Movimientos de Stock - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Movimientos de Stock{% if producto %} - {{ producto.nombre }}{% endif %}</h2>
+    <a href="{{ url_for('inventario.index') }}" class="btn btn-secondary">
+        <span class="material-symbols-rounded me-2">arrow_back</span>Volver
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Producto</th>
+                        <th>Tipo</th>
+                        <th class="text-end">Cantidad</th>
+                        <th class="text-end">Stock Ant.</th>
+                        <th class="text-end">Stock Post.</th>
+                        <th>Usuario</th>
+                        <th>Motivo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mov in movimientos.items %}
+                    <tr>
+                        <td>{{ mov.created_at|datetime }}</td>
+                        <td><code>{{ mov.producto.codigo }}</code> {{ mov.producto.nombre }}</td>
+                        <td>
+                            {% if mov.es_entrada %}<span class="badge badge-success">{{ mov.tipo_display }}</span>
+                            {% else %}<span class="badge badge-danger">{{ mov.tipo_display }}</span>{% endif %}
+                        </td>
+                        <td class="text-end {% if mov.cantidad > 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if mov.cantidad > 0 %}+{% endif %}{{ mov.cantidad|int }}
+                        </td>
+                        <td class="text-end">{{ mov.stock_anterior|int }}</td>
+                        <td class="text-end fw-bold">{{ mov.stock_posterior|int }}</td>
+                        <td>{{ mov.usuario.nombre if mov.usuario else '-' }}</td>
+                        <td>{{ mov.motivo or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="8" class="text-center py-4 text-muted">Sin movimientos</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if movimientos.pages > 1 %}{% set pagination = movimientos %}{% include 'components/pagination.html' %}{% endif %}
+    </div>
+</div>
+{% endblock %}

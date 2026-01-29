@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm 1.5cm;
+            @bottom-center {
+                content: "Página " counter(page) " de " counter(pages);
+                font-size: 9px;
+                color: #999;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 11px;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #E07B54;
+        }
+
+        .header-left {
+            width: 55%;
+        }
+
+        .header-right {
+            width: 40%;
+            text-align: right;
+        }
+
+        .logo-text {
+            font-size: 28px;
+            font-weight: bold;
+            color: #E07B54;
+            letter-spacing: 1px;
+        }
+
+        .negocio-info {
+            font-size: 10px;
+            color: #666;
+            margin-top: 5px;
+            line-height: 1.6;
+        }
+
+        .presupuesto-titulo {
+            font-size: 22px;
+            font-weight: bold;
+            color: #0D6E6E;
+            margin-bottom: 8px;
+        }
+
+        .presupuesto-numero {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 3px;
+        }
+
+        .presupuesto-fecha {
+            font-size: 10px;
+            color: #888;
+        }
+
+        /* Info boxes */
+        .info-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            gap: 20px;
+        }
+
+        .info-box {
+            width: 48%;
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 12px 15px;
+            border-left: 4px solid #0D6E6E;
+        }
+
+        .info-box-label {
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #0D6E6E;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .info-box p {
+            margin: 2px 0;
+            font-size: 10px;
+            color: #555;
+        }
+
+        .info-box .nombre {
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* Validity badge */
+        .validity-box {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+
+        .validity-box .fecha-vencimiento {
+            font-size: 13px;
+            font-weight: bold;
+            color: #856404;
+        }
+
+        /* Tabla de productos */
+        .productos-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .productos-table thead th {
+            background: #0D6E6E;
+            color: white;
+            padding: 8px 10px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            text-align: left;
+        }
+
+        .productos-table thead th:first-child {
+            border-radius: 4px 0 0 0;
+        }
+
+        .productos-table thead th:last-child {
+            border-radius: 0 4px 0 0;
+        }
+
+        .productos-table tbody td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 10px;
+        }
+
+        .productos-table tbody tr:nth-child(even) {
+            background: #fafafa;
+        }
+
+        .productos-table .col-codigo {
+            width: 80px;
+            font-family: monospace;
+            font-size: 9px;
+            color: #666;
+        }
+
+        .productos-table .col-cantidad {
+            width: 70px;
+            text-align: center;
+        }
+
+        .productos-table .col-precio,
+        .productos-table .col-subtotal {
+            width: 100px;
+            text-align: right;
+        }
+
+        .productos-table .col-subtotal {
+            font-weight: bold;
+        }
+
+        /* Totales */
+        .totales-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 25px;
+        }
+
+        .totales-box {
+            width: 280px;
+        }
+
+        .totales-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 11px;
+        }
+
+        .totales-row.descuento {
+            color: #dc3545;
+        }
+
+        .totales-row.total {
+            border-top: 2px solid #0D6E6E;
+            margin-top: 5px;
+            padding-top: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #0D6E6E;
+        }
+
+        /* Notas */
+        .notas-section {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 12px 15px;
+            margin-bottom: 20px;
+        }
+
+        .notas-section .label {
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #0D6E6E;
+            margin-bottom: 5px;
+        }
+
+        .notas-section p {
+            font-size: 10px;
+            color: #555;
+            white-space: pre-wrap;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            font-size: 9px;
+            color: #999;
+        }
+
+        .footer .gracias {
+            font-size: 12px;
+            color: #0D6E6E;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        /* Estado badge */
+        .estado-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .estado-pendiente { background: #fff3cd; color: #856404; }
+        .estado-aceptado { background: #d4edda; color: #155724; }
+        .estado-rechazado { background: #f8d7da; color: #721c24; }
+        .estado-vencido { background: #e2e3e5; color: #383d41; }
+        .estado-convertido { background: #cce5ff; color: #004085; }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <div class="logo-text">{{ config_negocio.nombre or 'FerrERP' }}</div>
+            <div class="negocio-info">
+                {% if config_negocio.cuit %}CUIT: {{ config_negocio.cuit }}<br>{% endif %}
+                {% if config_negocio.direccion %}{{ config_negocio.direccion }}<br>{% endif %}
+                {% if config_negocio.telefono %}Tel: {{ config_negocio.telefono }}{% endif %}
+                {% if config_negocio.email %} | {{ config_negocio.email }}{% endif %}
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="presupuesto-titulo">PRESUPUESTO</div>
+            <div class="presupuesto-numero">#{{ presupuesto.numero_completo }}</div>
+            <div class="presupuesto-fecha">
+                Fecha: {{ presupuesto.fecha.strftime('%d/%m/%Y %H:%M') }}
+            </div>
+            <div style="margin-top: 6px;">
+                <span class="estado-badge estado-{{ presupuesto.estado }}">
+                    {{ presupuesto.estado_display }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Section -->
+    <div class="info-section">
+        <div class="info-box">
+            <div class="info-box-label">Cliente</div>
+            {% if presupuesto.cliente %}
+                <p class="nombre">{{ presupuesto.cliente.nombre }}</p>
+                {% if presupuesto.cliente.dni_cuit %}
+                <p>DNI/CUIT: {{ presupuesto.cliente.dni_cuit }}</p>
+                {% endif %}
+                {% if presupuesto.cliente.telefono %}
+                <p>Tel: {{ presupuesto.cliente.telefono }}</p>
+                {% endif %}
+                {% if presupuesto.cliente.email %}
+                <p>{{ presupuesto.cliente.email }}</p>
+                {% endif %}
+                {% if presupuesto.cliente.direccion %}
+                <p>{{ presupuesto.cliente.direccion }}</p>
+                {% endif %}
+            {% elif presupuesto.cliente_nombre %}
+                <p class="nombre">{{ presupuesto.cliente_nombre }}</p>
+                {% if presupuesto.cliente_telefono %}
+                <p>Tel: {{ presupuesto.cliente_telefono }}</p>
+                {% endif %}
+            {% else %}
+                <p class="nombre">Consumidor Final</p>
+            {% endif %}
+        </div>
+
+        <div class="info-box validity-box">
+            <div class="info-box-label">Validez del presupuesto</div>
+            <p class="fecha-vencimiento">
+                Válido hasta: {{ presupuesto.fecha_vencimiento.strftime('%d/%m/%Y') }}
+            </p>
+            <p style="margin-top: 4px;">Vendedor: {{ presupuesto.usuario.nombre }}</p>
+        </div>
+    </div>
+
+    <!-- Tabla de productos -->
+    <table class="productos-table">
+        <thead>
+            <tr>
+                <th class="col-codigo">Código</th>
+                <th>Descripción</th>
+                <th class="col-cantidad">Cant.</th>
+                <th class="col-precio">P. Unitario</th>
+                <th class="col-subtotal">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for detalle in detalles %}
+            <tr>
+                <td class="col-codigo">{{ detalle.producto.codigo }}</td>
+                <td>{{ detalle.producto.nombre }}</td>
+                <td class="col-cantidad">{{ detalle.cantidad|int if detalle.cantidad == detalle.cantidad|int else detalle.cantidad }}</td>
+                <td class="col-precio">${{ '{:,.2f}'.format(detalle.precio_unitario) }}</td>
+                <td class="col-subtotal">${{ '{:,.2f}'.format(detalle.subtotal) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Totales -->
+    <div class="totales-section">
+        <div class="totales-box">
+            {% set iva_pct = config_negocio.iva_porcentaje|default(21)|float %}
+            {% set con_iva = config_negocio.precios_con_iva|default(true) %}
+            {% set total_num = presupuesto.total|float %}
+            {% if con_iva %}
+                {% set neto = total_num / (1 + iva_pct / 100) %}
+                {% set iva_monto = total_num - neto %}
+                {% set total_final = total_num %}
+            {% else %}
+                {% set neto = total_num %}
+                {% set iva_monto = total_num * iva_pct / 100 %}
+                {% set total_final = total_num + iva_monto %}
+            {% endif %}
+            <div class="totales-row">
+                <span>Subtotal:</span>
+                <span>${{ '{:,.2f}'.format(presupuesto.subtotal) }}</span>
+            </div>
+            {% if presupuesto.descuento_monto and presupuesto.descuento_monto > 0 %}
+            <div class="totales-row descuento">
+                <span>Descuento ({{ presupuesto.descuento_porcentaje }}%):</span>
+                <span>-${{ '{:,.2f}'.format(presupuesto.descuento_monto) }}</span>
+            </div>
+            {% endif %}
+            <div class="totales-row">
+                <span>Neto gravado:</span>
+                <span>${{ '{:,.2f}'.format(neto) }}</span>
+            </div>
+            <div class="totales-row">
+                <span>IVA ({{ '{:g}'.format(iva_pct) }}%):</span>
+                <span>${{ '{:,.2f}'.format(iva_monto) }}</span>
+            </div>
+            <div class="totales-row total">
+                <span>TOTAL:</span>
+                <span>${{ '{:,.2f}'.format(total_final) }}</span>
+            </div>
+            <div style="font-size: 9px; color: #999; text-align: right; margin-top: 4px;">
+                {% if con_iva %}Los precios incluyen IVA{% else %}Los precios no incluyen IVA{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Notas -->
+    {% if presupuesto.notas %}
+    <div class="notas-section">
+        <div class="label">Observaciones</div>
+        <p>{{ presupuesto.notas }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Texto pie configurable -->
+    {% if config_negocio.texto_pie %}
+    <div class="notas-section">
+        <p>{{ config_negocio.texto_pie }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="gracias">Gracias por su consulta</div>
+        <p>{{ config_negocio.nombre or 'FerrERP' }}{% if config_negocio.telefono %} | Tel: {{ config_negocio.telefono }}{% endif %}{% if config_negocio.email %} | {{ config_negocio.email }}{% endif %}</p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}Categorías - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Categorías</h2>
+</div>
+
+<div class="row">
+    <div class="col-lg-3 mb-4">
+        <div class="list-group">
+            <a href="{{ url_for('configuracion.index') }}" class="list-group-item list-group-item-action">General</a>
+            <a href="{{ url_for('configuracion.usuarios') }}" class="list-group-item list-group-item-action">Usuarios</a>
+            <a href="{{ url_for('configuracion.categorias') }}" class="list-group-item list-group-item-action active">Categorías</a>
+        </div>
+    </div>
+    <div class="col-lg-9">
+        <div class="row g-4">
+            <div class="col-md-5">
+                <div class="card">
+                    <div class="card-header">Nueva Categoría</div>
+                    <div class="card-body">
+                        <form method="POST">
+                            {{ form.hidden_tag() }}
+                            <div class="mb-3">
+                                <label class="form-label">{{ form.nombre.label.text }} *</label>
+                                {{ form.nombre(class="form-control") }}
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">{{ form.descripcion.label.text }}</label>
+                                {{ form.descripcion(class="form-control") }}
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <span class="material-symbols-rounded me-2">add</span>Crear
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-7">
+                <div class="card">
+                    <div class="card-header">Categorías Existentes</div>
+                    <div class="card-body p-0">
+                        <ul class="list-group list-group-flush">
+                            {% for c in categorias %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ c.nombre }}</strong>
+                                    {% if c.descripcion %}<br><small class="text-muted">{{ c.descripcion }}</small>{% endif %}
+                                </div>
+                                <div>
+                                    <span class="badge {% if c.activa %}badge-success{% else %}badge-secondary{% endif %} me-2">
+                                        {{ c.cantidad_productos }} productos
+                                    </span>
+                                    <form method="POST" action="{{ url_for('configuracion.toggle_categoria', id=c.id) }}" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm {% if c.activa %}btn-outline-secondary{% else %}btn-outline-success{% endif %}">
+                                            {% if c.activa %}Desactivar{% else %}Activar{% endif %}
+                                        </button>
+                                    </form>
+                                </div>
+                            </li>
+                            {% else %}
+                            <li class="list-group-item text-center text-muted py-4">No hay categorías</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

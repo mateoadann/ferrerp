@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+
+{% block title %}Orden #{{ orden.numero }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{{ url_for('compras.index') }}">Ordenes de Compra</a></li>
+                <li class="breadcrumb-item active">Orden #{{ orden.numero }}</li>
+            </ol>
+        </nav>
+        <h2>Orden de Compra #{{ orden.numero }}</h2>
+    </div>
+    <div>
+        {% if orden.puede_recibir %}
+        <a href="{{ url_for('compras.recibir', id=orden.id) }}" class="btn btn-primary">
+            <span class="material-symbols-rounded me-2">inventory</span>
+            Recibir Mercaderia
+        </a>
+        {% endif %}
+        {% if orden.puede_cancelar %}
+        <button type="button" class="btn btn-outline-danger"
+                onclick="confirmAction('{{ url_for('compras.cancelar', id=orden.id) }}', '¿Cancelar esta orden de compra?', 'Cancelar Orden', 'btn-danger')">
+            <span class="material-symbols-rounded me-2">cancel</span>
+            Cancelar Orden
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Detalle de Productos</span>
+                <span class="badge badge-secondary">{{ orden.detalles.count() }} items</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Codigo</th>
+                            <th>Producto</th>
+                            <th class="text-center">Pedido</th>
+                            <th class="text-center">Recibido</th>
+                            <th class="text-center">Pendiente</th>
+                            <th class="text-end">P. Unit.</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in orden.detalles %}
+                        <tr class="{% if detalle.esta_completo %}table-success{% endif %}">
+                            <td class="table-code">{{ detalle.producto.codigo }}</td>
+                            <td>{{ detalle.producto.nombre }}</td>
+                            <td class="text-center">{{ detalle.cantidad_pedida|int }}</td>
+                            <td class="text-center">{{ (detalle.cantidad_recibida or 0)|int }}</td>
+                            <td class="text-center">
+                                {% if detalle.cantidad_pendiente > 0 %}
+                                <span class="badge badge-warning">{{ detalle.cantidad_pendiente|int }}</span>
+                                {% else %}
+                                <span class="badge badge-success">Completo</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">{{ detalle.precio_unitario|currency }}</td>
+                            <td class="text-end fw-bold">{{ detalle.subtotal|currency }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-light">
+                            <td colspan="6" class="text-end fw-bold">TOTAL:</td>
+                            <td class="text-end fw-bold" style="font-size: 1.2em;">{{ orden.total|currency }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        {% if orden.notas %}
+        <div class="card">
+            <div class="card-header">Notas</div>
+            <div class="card-body">
+                <p class="mb-0">{{ orden.notas }}</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">Informacion de la Orden</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5 text-muted">Numero:</dt>
+                    <dd class="col-7 fw-bold">#{{ orden.numero }}</dd>
+
+                    <dt class="col-5 text-muted">Fecha:</dt>
+                    <dd class="col-7">{{ orden.fecha|datetime }}</dd>
+
+                    <dt class="col-5 text-muted">Estado:</dt>
+                    <dd class="col-7">
+                        {% if orden.estado == 'pendiente' %}
+                        <span class="badge badge-warning">Pendiente</span>
+                        {% elif orden.estado == 'recibida_parcial' %}
+                        <span class="badge badge-secondary">Recibida Parcial</span>
+                        {% elif orden.estado == 'recibida_completa' %}
+                        <span class="badge badge-success">Recibida Completa</span>
+                        {% elif orden.estado == 'cancelada' %}
+                        <span class="badge badge-danger">Cancelada</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-5 text-muted">Creado por:</dt>
+                    <dd class="col-7">{{ orden.usuario.nombre }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Proveedor</div>
+            <div class="card-body">
+                <h5 class="mb-2">{{ orden.proveedor.nombre }}</h5>
+                {% if orden.proveedor.cuit %}
+                <p class="text-muted mb-1">
+                    <span class="material-symbols-rounded me-1" style="font-size: 16px;">badge</span>
+                    {{ orden.proveedor.cuit }}
+                </p>
+                {% endif %}
+                {% if orden.proveedor.telefono %}
+                <p class="text-muted mb-1">
+                    <span class="material-symbols-rounded me-1" style="font-size: 16px;">phone</span>
+                    {{ orden.proveedor.telefono }}
+                </p>
+                {% endif %}
+                {% if orden.proveedor.email %}
+                <p class="text-muted mb-0">
+                    <span class="material-symbols-rounded me-1" style="font-size: 16px;">email</span>
+                    {{ orden.proveedor.email }}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

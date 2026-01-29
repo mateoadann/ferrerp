@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+
+{% block title %}Sugerencia de Compra - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{{ url_for('compras.index') }}">Ordenes de Compra</a></li>
+                <li class="breadcrumb-item active">Sugerencia de Compra</li>
+            </ol>
+        </nav>
+        <h2>Sugerencia de Compra</h2>
+    </div>
+</div>
+
+<div class="alert alert-info mb-4">
+    <span class="material-symbols-rounded me-2">info</span>
+    Productos con stock por debajo del minimo, agrupados por proveedor.
+</div>
+
+{% if sugerencias %}
+    {% for proveedor_id, data in sugerencias.items() %}
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>
+                <span class="material-symbols-rounded me-2">local_shipping</span>
+                {{ data.proveedor.nombre }}
+            </span>
+            <span class="badge badge-warning">{{ data.productos|length }} productos</span>
+        </div>
+        <form method="POST" action="{{ url_for('compras.generar_orden_sugerencia') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="proveedor_id" value="{{ proveedor_id }}">
+
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">
+                                <input type="checkbox" class="form-check-input" onchange="toggleAll(this, {{ proveedor_id }})">
+                            </th>
+                            <th>Codigo</th>
+                            <th>Producto</th>
+                            <th class="text-center">Stock Actual</th>
+                            <th class="text-center">Stock Minimo</th>
+                            <th style="width: 120px;">Cant. a Pedir</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in data.productos %}
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="form-check-input producto-check-{{ proveedor_id }}"
+                                       data-producto="{{ item.producto.id }}">
+                            </td>
+                            <td class="table-code">{{ item.producto.codigo }}</td>
+                            <td>{{ item.producto.nombre }}</td>
+                            <td class="text-center">
+                                <span class="badge badge-danger">{{ item.producto.stock_actual|int }}</span>
+                            </td>
+                            <td class="text-center">{{ item.producto.stock_minimo|int }}</td>
+                            <td>
+                                <input type="number" class="form-control cantidad-{{ proveedor_id }}"
+                                       value="{{ item.cantidad_sugerida|int }}" min="1" step="1"
+                                       data-producto="{{ item.producto.id }}" disabled>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer">
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-symbols-rounded me-2">add_shopping_cart</span>
+                    Generar Orden de Compra
+                </button>
+            </div>
+        </form>
+    </div>
+    {% endfor %}
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <div class="empty-state">
+            <span class="material-symbols-rounded text-success">check_circle</span>
+            <p>No hay productos que necesiten reposicion</p>
+            <p class="text-muted">Todos los productos tienen stock suficiente.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleAll(checkbox, proveedorId) {
+    const checks = document.querySelectorAll(`.producto-check-${proveedorId}`);
+    const cantidades = document.querySelectorAll(`.cantidad-${proveedorId}`);
+
+    checks.forEach((check, i) => {
+        check.checked = checkbox.checked;
+        cantidades[i].disabled = !checkbox.checked;
+    });
+}
+
+document.querySelectorAll('[class^="producto-check-"]').forEach(check => {
+    check.addEventListener('change', function() {
+        const proveedorId = this.className.match(/producto-check-(\d+)/)[1];
+        const productoId = this.dataset.producto;
+        const cantidad = document.querySelector(`.cantidad-${proveedorId}[data-producto="${productoId}"]`);
+        cantidad.disabled = !this.checked;
+    });
+});
+
+// Al enviar el form, inyectar solo los productos seleccionados
+document.querySelectorAll('form[action*="generar-orden"]').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        // Limpiar inputs dinámicos previos
+        this.querySelectorAll('.dynamic-input').forEach(el => el.remove());
+
+        const proveedorId = this.querySelector('input[name="proveedor_id"]').value;
+        const checks = this.querySelectorAll(`.producto-check-${proveedorId}:checked`);
+
+        if (checks.length === 0) {
+            e.preventDefault();
+            showAlert('Selecciona al menos un producto.');
+            return;
+        }
+
+        checks.forEach(check => {
+            const productoId = check.dataset.producto;
+            const cantidadInput = this.querySelector(`.cantidad-${proveedorId}[data-producto="${productoId}"]`);
+
+            const hiddenId = document.createElement('input');
+            hiddenId.type = 'hidden';
+            hiddenId.name = 'producto_id[]';
+            hiddenId.value = productoId;
+            hiddenId.classList.add('dynamic-input');
+            this.appendChild(hiddenId);
+
+            const hiddenCant = document.createElement('input');
+            hiddenCant.type = 'hidden';
+            hiddenCant.name = 'cantidad[]';
+            hiddenCant.value = cantidadInput.value;
+            hiddenCant.classList.add('dynamic-input');
+            this.appendChild(hiddenCant);
+        });
+    });
+});
+</script>
+{% endblock %}

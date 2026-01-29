@@ -1,0 +1,68 @@
+<div class="table-responsive">
+    <table class="table mb-0">
+        <thead>
+            <tr>
+                <th>Número</th>
+                <th>Fecha</th>
+                <th>Vencimiento</th>
+                <th>Cliente</th>
+                <th class="text-end">Total</th>
+                <th>Estado</th>
+                <th class="text-center">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in presupuestos.items %}
+            <tr>
+                <td class="table-code">{{ p.numero_completo }}</td>
+                <td>{{ p.fecha|datetime }}</td>
+                <td>{{ p.fecha_vencimiento|date }}</td>
+                <td>{{ p.nombre_cliente_display }}</td>
+                <td class="text-end fw-bold">{{ p.total|currency }}</td>
+                <td>
+                    {% if p.estado == 'pendiente' %}
+                    <span class="badge badge-warning">Pendiente</span>
+                    {% elif p.estado == 'aceptado' %}
+                    <span class="badge badge-success">Aceptado</span>
+                    {% elif p.estado == 'rechazado' %}
+                    <span class="badge badge-danger">Rechazado</span>
+                    {% elif p.estado == 'vencido' %}
+                    <span class="badge badge-secondary">Vencido</span>
+                    {% elif p.estado == 'convertido' %}
+                    <span class="badge" style="background-color: var(--secondary); color: white;">Convertido</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="action-icons">
+                        <a href="{{ url_for('presupuestos.detalle', id=p.id) }}" class="action-icon" title="Ver detalle">
+                            <span class="material-symbols-rounded">visibility</span>
+                        </a>
+                        <a href="{{ url_for('presupuestos.pdf', id=p.id) }}" class="action-icon" title="Descargar PDF" target="_blank">
+                            <span class="material-symbols-rounded">picture_as_pdf</span>
+                        </a>
+                        {% if p.puede_editar %}
+                        <a href="{{ url_for('presupuestos.editar', id=p.id) }}" class="action-icon" title="Editar">
+                            <span class="material-symbols-rounded">edit</span>
+                        </a>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7">
+                    <div class="empty-state">
+                        <span class="material-symbols-rounded">description</span>
+                        <p>No hay presupuestos</p>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% set pagination = presupuestos %}
+{% if pagination.pages > 1 %}
+{% include 'components/pagination.html' %}
+{% endif %}

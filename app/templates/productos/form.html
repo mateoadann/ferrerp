@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>{{ titulo }}</h2>
+    <a href="{{ url_for('productos.index') }}" class="btn btn-secondary">
+        <span class="material-symbols-rounded me-2">arrow_back</span>
+        Volver
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST" class="row g-3">
+            {{ form.hidden_tag() }}
+
+            <div class="col-md-4">
+                <label class="form-label">{{ form.codigo.label.text }} *</label>
+                {{ form.codigo(class="form-control" + (" is-invalid" if form.codigo.errors else "")) }}
+                {% for error in form.codigo.errors %}
+                <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">{{ form.codigo_barras.label.text }}</label>
+                {{ form.codigo_barras(class="form-control") }}
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">{{ form.unidad_medida.label.text }}</label>
+                {{ form.unidad_medida(class="form-select") }}
+            </div>
+
+            <div class="col-md-8">
+                <label class="form-label">{{ form.nombre.label.text }} *</label>
+                {{ form.nombre(class="form-control" + (" is-invalid" if form.nombre.errors else "")) }}
+                {% for error in form.nombre.errors %}
+                <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">{{ form.categoria_id.label.text }}</label>
+                {{ form.categoria_id(class="form-select") }}
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">{{ form.descripcion.label.text }}</label>
+                {{ form.descripcion(class="form-control") }}
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">{{ form.precio_costo.label.text }} *</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    {{ form.precio_costo(class="form-control" + (" is-invalid" if form.precio_costo.errors else "")) }}
+                </div>
+                {% for error in form.precio_costo.errors %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">{{ form.precio_venta.label.text }} *</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    {{ form.precio_venta(class="form-control" + (" is-invalid" if form.precio_venta.errors else "")) }}
+                </div>
+                {% for error in form.precio_venta.errors %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">{{ form.stock_actual.label.text }}</label>
+                {{ form.stock_actual(class="form-control", readonly=producto is defined) }}
+                {% if producto is defined %}
+                <small class="text-muted">Usa ajustes de inventario para modificar</small>
+                {% endif %}
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">{{ form.stock_minimo.label.text }}</label>
+                {{ form.stock_minimo(class="form-control") }}
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">{{ form.proveedor_id.label.text }}</label>
+                {{ form.proveedor_id(class="form-select") }}
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">{{ form.ubicacion.label.text }}</label>
+                {{ form.ubicacion(class="form-control") }}
+            </div>
+
+            <div class="col-12">
+                <div class="form-check">
+                    {{ form.activo(class="form-check-input") }}
+                    <label class="form-check-label">{{ form.activo.label.text }}</label>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <hr>
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-symbols-rounded me-2">save</span>
+                    Guardar
+                </button>
+                <a href="{{ url_for('productos.index') }}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

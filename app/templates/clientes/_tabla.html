@@ -1,0 +1,82 @@
+<table class="table mb-0">
+    <thead>
+        <tr>
+            <th>Nombre</th>
+            <th>DNI/CUIT</th>
+            <th>Telefono</th>
+            <th>Email</th>
+            <th class="text-end">Saldo Cta. Cte.</th>
+            <th>Estado</th>
+            <th class="text-center">Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for cliente in clientes.items %}
+        <tr>
+            <td>
+                <a href="{{ url_for('clientes.cuenta_corriente', id=cliente.id) }}">
+                    {{ cliente.nombre }}
+                </a>
+            </td>
+            <td>{{ cliente.dni_cuit or '-' }}</td>
+            <td>{{ cliente.telefono or '-' }}</td>
+            <td>{{ cliente.email or '-' }}</td>
+            <td class="text-end">
+                {% if cliente.saldo_cuenta_corriente > 0 %}
+                <span class="text-danger fw-bold">{{ cliente.saldo_cuenta_corriente|currency }}</span>
+                {% else %}
+                {{ cliente.saldo_cuenta_corriente|currency }}
+                {% endif %}
+            </td>
+            <td>
+                {% if cliente.activo %}
+                <span class="badge badge-success">Activo</span>
+                {% else %}
+                <span class="badge badge-secondary">Inactivo</span>
+                {% endif %}
+            </td>
+            <td>
+                <div class="action-icons">
+                    <a href="{{ url_for('clientes.editar', id=cliente.id) }}"
+                       class="action-icon"
+                       title="Editar">
+                        <span class="material-symbols-rounded">edit</span>
+                    </a>
+                    <a href="{{ url_for('clientes.cuenta_corriente', id=cliente.id) }}"
+                       class="action-icon"
+                       title="Cuenta corriente">
+                        <span class="material-symbols-rounded">account_balance_wallet</span>
+                    </a>
+                    <form method="POST"
+                          action="{{ url_for('clientes.toggle_activo', id=cliente.id) }}"
+                          style="display: inline;"
+                          hx-post="{{ url_for('clientes.toggle_activo', id=cliente.id) }}"
+                          hx-swap="none"
+                          hx-confirm="Esta seguro de {{ 'desactivar' if cliente.activo else 'activar' }} este cliente?">
+                        <button type="submit" class="action-icon" title="{{ 'Desactivar' if cliente.activo else 'Activar' }}">
+                            <span class="material-symbols-rounded">
+                                {{ 'toggle_on' if cliente.activo else 'toggle_off' }}
+                            </span>
+                        </button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="7">
+                <div class="empty-state">
+                    <span class="material-symbols-rounded">people</span>
+                    <p>No se encontraron clientes</p>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if clientes.pages > 1 %}
+<div class="p-3">
+    {% include 'components/pagination.html' %}
+</div>
+{% endif %}

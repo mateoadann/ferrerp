@@ -1,0 +1,68 @@
+{% if pagination.pages > 1 %}
+{% set _args = request.args.to_dict(flat=true) %}
+{% set _ = _args.pop('page', none) %}
+<nav aria-label="Paginación" class="mt-4">
+    <ul class="pagination justify-content-center">
+        <!-- Anterior -->
+        {% if pagination.has_prev %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for(request.endpoint, page=pagination.prev_num, **_args) }}"
+               {% if htmx %}hx-get="{{ url_for(request.endpoint, page=pagination.prev_num, **_args) }}"
+               hx-target="{{ htmx_target }}"
+               hx-swap="innerHTML"{% endif %}>
+                <span class="material-symbols-rounded">chevron_left</span>
+            </a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link"><span class="material-symbols-rounded">chevron_left</span></span>
+        </li>
+        {% endif %}
+
+        <!-- Páginas -->
+        {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if page_num %}
+                {% if page_num == pagination.page %}
+                <li class="page-item active">
+                    <span class="page-link">{{ page_num }}</span>
+                </li>
+                {% else %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for(request.endpoint, page=page_num, **_args) }}"
+                       {% if htmx %}hx-get="{{ url_for(request.endpoint, page=page_num, **_args) }}"
+                       hx-target="{{ htmx_target }}"
+                       hx-swap="innerHTML"{% endif %}>
+                        {{ page_num }}
+                    </a>
+                </li>
+                {% endif %}
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            {% endif %}
+        {% endfor %}
+
+        <!-- Siguiente -->
+        {% if pagination.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for(request.endpoint, page=pagination.next_num, **_args) }}"
+               {% if htmx %}hx-get="{{ url_for(request.endpoint, page=pagination.next_num, **_args) }}"
+               hx-target="{{ htmx_target }}"
+               hx-swap="innerHTML"{% endif %}>
+                <span class="material-symbols-rounded">chevron_right</span>
+            </a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link"><span class="material-symbols-rounded">chevron_right</span></span>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+
+<p class="text-center text-muted small">
+    Mostrando {{ pagination.page }} de {{ pagination.pages }} páginas
+    ({{ pagination.total }} registros)
+</p>
+{% endif %}

@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ proveedor.nombre }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{{ url_for('proveedores.index') }}">Proveedores</a></li>
+                <li class="breadcrumb-item active">{{ proveedor.nombre }}</li>
+            </ol>
+        </nav>
+        <h2>{{ proveedor.nombre }}</h2>
+    </div>
+    <a href="{{ url_for('proveedores.editar', id=proveedor.id) }}" class="btn btn-secondary">
+        <span class="material-symbols-rounded me-2">edit</span>
+        Editar Proveedor
+    </a>
+</div>
+
+<div class="row g-4">
+    <!-- Info del proveedor -->
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Información</span>
+                {% if proveedor.activo %}
+                <span class="badge badge-success">Activo</span>
+                {% else %}
+                <span class="badge badge-secondary">Inactivo</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    {% if proveedor.razon_social %}
+                    <dt class="col-5 text-muted">Razón Social:</dt>
+                    <dd class="col-7">{{ proveedor.razon_social }}</dd>
+                    {% endif %}
+
+                    <dt class="col-5 text-muted">CUIT:</dt>
+                    <dd class="col-7">{{ proveedor.cuit or '-' }}</dd>
+
+                    <dt class="col-5 text-muted">Teléfono:</dt>
+                    <dd class="col-7">{{ proveedor.telefono or '-' }}</dd>
+
+                    <dt class="col-5 text-muted">Email:</dt>
+                    <dd class="col-7">{{ proveedor.email or '-' }}</dd>
+
+                    <dt class="col-5 text-muted">Dirección:</dt>
+                    <dd class="col-7">{{ proveedor.direccion or '-' }}</dd>
+
+                    <dt class="col-5 text-muted">Cond. Pago:</dt>
+                    <dd class="col-7">{{ proveedor.condicion_pago_display }}</dd>
+                </dl>
+
+                {% if proveedor.notas %}
+                <hr>
+                <p class="text-muted mb-0"><strong>Notas:</strong><br>{{ proveedor.notas }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Historial de órdenes de compra -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Últimas Órdenes de Compra</span>
+                <span class="badge badge-secondary">{{ ordenes|length }}</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nro.</th>
+                                <th>Fecha</th>
+                                <th>Estado</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for orden in ordenes %}
+                            <tr>
+                                <td class="table-code">{{ orden.numero }}</td>
+                                <td>{{ orden.fecha|datetime }}</td>
+                                <td>
+                                    {% if orden.estado == 'pendiente' %}
+                                    <span class="badge badge-warning">Pendiente</span>
+                                    {% elif orden.estado == 'recibida_parcial' %}
+                                    <span class="badge badge-secondary">Recibida Parcial</span>
+                                    {% elif orden.estado == 'recibida_completa' %}
+                                    <span class="badge badge-success">Recibida Completa</span>
+                                    {% elif orden.estado == 'cancelada' %}
+                                    <span class="badge badge-danger">Cancelada</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-bold">{{ orden.total|currency }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4">
+                                    <div class="empty-state">
+                                        <span class="material-symbols-rounded">inventory_2</span>
+                                        <p>Sin órdenes de compra</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

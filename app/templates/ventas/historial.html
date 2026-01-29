@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block title %}Historial de Ventas - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Historial de Ventas</h2>
+    <a href="{{ url_for('ventas.punto_de_venta') }}" class="btn btn-primary">
+        <span class="material-symbols-rounded me-2">point_of_sale</span>
+        Nueva Venta
+    </a>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">Fecha desde</label>
+                <input type="date" name="fecha_desde" class="form-control"
+                       value="{{ fecha_desde.strftime('%Y-%m-%d') if fecha_desde else '' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Fecha hasta</label>
+                <input type="date" name="fecha_hasta" class="form-control"
+                       value="{{ fecha_hasta.strftime('%Y-%m-%d') if fecha_hasta else '' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Estado</label>
+                <select name="estado" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="completada" {% if estado_filtro == 'completada' %}selected{% endif %}>Completada</option>
+                    <option value="anulada" {% if estado_filtro == 'anulada' %}selected{% endif %}>Anulada</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Cliente</label>
+                <select name="cliente" class="form-select">
+                    <option value="">Todos</option>
+                    {% for cliente in clientes %}
+                    <option value="{{ cliente.id }}" {% if cliente_id == cliente.id %}selected{% endif %}>
+                        {{ cliente.nombre }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-secondary me-2">
+                    <span class="material-symbols-rounded me-2">filter_list</span>
+                    Filtrar
+                </button>
+                <a href="{{ url_for('ventas.historial') }}" class="btn btn-outline-secondary">
+                    Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de ventas -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Nro. Venta</th>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Forma Pago</th>
+                    <th class="text-end">Total</th>
+                    <th>Estado</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for venta in ventas.items %}
+                <tr>
+                    <td class="table-code">{{ venta.numero_completo }}</td>
+                    <td>{{ venta.fecha|datetime }}</td>
+                    <td>{{ venta.cliente.nombre if venta.cliente else 'Consumidor Final' }}</td>
+                    <td>
+                        {% if venta.forma_pago == 'efectivo' %}
+                        <span class="badge badge-success">Efectivo</span>
+                        {% elif venta.forma_pago == 'tarjeta_debito' %}
+                        <span class="badge badge-secondary">Debito</span>
+                        {% elif venta.forma_pago == 'tarjeta_credito' %}
+                        <span class="badge badge-secondary">Credito</span>
+                        {% elif venta.forma_pago == 'transferencia' %}
+                        <span class="badge badge-secondary">Transfer.</span>
+                        {% elif venta.forma_pago == 'cuenta_corriente' %}
+                        <span class="badge badge-warning">Cta. Cte.</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end fw-bold">{{ venta.total|currency }}</td>
+                    <td>
+                        {% if venta.estado == 'completada' %}
+                        <span class="badge badge-success">Completada</span>
+                        {% elif venta.estado == 'anulada' %}
+                        <span class="badge badge-danger">Anulada</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="{{ url_for('ventas.detalle', id=venta.id) }}" class="action-icon" title="Ver detalle">
+                                <span class="material-symbols-rounded">visibility</span>
+                            </a>
+                            <a href="{{ url_for('ventas.ticket', id=venta.id) }}" class="action-icon" title="Ver ticket">
+                                <span class="material-symbols-rounded">receipt</span>
+                            </a>
+                            {% if venta.es_anulable and current_user.es_admin %}
+                            <a href="{{ url_for('ventas.anular', id=venta.id) }}" class="action-icon text-danger" title="Anular">
+                                <span class="material-symbols-rounded">cancel</span>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <span class="material-symbols-rounded">receipt_long</span>
+                            <p>No hay ventas registradas</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Paginacion -->
+{% if ventas.pages > 1 %}
+{% include 'components/pagination.html' %}
+{% endif %}
+{% endblock %}

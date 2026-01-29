@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Ajuste de Stock - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Ajuste de Stock</h2>
+    <a href="{{ url_for('inventario.index') }}" class="btn btn-secondary">
+        <span class="material-symbols-rounded me-2">arrow_back</span>Volver
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Realizar Ajuste</div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.producto_id.label.text }} *</label>
+                        {{ form.producto_id(class="form-select") }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.tipo_ajuste.label.text }} *</label>
+                        {{ form.tipo_ajuste(class="form-select") }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.cantidad.label.text }} *</label>
+                        {{ form.cantidad(class="form-control") }}
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">{{ form.motivo.label.text }} *</label>
+                        {{ form.motivo(class="form-control") }}
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <span class="material-symbols-rounded me-2">check</span>Realizar Ajuste
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,287 @@
+{% extends 'base.html' %}
+
+{% block title %}Presupuesto #{{ presupuesto.numero_completo }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{{ url_for('presupuestos.index') }}">Presupuestos</a></li>
+                <li class="breadcrumb-item active">{{ presupuesto.numero_completo }}</li>
+            </ol>
+        </nav>
+        <h2>Presupuesto #{{ presupuesto.numero_completo }}</h2>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('presupuestos.pdf', id=presupuesto.id) }}" class="btn btn-secondary" target="_blank">
+            <span class="material-symbols-rounded me-2">picture_as_pdf</span>
+            Descargar PDF
+        </a>
+        <a href="{{ url_for('presupuestos.whatsapp', id=presupuesto.id) }}" class="btn btn-success" target="_blank">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16" class="me-2" style="vertical-align: -0.15em;">
+                <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.325-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
+            </svg>
+            WhatsApp
+        </a>
+        {% if presupuesto.puede_editar %}
+        <a href="{{ url_for('presupuestos.editar', id=presupuesto.id) }}" class="btn btn-outline-secondary">
+            <span class="material-symbols-rounded me-2">edit</span>
+            Editar
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Detalle de productos -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Detalle de Productos</span>
+                <span class="badge badge-secondary">{{ presupuesto.detalles.count() }} items</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Producto</th>
+                            <th class="text-center">Cantidad</th>
+                            <th class="text-end">P. Unitario</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in presupuesto.detalles %}
+                        <tr>
+                            <td class="table-code">{{ detalle.producto.codigo }}</td>
+                            <td>{{ detalle.producto.nombre }}</td>
+                            <td class="text-center">{{ detalle.cantidad|int }}</td>
+                            <td class="text-end">{{ detalle.precio_unitario|currency }}</td>
+                            <td class="text-end fw-bold">{{ detalle.subtotal|currency }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="text-end">Subtotal:</td>
+                            <td class="text-end">{{ presupuesto.subtotal|currency }}</td>
+                        </tr>
+                        {% if presupuesto.descuento_monto > 0 %}
+                        <tr>
+                            <td colspan="4" class="text-end">Descuento ({{ presupuesto.descuento_porcentaje }}%):</td>
+                            <td class="text-end text-danger">-{{ presupuesto.descuento_monto|currency }}</td>
+                        </tr>
+                        {% endif %}
+                        {% set iva_pct = iva_porcentaje|default(21)|float %}
+                        {% set con_iva = precios_con_iva|default(true) %}
+                        {% set total_num = presupuesto.total|float %}
+                        {% if con_iva %}
+                            {% set neto = total_num / (1 + iva_pct / 100) %}
+                            {% set iva_monto = total_num - neto %}
+                            {% set total_final = total_num %}
+                        {% else %}
+                            {% set neto = total_num %}
+                            {% set iva_monto = total_num * iva_pct / 100 %}
+                            {% set total_final = total_num + iva_monto %}
+                        {% endif %}
+                        <tr>
+                            <td colspan="4" class="text-end">Subtotal (sin IVA):</td>
+                            <td class="text-end">{{ neto|currency }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-end">IVA ({{ '{:g}'.format(iva_pct) }}%):</td>
+                            <td class="text-end">{{ iva_monto|currency }}</td>
+                        </tr>
+                        <tr class="table-light">
+                            <td colspan="4" class="text-end fw-bold">TOTAL:</td>
+                            <td class="text-end fw-bold" style="font-size: 1.2em;">{{ total_final|currency }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="5" class="text-end text-muted small">
+                                {% if con_iva %}Los precios incluyen IVA{% else %}Los precios no incluyen IVA{% endif %}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        {% if presupuesto.notas %}
+        <div class="card mb-4">
+            <div class="card-header">Notas / Observaciones</div>
+            <div class="card-body">
+                <p class="mb-0">{{ presupuesto.notas }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Acciones de estado -->
+        <div class="card">
+            <div class="card-header">Acciones</div>
+            <div class="card-body d-flex flex-wrap gap-2">
+                {% if presupuesto.puede_aceptar %}
+                <button type="button" class="btn btn-success"
+                        onclick="confirmAction('{{ url_for('presupuestos.aceptar', id=presupuesto.id) }}', '¿Marcar este presupuesto como aceptado?', 'Aceptar', 'btn-success')">
+                    <span class="material-symbols-rounded me-2">check_circle</span>
+                    Marcar Aceptado
+                </button>
+                {% endif %}
+
+                {% if presupuesto.puede_rechazar %}
+                <button type="button" class="btn btn-outline-danger"
+                        onclick="confirmAction('{{ url_for('presupuestos.rechazar', id=presupuesto.id) }}', '¿Marcar este presupuesto como rechazado?', 'Rechazar', 'btn-danger')">
+                    <span class="material-symbols-rounded me-2">cancel</span>
+                    Marcar Rechazado
+                </button>
+                {% endif %}
+
+                {% if presupuesto.puede_convertir %}
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalConvertir">
+                    <span class="material-symbols-rounded me-2">shopping_cart</span>
+                    Convertir a Venta
+                </button>
+                {% endif %}
+
+                {% if presupuesto.estado == 'convertido' and presupuesto.venta %}
+                <a href="{{ url_for('ventas.detalle', id=presupuesto.venta.id) }}" class="btn btn-outline-secondary">
+                    <span class="material-symbols-rounded me-2">receipt</span>
+                    Ver Venta #{{ presupuesto.venta.numero_completo }}
+                </a>
+                {% endif %}
+
+                {% if current_user.es_administrador %}
+                <button type="button" class="btn btn-outline-danger ms-auto"
+                        onclick="confirmAction('{{ url_for('presupuestos.eliminar', id=presupuesto.id) }}', 'Eliminar este presupuesto? Esta acción no se puede deshacer.', 'Eliminar', 'btn-danger')">
+                    <span class="material-symbols-rounded me-2">delete</span>
+                    Eliminar
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel lateral -->
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">Información</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5 text-muted">Estado:</dt>
+                    <dd class="col-7">
+                        {% if presupuesto.estado == 'pendiente' %}
+                        <span class="badge badge-warning">Pendiente</span>
+                        {% elif presupuesto.estado == 'aceptado' %}
+                        <span class="badge badge-success">Aceptado</span>
+                        {% elif presupuesto.estado == 'rechazado' %}
+                        <span class="badge badge-danger">Rechazado</span>
+                        {% elif presupuesto.estado == 'vencido' %}
+                        <span class="badge badge-secondary">Vencido</span>
+                        {% elif presupuesto.estado == 'convertido' %}
+                        <span class="badge" style="background-color: var(--secondary); color: white;">Convertido</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-5 text-muted">Fecha:</dt>
+                    <dd class="col-7">{{ presupuesto.fecha|datetime }}</dd>
+
+                    <dt class="col-5 text-muted">Vence:</dt>
+                    <dd class="col-7">
+                        {{ presupuesto.fecha_vencimiento|date }}
+                        {% if presupuesto.esta_vencido %}
+                        <span class="text-danger">(Vencido)</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-5 text-muted">Vendedor:</dt>
+                    <dd class="col-7">{{ presupuesto.usuario.nombre }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Cliente</div>
+            <div class="card-body">
+                {% if presupuesto.cliente %}
+                <h5 class="mb-2">{{ presupuesto.cliente.nombre }}</h5>
+                {% if presupuesto.cliente.dni_cuit %}
+                <p class="text-muted mb-1">
+                    <span class="material-symbols-rounded me-1" style="font-size: 16px;">badge</span>
+                    {{ presupuesto.cliente.dni_cuit }}
+                </p>
+                {% endif %}
+                {% if presupuesto.cliente.telefono %}
+                <p class="text-muted mb-1">
+                    <span class="material-symbols-rounded me-1" style="font-size: 16px;">phone</span>
+                    {{ presupuesto.cliente.telefono }}
+                </p>
+                {% endif %}
+                {% if presupuesto.cliente.email %}
+                <p class="text-muted mb-0">
+                    <span class="material-symbols-rounded me-1" style="font-size: 16px;">email</span>
+                    {{ presupuesto.cliente.email }}
+                </p>
+                {% endif %}
+                {% elif presupuesto.cliente_nombre %}
+                <h5 class="mb-2">{{ presupuesto.cliente_nombre }}</h5>
+                {% if presupuesto.cliente_telefono %}
+                <p class="text-muted mb-0">
+                    <span class="material-symbols-rounded me-1" style="font-size: 16px;">phone</span>
+                    {{ presupuesto.cliente_telefono }}
+                </p>
+                {% endif %}
+                {% else %}
+                <p class="text-muted mb-0">Sin cliente asignado</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Convertir a Venta -->
+{% if presupuesto.puede_convertir %}
+<div class="modal fade" id="modalConvertir" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('presupuestos.convertir', id=presupuesto.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Convertir a Venta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Se creará una venta con los productos del presupuesto <strong>#{{ presupuesto.numero_completo }}</strong>.</p>
+                    <p class="fw-bold">Total: {{ presupuesto.total|currency }}</p>
+
+                    <div class="mb-3">
+                        <label class="form-label">Forma de Pago</label>
+                        <select name="forma_pago" class="form-select" required>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="tarjeta_debito">Tarjeta Débito</option>
+                            <option value="tarjeta_credito">Tarjeta Crédito</option>
+                            <option value="transferencia">Transferencia</option>
+                            {% if presupuesto.cliente %}
+                            <option value="cuenta_corriente">Cuenta Corriente</option>
+                            {% endif %}
+                        </select>
+                    </div>
+
+                    <div class="alert alert-warning mb-0">
+                        <span class="material-symbols-rounded me-2">info</span>
+                        Se verificará stock disponible y se descontará al confirmar.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <span class="material-symbols-rounded me-2">shopping_cart</span>
+                        Confirmar Venta
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

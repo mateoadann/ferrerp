@@ -1,0 +1,81 @@
+<aside class="sidebar">
+    <!-- Logo -->
+    <div class="sidebar-header">
+        <div class="logo-icon">F</div>
+        <span class="logo-text">FerrERP</span>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="sidebar-nav">
+        <a href="{{ url_for('dashboard.index') }}"
+           class="nav-item {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+            <span class="material-symbols-rounded">dashboard</span>
+            <span>Dashboard</span>
+        </a>
+
+        <a href="{{ url_for('productos.index') }}"
+           class="nav-item {% if request.endpoint and request.endpoint.startswith('productos.') %}active{% endif %}">
+            <span class="material-symbols-rounded">inventory_2</span>
+            <span>Productos</span>
+        </a>
+
+        <a href="{{ url_for('inventario.index') }}"
+           class="nav-item {% if request.endpoint and request.endpoint.startswith('inventario.') %}active{% endif %}">
+            <span class="material-symbols-rounded">warehouse</span>
+            <span>Inventario</span>
+        </a>
+
+        <a href="{{ url_for('compras.index') }}"
+           class="nav-item {% if request.endpoint and (request.endpoint.startswith('compras.') or request.endpoint.startswith('proveedores.')) %}active{% endif %}">
+            <span class="material-symbols-rounded">shopping_cart</span>
+            <span>Compras</span>
+        </a>
+
+        <a href="{{ url_for('ventas.punto_de_venta') }}"
+           class="nav-item {% if request.endpoint and request.endpoint.startswith('ventas.') %}active{% endif %}">
+            <span class="material-symbols-rounded">point_of_sale</span>
+            <span>Ventas</span>
+        </a>
+
+        <a href="{{ url_for('presupuestos.index') }}"
+           class="nav-item {% if request.endpoint and request.endpoint.startswith('presupuestos.') %}active{% endif %}">
+            <span class="material-symbols-rounded">description</span>
+            <span>Presupuestos</span>
+        </a>
+
+        <a href="{{ url_for('clientes.index') }}"
+           class="nav-item {% if request.endpoint and request.endpoint.startswith('clientes.') %}active{% endif %}">
+            <span class="material-symbols-rounded">group</span>
+            <span>Clientes</span>
+        </a>
+
+        <a href="{{ url_for('caja.index') }}"
+           class="nav-item {% if request.endpoint and request.endpoint.startswith('caja.') %}active{% endif %}">
+            <span class="material-symbols-rounded">payments</span>
+            <span>Caja</span>
+        </a>
+
+        <a href="{{ url_for('reportes.ventas') }}"
+           class="nav-item {% if request.endpoint and request.endpoint.startswith('reportes.') %}active{% endif %}">
+            <span class="material-symbols-rounded">bar_chart</span>
+            <span>Reportes</span>
+        </a>
+
+        {% if current_user.es_administrador %}
+        <a href="{{ url_for('configuracion.index') }}"
+           class="nav-item {% if request.endpoint and request.endpoint.startswith('configuracion.') %}active{% endif %}">
+            <span class="material-symbols-rounded">settings</span>
+            <span>Configuración</span>
+        </a>
+        {% endif %}
+    </nav>
+
+    <!-- User Section -->
+    <div class="sidebar-footer">
+        <div class="user-avatar">{{ current_user.iniciales }}</div>
+        <div class="user-info">
+            <span class="user-name">{{ current_user.nombre }}</span>
+            <span class="user-role">{{ current_user.rol|capitalize }}</span>
+        </div>
+    </div>
+</aside>

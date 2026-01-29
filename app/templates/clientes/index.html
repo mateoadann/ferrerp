@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Clientes - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Clientes</h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('clientes.deudores') }}" class="btn btn-outline-warning">
+            <span class="material-symbols-rounded me-2">account_balance_wallet</span>
+            Ver Deudores
+        </a>
+        <a href="{{ url_for('clientes.nuevo') }}" class="btn btn-primary">
+            <span class="material-symbols-rounded me-2">person_add</span>
+            Nuevo Cliente
+        </a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form class="filter-bar">
+            <div class="search-bar flex-grow-1" style="max-width: 400px;">
+                <span class="material-symbols-rounded">search</span>
+                <input type="text" name="q" class="form-control" placeholder="Buscar cliente..."
+                       value="{{ busqueda }}" hx-get="{{ url_for('clientes.index') }}"
+                       hx-trigger="keyup changed delay:300ms" hx-target="#tabla-clientes">
+            </div>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" name="activos" value="1" id="activos"
+                       {% if solo_activos %}checked{% endif %} hx-get="{{ url_for('clientes.index') }}"
+                       hx-trigger="change" hx-target="#tabla-clientes">
+                <label class="form-check-label" for="activos">Solo activos</label>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0" id="tabla-clientes">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>DNI/CUIT</th>
+                        <th>Teléfono</th>
+                        <th class="text-end">Límite Crédito</th>
+                        <th class="text-end">Saldo CC</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cliente in clientes.items %}
+                    <tr>
+                        <td><a href="{{ url_for('clientes.cuenta_corriente', id=cliente.id) }}">{{ cliente.nombre }}</a></td>
+                        <td>{{ cliente.dni_cuit or '-' }}</td>
+                        <td>{{ cliente.telefono or '-' }}</td>
+                        <td class="text-end">{{ cliente.limite_credito|currency }}</td>
+                        <td class="text-end {% if cliente.tiene_deuda %}text-danger fw-bold{% endif %}">
+                            {{ cliente.saldo_cuenta_corriente|currency }}
+                        </td>
+                        <td class="text-center">
+                            {% if cliente.activo %}<span class="badge badge-success">Activo</span>
+                            {% else %}<span class="badge badge-secondary">Inactivo</span>{% endif %}
+                        </td>
+                        <td>
+                            <div class="action-icons">
+                                <a href="{{ url_for('clientes.editar', id=cliente.id) }}" class="action-icon"><span class="material-symbols-rounded">edit</span></a>
+                                <a href="{{ url_for('clientes.cuenta_corriente', id=cliente.id) }}" class="action-icon"><span class="material-symbols-rounded">account_balance_wallet</span></a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7" class="text-center py-4 text-muted">No se encontraron clientes</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if clientes.pages > 1 %}{% set pagination = clientes %}{% include 'components/pagination.html' %}{% endif %}
+    </div>
+</div>
+{% endblock %}

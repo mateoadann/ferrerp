@@ -1,0 +1,248 @@
+{% extends 'base.html' %}
+
+{% block title %}Ticket #{{ venta.numero_completo }} - {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        .sidebar, .top-header, .no-print {
+            display: none !important;
+        }
+        .main-content {
+            margin-left: 0 !important;
+        }
+        .content-area {
+            padding: 0 !important;
+        }
+        .ticket-container {
+            box-shadow: none !important;
+            border: none !important;
+        }
+    }
+
+    .ticket-container {
+        max-width: 320px;
+        margin: 0 auto;
+        background: white;
+        padding: 24px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+    }
+
+    .ticket-header {
+        text-align: center;
+        border-bottom: 1px dashed #ccc;
+        padding-bottom: 16px;
+        margin-bottom: 16px;
+    }
+
+    .ticket-logo {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 4px;
+    }
+
+    .ticket-info {
+        color: #666;
+        font-size: 11px;
+    }
+
+    .ticket-title {
+        font-size: 14px;
+        font-weight: bold;
+        text-align: center;
+        margin: 12px 0;
+    }
+
+    .ticket-meta {
+        margin-bottom: 16px;
+        font-size: 11px;
+    }
+
+    .ticket-meta div {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4px;
+    }
+
+    .ticket-items {
+        border-top: 1px dashed #ccc;
+        border-bottom: 1px dashed #ccc;
+        padding: 12px 0;
+        margin-bottom: 12px;
+    }
+
+    .ticket-item {
+        margin-bottom: 8px;
+    }
+
+    .ticket-item-name {
+        font-weight: 500;
+    }
+
+    .ticket-item-details {
+        display: flex;
+        justify-content: space-between;
+        color: #666;
+        font-size: 11px;
+    }
+
+    .ticket-totals {
+        margin-bottom: 16px;
+    }
+
+    .ticket-totals div {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4px;
+    }
+
+    .ticket-total-final {
+        font-size: 16px;
+        font-weight: bold;
+        border-top: 2px solid #333;
+        padding-top: 8px;
+        margin-top: 8px;
+    }
+
+    .ticket-footer {
+        text-align: center;
+        border-top: 1px dashed #ccc;
+        padding-top: 16px;
+        font-size: 11px;
+        color: #666;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="no-print mb-4 text-center">
+    <button onclick="window.print()" class="btn btn-primary">
+        <span class="material-symbols-rounded me-2">print</span>
+        Imprimir Ticket
+    </button>
+    <a href="{{ url_for('ventas.detalle', id=venta.id) }}" class="btn btn-secondary ms-2">
+        <span class="material-symbols-rounded me-2">arrow_back</span>
+        Volver al Detalle
+    </a>
+    <a href="{{ url_for('ventas.punto_de_venta') }}" class="btn btn-outline-secondary ms-2">
+        Nueva Venta
+    </a>
+</div>
+
+<div class="ticket-container">
+    <!-- Header -->
+    <div class="ticket-header">
+        <div class="ticket-logo">{{ get_config('nombre_negocio', app_name) }}</div>
+        <div class="ticket-info">
+            {% if get_config('direccion') %}{{ get_config('direccion') }}<br>{% endif %}
+            {% if get_config('telefono') %}Tel: {{ get_config('telefono') }}<br>{% endif %}
+            {% if get_config('cuit') %}CUIT: {{ get_config('cuit') }}{% endif %}
+        </div>
+    </div>
+
+    <!-- Titulo -->
+    <div class="ticket-title">
+        {% if venta.estado == 'anulada' %}
+        *** ANULADO ***
+        {% else %}
+        TICKET DE VENTA
+        {% endif %}
+    </div>
+
+    <!-- Meta info -->
+    <div class="ticket-meta">
+        <div>
+            <span>Nro:</span>
+            <span>{{ venta.numero_completo }}</span>
+        </div>
+        <div>
+            <span>Fecha:</span>
+            <span>{{ venta.fecha|datetime }}</span>
+        </div>
+        <div>
+            <span>Vendedor:</span>
+            <span>{{ venta.usuario.nombre }}</span>
+        </div>
+        {% if venta.cliente %}
+        <div>
+            <span>Cliente:</span>
+            <span>{{ venta.cliente.nombre }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Items -->
+    <div class="ticket-items">
+        {% for detalle in venta.detalles %}
+        <div class="ticket-item">
+            <div class="ticket-item-name">{{ detalle.producto.nombre }}</div>
+            <div class="ticket-item-details">
+                <span>{{ detalle.cantidad|int }} x {{ detalle.precio_unitario|currency }}</span>
+                <span>{{ detalle.subtotal|currency }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Totales -->
+    <div class="ticket-totals">
+        <div>
+            <span>Subtotal:</span>
+            <span>{{ venta.subtotal|currency }}</span>
+        </div>
+        {% if venta.descuento_monto > 0 %}
+        <div>
+            <span>Descuento ({{ venta.descuento_porcentaje }}%):</span>
+            <span>-{{ venta.descuento_monto|currency }}</span>
+        </div>
+        {% endif %}
+        {% set iva_pct = iva_porcentaje|default(21)|float %}
+        {% set con_iva = precios_con_iva|default(true) %}
+        {% set total_num = venta.total|float %}
+        {% if con_iva %}
+            {% set neto = total_num / (1 + iva_pct / 100) %}
+            {% set iva_monto = total_num - neto %}
+            {% set total_final = total_num %}
+        {% else %}
+            {% set neto = total_num %}
+            {% set iva_monto = total_num * iva_pct / 100 %}
+            {% set total_final = total_num + iva_monto %}
+        {% endif %}
+        <div>
+            <span>Neto (sin IVA):</span>
+            <span>{{ neto|currency }}</span>
+        </div>
+        <div>
+            <span>IVA ({{ '{:g}'.format(iva_pct) }}%):</span>
+            <span>{{ iva_monto|currency }}</span>
+        </div>
+        <div class="ticket-total-final">
+            <span>TOTAL:</span>
+            <span>{{ total_final|currency }}</span>
+        </div>
+    </div>
+
+    <!-- Forma de pago -->
+    <div class="ticket-meta">
+        <div>
+            <span>Forma de pago:</span>
+            <span>
+                {% if venta.forma_pago == 'efectivo' %}Efectivo
+                {% elif venta.forma_pago == 'tarjeta_debito' %}Tarjeta Debito
+                {% elif venta.forma_pago == 'tarjeta_credito' %}Tarjeta Credito
+                {% elif venta.forma_pago == 'transferencia' %}Transferencia
+                {% elif venta.forma_pago == 'cuenta_corriente' %}Cuenta Corriente
+                {% endif %}
+            </span>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="ticket-footer">
+        Gracias por su compra!
+        <br>
+        {{ venta.fecha.strftime('%d/%m/%Y %H:%M') }}
+    </div>
+</div>
+{% endblock %}

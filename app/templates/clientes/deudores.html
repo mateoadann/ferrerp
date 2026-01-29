@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Clientes con Deuda - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{{ url_for('clientes.index') }}">Clientes</a></li>
+                <li class="breadcrumb-item active">Deudores</li>
+            </ol>
+        </nav>
+        <h2>Clientes con Deuda</h2>
+    </div>
+</div>
+
+<!-- Resumen -->
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="metric-card">
+            <span class="metric-label">Total Cuentas por Cobrar</span>
+            <div class="metric-value">{{ total_deudas|currency }}</div>
+            <div class="metric-sub">{{ clientes.total }} clientes con deuda</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de deudores -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>DNI/CUIT</th>
+                    <th>Telefono</th>
+                    <th class="text-end">Limite Credito</th>
+                    <th class="text-end">Saldo Deuda</th>
+                    <th class="text-end">Credito Disponible</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cliente in clientes.items %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('clientes.cuenta_corriente', id=cliente.id) }}">
+                            {{ cliente.nombre }}
+                        </a>
+                    </td>
+                    <td>{{ cliente.dni_cuit or '-' }}</td>
+                    <td>{{ cliente.telefono or '-' }}</td>
+                    <td class="text-end">{{ cliente.limite_credito|currency }}</td>
+                    <td class="text-end fw-bold text-danger">{{ cliente.saldo_cuenta_corriente|currency }}</td>
+                    <td class="text-end">
+                        {% if cliente.credito_disponible > 0 %}
+                        {{ cliente.credito_disponible|currency }}
+                        {% else %}
+                        <span class="badge badge-danger">Sin credito</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="{{ url_for('clientes.cuenta_corriente', id=cliente.id) }}"
+                               class="action-icon"
+                               title="Ver cuenta corriente">
+                                <span class="material-symbols-rounded">account_balance_wallet</span>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <span class="material-symbols-rounded text-success">check_circle</span>
+                            <p>No hay clientes con deuda</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if clientes.pages > 1 %}
+{% include 'components/pagination.html' %}
+{% endif %}
+{% endblock %}

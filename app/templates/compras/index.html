@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}Compras - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Órdenes de Compra</h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('compras.sugerencia') }}" class="btn btn-outline-primary">
+            <span class="material-symbols-rounded me-2">lightbulb</span>Sugerencia
+        </a>
+        <a href="{{ url_for('proveedores.index') }}" class="btn btn-secondary">
+            <span class="material-symbols-rounded me-2">local_shipping</span>Proveedores
+        </a>
+        <a href="{{ url_for('compras.nueva') }}" class="btn btn-primary">
+            <span class="material-symbols-rounded me-2">add</span>Nueva Orden
+        </a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form class="filter-bar">
+            <select name="estado" class="form-select" style="width: 200px;">
+                <option value="">Todos los estados</option>
+                <option value="pendiente" {% if estado_filtro == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                <option value="recibida_parcial" {% if estado_filtro == 'recibida_parcial' %}selected{% endif %}>Recibida Parcial</option>
+                <option value="recibida_completa" {% if estado_filtro == 'recibida_completa' %}selected{% endif %}>Recibida Completa</option>
+                <option value="cancelada" {% if estado_filtro == 'cancelada' %}selected{% endif %}>Cancelada</option>
+            </select>
+            <select name="proveedor" class="form-select" style="width: 200px;">
+                <option value="">Todos los proveedores</option>
+                {% for p in proveedores %}
+                <option value="{{ p.id }}" {% if proveedor_id == p.id %}selected{% endif %}>{{ p.nombre }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-secondary">Filtrar</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Nº Orden</th>
+                        <th>Fecha</th>
+                        <th>Proveedor</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in ordenes.items %}
+                    <tr>
+                        <td><strong>#{{ o.numero }}</strong></td>
+                        <td>{{ o.fecha|date }}</td>
+                        <td>{{ o.proveedor.nombre }}</td>
+                        <td class="text-end">{{ o.total|currency }}</td>
+                        <td class="text-center">
+                            {% if o.estado == 'pendiente' %}<span class="badge badge-warning">Pendiente</span>
+                            {% elif o.estado == 'recibida_parcial' %}<span class="badge badge-secondary">Parcial</span>
+                            {% elif o.estado == 'recibida_completa' %}<span class="badge badge-success">Completa</span>
+                            {% else %}<span class="badge badge-danger">Cancelada</span>{% endif %}
+                        </td>
+                        <td>
+                            <div class="action-icons">
+                                <a href="{{ url_for('compras.detalle', id=o.id) }}" class="action-icon"><span class="material-symbols-rounded">visibility</span></a>
+                                {% if o.puede_recibir %}
+                                <a href="{{ url_for('compras.recibir', id=o.id) }}" class="action-icon text-success"><span class="material-symbols-rounded">download</span></a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="text-center py-4 text-muted">No hay órdenes de compra</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if ordenes.pages > 1 %}{% set pagination = ordenes %}{% include 'components/pagination.html' %}{% endif %}
+    </div>
+</div>
+{% endblock %}

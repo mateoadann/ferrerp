@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}Cerrar Caja - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Cerrar Caja</h2>
+    <a href="{{ url_for('caja.index') }}" class="btn btn-secondary">
+        <span class="material-symbols-rounded me-2">arrow_back</span>Volver
+    </a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">Resumen de Caja</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Monto Inicial:</span>
+                    <span>{{ caja.monto_inicial|currency }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2 text-success">
+                    <span>+ Ingresos (efectivo):</span>
+                    <span>{{ caja.total_ingresos|currency }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2 text-danger">
+                    <span>- Egresos (efectivo):</span>
+                    <span>{{ caja.total_egresos|currency }}</span>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between fw-bold fs-5">
+                    <span>Monto Esperado:</span>
+                    <span>{{ caja.monto_esperado|currency }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">Cierre de Caja</div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.monto_real.label.text }} *</label>
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text">$</span>
+                            {{ form.monto_real(class="form-control form-control-lg text-end") }}
+                        </div>
+                        <small class="text-muted">Cuenta el efectivo físico en caja</small>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">{{ form.observaciones.label.text }}</label>
+                        {{ form.observaciones(class="form-control", rows=3) }}
+                    </div>
+                    <button type="submit" class="btn btn-warning btn-lg w-100">
+                        <span class="material-symbols-rounded me-2">lock</span>Cerrar Caja
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

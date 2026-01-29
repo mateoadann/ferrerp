@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Historial de Cajas - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Historial de Cajas</h2>
+    <a href="{{ url_for('caja.index') }}" class="btn btn-primary">
+        <span class="material-symbols-rounded me-2">point_of_sale</span>
+        Caja Actual
+    </a>
+</div>
+
+<!-- Tabla de cajas -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Fecha Apertura</th>
+                    <th>Fecha Cierre</th>
+                    <th>Usuario</th>
+                    <th class="text-end">Monto Inicial</th>
+                    <th class="text-end">Ingresos</th>
+                    <th class="text-end">Egresos</th>
+                    <th>Estado</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for caja in cajas.items %}
+                <tr>
+                    <td class="table-code">{{ caja.id }}</td>
+                    <td>{{ caja.fecha_apertura|datetime }}</td>
+                    <td>{{ caja.fecha_cierre|datetime if caja.fecha_cierre else '-' }}</td>
+                    <td>{{ caja.usuario_apertura.nombre_completo }}</td>
+                    <td class="text-end">{{ caja.monto_inicial|currency }}</td>
+                    <td class="text-end text-success">{{ caja.total_ingresos|currency }}</td>
+                    <td class="text-end text-danger">{{ caja.total_egresos|currency }}</td>
+                    <td>
+                        {% if caja.estado == 'abierta' %}
+                        <span class="badge badge-success">Abierta</span>
+                        {% else %}
+                        <span class="badge badge-secondary">Cerrada</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="{{ url_for('caja.detalle', id=caja.id) }}" class="action-icon" title="Ver detalle">
+                                <span class="material-symbols-rounded">visibility</span>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9">
+                        <div class="empty-state">
+                            <span class="material-symbols-rounded">point_of_sale</span>
+                            <p>No hay cajas registradas</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Paginacion -->
+{% set pagination = cajas %}
+{% if pagination.pages > 1 %}
+{% include 'components/pagination.html' %}
+{% endif %}
+{% endblock %}

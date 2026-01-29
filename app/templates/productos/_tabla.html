@@ -1,0 +1,69 @@
+<div class="table-responsive">
+    <table class="table mb-0">
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Nombre</th>
+                <th>Categoría</th>
+                <th class="text-end">Stock</th>
+                <th class="text-end">Precio</th>
+                <th class="text-center">Estado</th>
+                <th class="text-center">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for producto in productos.items %}
+            <tr class="{% if producto.stock_bajo %}row-stock-bajo{% endif %}">
+                <td><code class="table-code">{{ producto.codigo }}</code></td>
+                <td>
+                    <a href="{{ url_for('productos.detalle', id=producto.id) }}" class="text-decoration-none">
+                        {{ producto.nombre }}
+                    </a>
+                </td>
+                <td>
+                    {% if producto.categoria %}
+                    <span class="badge badge-secondary">{{ producto.categoria.nombre }}</span>
+                    {% else %}
+                    <span class="text-muted">-</span>
+                    {% endif %}
+                </td>
+                <td class="text-end {% if producto.stock_bajo %}stock-bajo fw-bold{% endif %}">
+                    {% if producto.stock_bajo %}
+                    <span class="material-symbols-rounded text-danger" style="font-size: 16px;">warning</span>
+                    {% endif %}
+                    {{ producto.stock_actual|int }} {{ producto.unidad_medida_abrev }}
+                </td>
+                <td class="text-end fw-bold">{{ producto.precio_venta|currency }}</td>
+                <td class="text-center">
+                    {% if producto.activo %}
+                    <span class="badge badge-success">Activo</span>
+                    {% else %}
+                    <span class="badge badge-secondary">Inactivo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="action-icons">
+                        <a href="{{ url_for('productos.editar', id=producto.id) }}" class="action-icon" title="Editar">
+                            <span class="material-symbols-rounded">edit</span>
+                        </a>
+                        <a href="{{ url_for('productos.detalle', id=producto.id) }}" class="action-icon" title="Ver">
+                            <span class="material-symbols-rounded">visibility</span>
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" class="text-center py-4 text-muted">
+                    No se encontraron productos
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if productos.pages > 1 %}
+{% set pagination = productos %}
+{% include 'components/pagination.html' %}
+{% endif %}

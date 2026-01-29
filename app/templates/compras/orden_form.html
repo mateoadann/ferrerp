@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+
+{% block title %}Nueva Orden de Compra - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{{ url_for('compras.index') }}">Ordenes de Compra</a></li>
+                <li class="breadcrumb-item active">Nueva Orden</li>
+            </ol>
+        </nav>
+        <h2>Nueva Orden de Compra</h2>
+    </div>
+</div>
+
+<form method="POST" x-data="ordenCompraForm()">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">Datos de la Orden</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Proveedor *</label>
+                            <select name="proveedor_id" class="form-select" required>
+                                <option value="">Seleccionar proveedor...</option>
+                                {% for proveedor in proveedores %}
+                                <option value="{{ proveedor.id }}">{{ proveedor.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha</label>
+                            <input type="text" class="form-control" value="{{ now().strftime('%d/%m/%Y') if now else '' }}" readonly>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Notas</label>
+                            <textarea name="notas" class="form-control" rows="2" placeholder="Notas adicionales..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Productos</span>
+                    <button type="button" class="btn btn-sm btn-primary" @click="agregarLinea()">
+                        <span class="material-symbols-rounded me-1">add</span>
+                        Agregar Producto
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th style="width: 120px;">Cantidad</th>
+                                <th style="width: 150px;">Precio Unit.</th>
+                                <th style="width: 150px;">Subtotal</th>
+                                <th style="width: 50px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(linea, index) in lineas" :key="index">
+                                <tr>
+                                    <td>
+                                        <select :name="'producto_id[]'" class="form-select" x-model="linea.producto_id" @change="actualizarPrecio(index)">
+                                            <option value="">Seleccionar...</option>
+                                            {% for producto in productos %}
+                                            <option value="{{ producto.id }}" data-precio="{{ producto.precio_costo }}">
+                                                {{ producto.codigo }} - {{ producto.nombre }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="number" :name="'cantidad[]'" class="form-control"
+                                               x-model.number="linea.cantidad" @input="calcularSubtotal(index)"
+                                               min="0" step="0.001">
+                                    </td>
+                                    <td>
+                                        <input type="number" :name="'precio[]'" class="form-control"
+                                               x-model.number="linea.precio" @input="calcularSubtotal(index)"
+                                               min="0" step="0.01">
+                                    </td>
+                                    <td class="text-end fw-bold" x-text="formatCurrency(linea.subtotal)"></td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" @click="eliminarLinea(index)">
+                                            <span class="material-symbols-rounded">delete</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-light">
+                                <td colspan="3" class="text-end fw-bold">TOTAL:</td>
+                                <td class="text-end fw-bold" style="font-size: 1.2em;" x-text="formatCurrency(total)"></td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">Resumen</div>
+                <div class="card-body">
+                    <dl class="mb-0">
+                        <dt class="text-muted">Productos:</dt>
+                        <dd x-text="lineas.filter(l => l.producto_id).length + ' items'"></dd>
+                        <dt class="text-muted">Total:</dt>
+                        <dd class="fs-4 fw-bold text-primary" x-text="formatCurrency(total)"></dd>
+                    </dl>
+                </div>
+                <div class="card-footer">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary" :disabled="lineas.filter(l => l.producto_id).length === 0">
+                            <span class="material-symbols-rounded me-2">save</span>
+                            Crear Orden
+                        </button>
+                        <a href="{{ url_for('compras.index') }}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const productosPrecios = {
+    {% for producto in productos %}
+    '{{ producto.id }}': {{ producto.precio_costo }},
+    {% endfor %}
+};
+
+function ordenCompraForm() {
+    return {
+        lineas: [{ producto_id: '', cantidad: 1, precio: 0, subtotal: 0 }],
+
+        get total() {
+            return this.lineas.reduce((sum, l) => sum + (l.subtotal || 0), 0);
+        },
+
+        agregarLinea() {
+            this.lineas.push({ producto_id: '', cantidad: 1, precio: 0, subtotal: 0 });
+        },
+
+        eliminarLinea(index) {
+            if (this.lineas.length > 1) {
+                this.lineas.splice(index, 1);
+            }
+        },
+
+        actualizarPrecio(index) {
+            const linea = this.lineas[index];
+            if (linea.producto_id && productosPrecios[linea.producto_id]) {
+                linea.precio = productosPrecios[linea.producto_id];
+                this.calcularSubtotal(index);
+            }
+        },
+
+        calcularSubtotal(index) {
+            const linea = this.lineas[index];
+            linea.subtotal = (linea.cantidad || 0) * (linea.precio || 0);
+        },
+
+        formatCurrency(value) {
+            return new Intl.NumberFormat('es-AR', {
+                style: 'currency',
+                currency: 'ARS'
+            }).format(value || 0);
+        }
+    }
+}
+</script>
+{% endblock %}

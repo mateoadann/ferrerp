@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}{{ titulo }} - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>{{ titulo }}</h2>
+    <a href="{{ url_for('configuracion.usuarios') }}" class="btn btn-secondary">
+        <span class="material-symbols-rounded me-2">arrow_back</span>Volver
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" class="row g-3">
+                    {{ form.hidden_tag() }}
+                    <div class="col-12">
+                        <label class="form-label">{{ form.nombre.label.text }} *</label>
+                        {{ form.nombre(class="form-control" + (" is-invalid" if form.nombre.errors else "")) }}
+                        {% for e in form.nombre.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">{{ form.email.label.text }} *</label>
+                        {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else "")) }}
+                        {% for e in form.email.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.password.label.text }}{% if not usuario %} *{% endif %}</label>
+                        {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else "")) }}
+                        {% for e in form.password.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.password_confirm.label.text }}</label>
+                        {{ form.password_confirm(class="form-control") }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">{{ form.rol.label.text }}</label>
+                        {{ form.rol(class="form-select") }}
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check">
+                            {{ form.activo(class="form-check-input") }}
+                            <label class="form-check-label">{{ form.activo.label.text }}</label>
+                        </div>
+                    </div>
+                    <div class="col-12"><hr>
+                        <button type="submit" class="btn btn-primary"><span class="material-symbols-rounded me-2">save</span>Guardar</button>
+                        <a href="{{ url_for('configuracion.usuarios') }}" class="btn btn-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

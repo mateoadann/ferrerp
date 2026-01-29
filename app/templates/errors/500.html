@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}Error del servidor - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="error-page">
+    <div class="text-center py-5">
+        <span class="material-symbols-rounded error-icon text-danger">error</span>
+        <h1 class="error-code">500</h1>
+        <h2 class="error-title">Error del servidor</h2>
+        <p class="error-message text-muted">
+            Ha ocurrido un error interno. Nuestro equipo ha sido notificado.
+        </p>
+        <div class="mt-4">
+            <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">
+                <span class="material-symbols-rounded me-2">home</span>
+                Ir al inicio
+            </a>
+            <button onclick="location.reload()" class="btn btn-secondary ms-2">
+                <span class="material-symbols-rounded me-2">refresh</span>
+                Reintentar
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

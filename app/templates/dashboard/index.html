@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Dashboard</h2>
+    <span class="text-muted">{{ fecha_hoy.strftime('%d de %B, %Y') }}</span>
+</div>
+
+<!-- KPIs -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-lg-3">
+        <div class="metric-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <span class="metric-label">Ventas del día</span>
+                {% if variacion_ventas > 0 %}
+                <span class="badge badge-success">+{{ "%.0f"|format(variacion_ventas) }}%</span>
+                {% elif variacion_ventas < 0 %}
+                <span class="badge badge-danger">{{ "%.0f"|format(variacion_ventas) }}%</span>
+                {% endif %}
+            </div>
+            <div class="metric-value">{{ ventas_hoy|currency }}</div>
+            <div class="metric-sub">vs ayer: {{ ventas_ayer|currency }}</div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="metric-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <span class="metric-label">Operaciones hoy</span>
+                <span class="badge badge-secondary">+{{ operaciones_hoy }}</span>
+            </div>
+            <div class="metric-value">{{ operaciones_hoy }}</div>
+            <div class="metric-sub">ventas realizadas</div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="metric-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <span class="metric-label">Stock bajo</span>
+                {% if productos_bajo_stock > 0 %}
+                <span class="badge badge-danger">Alerta</span>
+                {% else %}
+                <span class="badge badge-success">OK</span>
+                {% endif %}
+            </div>
+            <div class="metric-value">{{ productos_bajo_stock }}</div>
+            <div class="metric-sub">productos bajo mínimo</div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="metric-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <span class="metric-label">Cuentas por cobrar</span>
+                <span class="badge badge-warning">{{ clientes_con_deuda }} clientes</span>
+            </div>
+            <div class="metric-value">{{ cuentas_por_cobrar|currency }}</div>
+            <div class="metric-sub">deudas pendientes</div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4">
+    <!-- Sales Chart -->
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Ventas últimos 7 días</span>
+                <a href="{{ url_for('reportes.ventas') }}" class="btn btn-sm btn-secondary">
+                    Ver reporte completo
+                </a>
+            </div>
+            <div class="card-body">
+                <canvas id="salesChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerts -->
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Alertas recientes</span>
+                <a href="{{ url_for('inventario.bajo_minimo') }}" class="btn btn-sm btn-secondary">
+                    Ver todo
+                </a>
+            </div>
+            <div class="card-body p-0">
+                {% if alertas %}
+                <ul class="list-group list-group-flush">
+                    {% for producto in alertas %}
+                    <li class="list-group-item d-flex align-items-center gap-3">
+                        <span class="material-symbols-rounded text-danger">inventory_2</span>
+                        <div class="flex-grow-1">
+                            <div class="fw-medium">{{ producto.nombre }}</div>
+                            <small class="text-muted">Stock: {{ producto.stock_actual|int }} / Mín: {{ producto.stock_minimo|int }}</small>
+                        </div>
+                        <span class="badge badge-danger">Stock bajo</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="empty-state py-4">
+                    <span class="material-symbols-rounded">check_circle</span>
+                    <p class="mb-0">Sin alertas pendientes</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">Acciones rápidas</div>
+            <div class="card-body">
+                <div class="d-flex gap-3 flex-wrap">
+                    <a href="{{ url_for('ventas.punto_de_venta') }}" class="btn btn-primary">
+                        <span class="material-symbols-rounded me-2">point_of_sale</span>
+                        Nueva Venta
+                    </a>
+                    <a href="{{ url_for('productos.nuevo') }}" class="btn btn-secondary">
+                        <span class="material-symbols-rounded me-2">add</span>
+                        Nuevo Producto
+                    </a>
+                    <a href="{{ url_for('clientes.nuevo') }}" class="btn btn-secondary">
+                        <span class="material-symbols-rounded me-2">person_add</span>
+                        Nuevo Cliente
+                    </a>
+                    <a href="{{ url_for('inventario.ajuste') }}" class="btn btn-secondary">
+                        <span class="material-symbols-rounded me-2">tune</span>
+                        Ajustar Stock
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Sales Chart
+    const salesData = {{ ventas_semana|tojson }};
+
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: salesData.map(d => d.fecha),
+            datasets: [{
+                label: 'Ventas',
+                data: salesData.map(d => d.total),
+                backgroundColor: 'rgba(224, 123, 84, 0.8)',
+                borderColor: 'rgba(224, 123, 84, 1)',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toLocaleString('es-AR');
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

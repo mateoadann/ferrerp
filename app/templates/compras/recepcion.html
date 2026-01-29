@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block title %}Recibir Orden #{{ orden.numero }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{{ url_for('compras.index') }}">Ordenes de Compra</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('compras.detalle', id=orden.id) }}">Orden #{{ orden.numero }}</a></li>
+                <li class="breadcrumb-item active">Recibir Mercaderia</li>
+            </ol>
+        </nav>
+        <h2>Recibir Mercaderia - Orden #{{ orden.numero }}</h2>
+    </div>
+</div>
+
+<div class="alert alert-info mb-4">
+    <span class="material-symbols-rounded me-2">info</span>
+    Ingresa las cantidades recibidas para cada producto. Solo se actualizaran los productos con cantidad mayor a 0.
+</div>
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">Productos Pendientes</div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th class="text-center">Pedido</th>
+                                <th class="text-center">Recibido</th>
+                                <th class="text-center">Pendiente</th>
+                                <th style="width: 150px;">Recibir Ahora</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for detalle in orden.detalles %}
+                            <tr class="{% if detalle.esta_completo %}table-success{% endif %}">
+                                <td>
+                                    <span class="table-code">{{ detalle.producto.codigo }}</span>
+                                    <br>
+                                    <small>{{ detalle.producto.nombre }}</small>
+                                </td>
+                                <td class="text-center">{{ detalle.cantidad_pedida|int }}</td>
+                                <td class="text-center">{{ (detalle.cantidad_recibida or 0)|int }}</td>
+                                <td class="text-center">
+                                    {% if detalle.cantidad_pendiente > 0 %}
+                                    <span class="badge badge-warning">{{ detalle.cantidad_pendiente|int }}</span>
+                                    {% else %}
+                                    <span class="badge badge-success">Completo</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if detalle.cantidad_pendiente > 0 %}
+                                    <input type="number"
+                                           name="cantidad_{{ detalle.id }}"
+                                           class="form-control"
+                                           min="0"
+                                           max="{{ detalle.cantidad_pendiente }}"
+                                           step="0.001"
+                                           value="0">
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">Opciones</div>
+                <div class="card-body">
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" name="actualizar_precios" value="1" id="actualizarPrecios">
+                        <label class="form-check-label" for="actualizarPrecios">
+                            Actualizar precios de costo de los productos
+                        </label>
+                        <small class="text-muted d-block">
+                            Si se activa, se actualizara el precio de costo de cada producto con el precio de esta orden.
+                        </small>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <span class="material-symbols-rounded me-2">inventory</span>
+                            Registrar Recepcion
+                        </button>
+                        <a href="{{ url_for('compras.detalle', id=orden.id) }}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">Proveedor</div>
+                <div class="card-body">
+                    <h6>{{ orden.proveedor.nombre }}</h6>
+                    {% if orden.proveedor.telefono %}
+                    <small class="text-muted">{{ orden.proveedor.telefono }}</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}

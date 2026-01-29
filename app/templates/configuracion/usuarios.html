@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}Usuarios - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Usuarios</h2>
+    <a href="{{ url_for('configuracion.nuevo_usuario') }}" class="btn btn-primary">
+        <span class="material-symbols-rounded me-2">person_add</span>Nuevo Usuario
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-lg-3 mb-4">
+        <div class="list-group">
+            <a href="{{ url_for('configuracion.index') }}" class="list-group-item list-group-item-action">General</a>
+            <a href="{{ url_for('configuracion.usuarios') }}" class="list-group-item list-group-item-action active">Usuarios</a>
+            <a href="{{ url_for('configuracion.categorias') }}" class="list-group-item list-group-item-action">Categorías</a>
+        </div>
+    </div>
+    <div class="col-lg-9">
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Email</th>
+                                <th>Rol</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in usuarios.items %}
+                            <tr>
+                                <td>{{ u.nombre }}</td>
+                                <td>{{ u.email }}</td>
+                                <td>
+                                    {% if u.rol == 'administrador' %}<span class="badge badge-warning">Admin</span>
+                                    {% else %}<span class="badge badge-secondary">Vendedor</span>{% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if u.activo %}<span class="badge badge-success">Activo</span>
+                                    {% else %}<span class="badge badge-secondary">Inactivo</span>{% endif %}
+                                </td>
+                                <td>
+                                    <div class="action-icons">
+                                        <a href="{{ url_for('configuracion.editar_usuario', id=u.id) }}" class="action-icon"><span class="material-symbols-rounded">edit</span></a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

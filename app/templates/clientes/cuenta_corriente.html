@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block title %}Cuenta Corriente - {{ cliente.nombre }} - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>Cuenta Corriente</h2>
+        <span class="text-muted">{{ cliente.nombre }}</span>
+    </div>
+    <a href="{{ url_for('clientes.index') }}" class="btn btn-secondary">
+        <span class="material-symbols-rounded me-2">arrow_back</span>Volver
+    </a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">Resumen</div>
+            <div class="card-body text-center">
+                <h2 class="{% if cliente.tiene_deuda %}text-danger{% else %}text-success{% endif %}">
+                    {{ cliente.saldo_cuenta_corriente|currency }}
+                </h2>
+                <p class="text-muted mb-0">Saldo actual</p>
+                {% if cliente.limite_credito > 0 %}
+                <hr>
+                <div class="d-flex justify-content-between small">
+                    <span>Límite de crédito:</span>
+                    <span>{{ cliente.limite_credito|currency }}</span>
+                </div>
+                <div class="d-flex justify-content-between small">
+                    <span>Disponible:</span>
+                    <span class="text-success">{{ cliente.credito_disponible|currency }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if cliente.tiene_deuda %}
+        <div class="card">
+            <div class="card-header">Registrar Pago</div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('clientes.registrar_pago', id=cliente.id) }}">
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        <label class="form-label">Monto *</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            {{ form.monto(class="form-control") }}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        {{ form.descripcion(class="form-control") }}
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">
+                        <span class="material-symbols-rounded me-2">payments</span>Registrar Pago
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">Historial de Movimientos</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Descripción</th>
+                                <th class="text-end">Monto</th>
+                                <th class="text-end">Saldo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mov in movimientos.items %}
+                            <tr>
+                                <td>{{ mov.created_at|datetime }}</td>
+                                <td>
+                                    {% if mov.tipo == 'cargo' %}
+                                    <span class="badge badge-danger">Cargo</span>
+                                    {% else %}
+                                    <span class="badge badge-success">Pago</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ mov.descripcion or '-' }}</td>
+                                <td class="text-end {% if mov.tipo == 'cargo' %}text-danger{% else %}text-success{% endif %}">
+                                    {% if mov.tipo == 'cargo' %}+{% else %}-{% endif %}{{ mov.monto|currency }}
+                                </td>
+                                <td class="text-end">{{ mov.saldo_posterior|currency }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="text-center py-4 text-muted">Sin movimientos</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if movimientos.pages > 1 %}{% set pagination = movimientos %}{% include 'components/pagination.html' %}{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

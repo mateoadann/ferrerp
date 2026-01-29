@@ -1,0 +1,50 @@
+# FerrERP - Docker Compose
+version: '3.8'
+
+services:
+  # Aplicacion Flask
+  web:
+    build: .
+    container_name: ferrerp_web
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=run.py
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-cambiar-en-produccion}
+      - DATABASE_URL=postgresql://ferrerp:ferrerp123@db:5432/ferrerp
+      - APP_NAME=FerrERP
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ferrerp_network
+
+  # Base de datos PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: ferrerp_db
+    environment:
+      - POSTGRES_USER=ferrerp
+      - POSTGRES_PASSWORD=ferrerp123
+      - POSTGRES_DB=ferrerp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ferrerp -d ferrerp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - ferrerp_network
+
+volumes:
+  postgres_data:
+
+networks:
+  ferrerp_network:
+    driver: bridge

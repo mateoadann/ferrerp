@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}Presupuestos - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Presupuestos</h2>
+    <a href="{{ url_for('presupuestos.nuevo') }}" class="btn btn-primary">
+        <span class="material-symbols-rounded me-2">add</span>
+        Nuevo Presupuesto
+    </a>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Buscar</label>
+                <input type="text" name="q" class="form-control" placeholder="Cliente o número..."
+                       value="{{ busqueda }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Estado</label>
+                <select name="estado" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="pendiente" {% if estado_filtro == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                    <option value="aceptado" {% if estado_filtro == 'aceptado' %}selected{% endif %}>Aceptado</option>
+                    <option value="rechazado" {% if estado_filtro == 'rechazado' %}selected{% endif %}>Rechazado</option>
+                    <option value="vencido" {% if estado_filtro == 'vencido' %}selected{% endif %}>Vencido</option>
+                    <option value="convertido" {% if estado_filtro == 'convertido' %}selected{% endif %}>Convertido</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Fecha desde</label>
+                <input type="date" name="fecha_desde" class="form-control" value="{{ fecha_desde }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Fecha hasta</label>
+                <input type="date" name="fecha_hasta" class="form-control" value="{{ fecha_hasta }}">
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-secondary me-2">
+                    <span class="material-symbols-rounded me-2">filter_list</span>
+                    Filtrar
+                </button>
+                <a href="{{ url_for('presupuestos.index') }}" class="btn btn-outline-secondary">
+                    Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla -->
+<div class="card">
+    <div class="card-body p-0" id="tabla-presupuestos">
+        {% include 'presupuestos/_tabla.html' %}
+    </div>
+</div>
+{% endblock %}

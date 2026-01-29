@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ producto.nombre }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>{{ producto.nombre }}</h2>
+        <span class="text-muted">Código: {{ producto.codigo }}</span>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('productos.editar', id=producto.id) }}" class="btn btn-primary">
+            <span class="material-symbols-rounded me-2">edit</span>
+            Editar
+        </a>
+        <a href="{{ url_for('inventario.movimientos_producto', producto_id=producto.id) }}" class="btn btn-secondary">
+            <span class="material-symbols-rounded me-2">history</span>
+            Movimientos
+        </a>
+        <a href="{{ url_for('productos.index') }}" class="btn btn-outline-secondary">
+            <span class="material-symbols-rounded me-2">arrow_back</span>
+            Volver
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Info principal -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">Información del Producto</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="text-muted small">Código</label>
+                        <p class="fw-bold mb-0"><code>{{ producto.codigo }}</code></p>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="text-muted small">Código de Barras</label>
+                        <p class="mb-0">{{ producto.codigo_barras or '-' }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="text-muted small">Unidad de Medida</label>
+                        <p class="mb-0">{{ producto.unidad_medida_display }}</p>
+                    </div>
+                    <div class="col-12">
+                        <label class="text-muted small">Nombre</label>
+                        <p class="fw-bold mb-0">{{ producto.nombre }}</p>
+                    </div>
+                    <div class="col-12">
+                        <label class="text-muted small">Descripción</label>
+                        <p class="mb-0">{{ producto.descripcion or 'Sin descripción' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted small">Categoría</label>
+                        <p class="mb-0">
+                            {% if producto.categoria %}
+                            <span class="badge badge-secondary">{{ producto.categoria.nombre }}</span>
+                            {% else %}
+                            Sin categoría
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted small">Proveedor</label>
+                        <p class="mb-0">{{ producto.proveedor.nombre if producto.proveedor else 'Sin proveedor' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted small">Ubicación</label>
+                        <p class="mb-0">{{ producto.ubicacion or '-' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted small">Estado</label>
+                        <p class="mb-0">
+                            {% if producto.activo %}
+                            <span class="badge badge-success">Activo</span>
+                            {% else %}
+                            <span class="badge badge-secondary">Inactivo</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Métricas -->
+    <div class="col-lg-4">
+        <div class="card mb-4 {% if producto.stock_bajo %}border-danger{% endif %}">
+            <div class="card-header {% if producto.stock_bajo %}bg-danger text-white{% endif %}">
+                Stock
+            </div>
+            <div class="card-body text-center">
+                <h2 class="{% if producto.stock_bajo %}text-danger{% endif %}">
+                    {{ producto.stock_actual|int }}
+                    <small>{{ producto.unidad_medida_abrev }}</small>
+                </h2>
+                {% if producto.stock_bajo %}
+                <span class="badge badge-danger">
+                    <span class="material-symbols-rounded" style="font-size: 14px;">warning</span>
+                    Bajo mínimo ({{ producto.stock_minimo|int }})
+                </span>
+                {% else %}
+                <span class="text-muted">Mínimo: {{ producto.stock_minimo|int }}</span>
+                {% endif %}
+                <div class="mt-3">
+                    <a href="{{ url_for('inventario.ajuste') }}?producto_id={{ producto.id }}" class="btn btn-sm btn-outline-primary">
+                        Ajustar Stock
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Precios</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Precio Costo</span>
+                    <span>{{ producto.precio_costo|currency }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Precio Venta</span>
+                    <span class="fw-bold text-primary">{{ producto.precio_venta|currency }}</span>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">Margen</span>
+                    <span class="badge badge-success">{{ "%.1f"|format(producto.margen_ganancia) }}%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

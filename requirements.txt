@@ -1,0 +1,32 @@
+# Flask y extensiones
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.5
+Flask-Login==0.6.3
+Flask-Bcrypt==1.0.1
+Flask-WTF==1.2.1
+
+# Base de datos
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.23
+
+# Serialización y validación
+marshmallow==3.20.1
+marshmallow-sqlalchemy==0.29.0
+
+# Utilidades
+python-dotenv==1.0.0
+email-validator==2.1.0
+
+# Generación de documentos
+WeasyPrint==60.1
+pydyf==0.8.0
+openpyxl==3.1.2
+
+# Testing
+pytest==7.4.3
+pytest-flask==1.3.0
+
+# Desarrollo
+python-dateutil==2.8.2
+ruff==0.6.8

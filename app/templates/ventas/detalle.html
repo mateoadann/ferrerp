@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+
+{% block title %}Venta #{{ venta.numero_completo }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{{ url_for('ventas.historial') }}">Historial de Ventas</a></li>
+                <li class="breadcrumb-item active">{{ venta.numero_completo }}</li>
+            </ol>
+        </nav>
+        <h2>Venta #{{ venta.numero_completo }}</h2>
+    </div>
+    <div>
+        <a href="{{ url_for('ventas.ticket', id=venta.id) }}" class="btn btn-secondary me-2">
+            <span class="material-symbols-rounded me-2">print</span>
+            Imprimir Ticket
+        </a>
+        {% if venta.es_anulable and current_user.es_admin %}
+        <a href="{{ url_for('ventas.anular', id=venta.id) }}" class="btn btn-outline-danger">
+            <span class="material-symbols-rounded me-2">cancel</span>
+            Anular Venta
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Info de la venta -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Detalle de Productos</span>
+                <span class="badge badge-secondary">{{ venta.detalles.count() }} items</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Codigo</th>
+                            <th>Producto</th>
+                            <th class="text-center">Cantidad</th>
+                            <th class="text-end">P. Unitario</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in venta.detalles %}
+                        <tr>
+                            <td class="table-code">{{ detalle.producto.codigo }}</td>
+                            <td>{{ detalle.producto.nombre }}</td>
+                            <td class="text-center">{{ detalle.cantidad|int }}</td>
+                            <td class="text-end">{{ detalle.precio_unitario|currency }}</td>
+                            <td class="text-end fw-bold">{{ detalle.subtotal|currency }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="text-end">Subtotal:</td>
+                            <td class="text-end">{{ venta.subtotal|currency }}</td>
+                        </tr>
+                        {% if venta.descuento_monto > 0 %}
+                        <tr>
+                            <td colspan="4" class="text-end">Descuento ({{ venta.descuento_porcentaje }}%):</td>
+                            <td class="text-end text-danger">-{{ venta.descuento_monto|currency }}</td>
+                        </tr>
+                        {% endif %}
+                        {% set iva_pct = iva_porcentaje|default(21)|float %}
+                        {% set con_iva = precios_con_iva|default(true) %}
+                        {% set total_num = venta.total|float %}
+                        {% if con_iva %}
+                            {% set neto = total_num / (1 + iva_pct / 100) %}
+                            {% set iva_monto = total_num - neto %}
+                            {% set total_final = total_num %}
+                        {% else %}
+                            {% set neto = total_num %}
+                            {% set iva_monto = total_num * iva_pct / 100 %}
+                            {% set total_final = total_num + iva_monto %}
+                        {% endif %}
+                        <tr>
+                            <td colspan="4" class="text-end">Subtotal (sin IVA):</td>
+                            <td class="text-end">{{ neto|currency }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-end">IVA ({{ '{:g}'.format(iva_pct) }}%):</td>
+                            <td class="text-end">{{ iva_monto|currency }}</td>
+                        </tr>
+                        <tr class="table-light">
+                            <td colspan="4" class="text-end fw-bold">TOTAL:</td>
+                            <td class="text-end fw-bold" style="font-size: 1.2em;">{{ total_final|currency }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="5" class="text-end text-muted small">
+                                {% if con_iva %}Los precios incluyen IVA{% else %}Los precios no incluyen IVA{% endif %}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        {% if venta.estado == 'anulada' %}
+        <div class="alert alert-danger">
+            <span class="material-symbols-rounded me-2">warning</span>
+            <strong>Venta Anulada</strong>
+            {% if venta.motivo_anulacion %}
+            <br>Motivo: {{ venta.motivo_anulacion }}
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Panel lateral -->
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">Informacion de la Venta</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5 text-muted">Fecha:</dt>
+                    <dd class="col-7">{{ venta.fecha|datetime }}</dd>
+
+                    <dt class="col-5 text-muted">Estado:</dt>
+                    <dd class="col-7">
+                        {% if venta.estado == 'completada' %}
+                        <span class="badge badge-success">Completada</span>
+                        {% elif venta.estado == 'anulada' %}
+                        <span class="badge badge-danger">Anulada</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-5 text-muted">Vendedor:</dt>
+                    <dd class="col-7">{{ venta.usuario.nombre_completo }}</dd>
+
+                    <dt class="col-5 text-muted">Forma Pago:</dt>
+                    <dd class="col-7">
+                        {% if venta.forma_pago == 'efectivo' %}Efectivo
+                        {% elif venta.forma_pago == 'tarjeta_debito' %}Tarjeta Debito
+                        {% elif venta.forma_pago == 'tarjeta_credito' %}Tarjeta Credito
+                        {% elif venta.forma_pago == 'transferencia' %}Transferencia
+                        {% elif venta.forma_pago == 'cuenta_corriente' %}Cuenta Corriente
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Cliente</div>
+            <div class="card-body">
+                {% if venta.cliente %}
+                <h5 class="mb-2">{{ venta.cliente.nombre }}</h5>
+                <p class="text-muted mb-1">
+                    <span class="material-symbols-rounded me-1" style="font-size: 16px;">badge</span>
+                    {{ venta.cliente.dni_cuit or 'Sin documento' }}
+                </p>
+                {% if venta.cliente.telefono %}
+                <p class="text-muted mb-1">
+                    <span class="material-symbols-rounded me-1" style="font-size: 16px;">phone</span>
+                    {{ venta.cliente.telefono }}
+                </p>
+                {% endif %}
+                {% if venta.cliente.email %}
+                <p class="text-muted mb-0">
+                    <span class="material-symbols-rounded me-1" style="font-size: 16px;">email</span>
+                    {{ venta.cliente.email }}
+                </p>
+                {% endif %}
+                <hr>
+                <a href="{{ url_for('clientes.cuenta_corriente', id=venta.cliente.id) }}" class="btn btn-sm btn-outline-secondary">
+                    Ver cuenta corriente
+                </a>
+                {% else %}
+                <p class="text-muted mb-0">Consumidor Final</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

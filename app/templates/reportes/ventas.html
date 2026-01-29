@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% block title %}Reporte de Ventas - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Reporte de Ventas</h2>
+    <a href="{{ url_for('reportes.exportar_ventas', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta) }}" class="btn btn-secondary">
+        <span class="material-symbols-rounded me-2">download</span>Exportar Excel
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form class="filter-bar">
+            <div>
+                <label class="form-label small">Desde</label>
+                <input type="date" name="fecha_desde" class="form-control" value="{{ fecha_desde }}">
+            </div>
+            <div>
+                <label class="form-label small">Hasta</label>
+                <input type="date" name="fecha_hasta" class="form-control" value="{{ fecha_hasta }}">
+            </div>
+            <button type="submit" class="btn btn-primary mt-auto">Filtrar</button>
+        </form>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="metric-card">
+            <span class="metric-label">Total Ventas</span>
+            <div class="metric-value">{{ total_ventas|currency }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="metric-card">
+            <span class="metric-label">Cantidad de Ventas</span>
+            <div class="metric-value">{{ cantidad_ventas }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="metric-card">
+            <span class="metric-label">Ticket Promedio</span>
+            <div class="metric-value">{{ ticket_promedio|currency }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">Ventas por Día</div>
+            <div class="card-body">
+                <canvas id="ventasDiaChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">Por Forma de Pago</div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for v in ventas_por_forma_pago %}
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>{{ v.forma_pago|replace('_', ' ')|title }}</span>
+                        <span class="fw-bold">{{ v.total|currency }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">Top 10 Productos Más Vendidos</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead><tr><th>Producto</th><th class="text-end">Cantidad</th><th class="text-end">Total</th></tr></thead>
+                <tbody>
+                    {% for p in productos_mas_vendidos %}
+                    <tr>
+                        <td>{{ p.nombre }}</td>
+                        <td class="text-end">{{ p.cantidad|int }}</td>
+                        <td class="text-end fw-bold">{{ p.total|currency }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const ventasData = {{ ventas_por_dia|tojson }};
+new Chart(document.getElementById('ventasDiaChart'), {
+    type: 'line',
+    data: {
+        labels: ventasData.map(d => d.fecha),
+        datasets: [{
+            label: 'Ventas',
+            data: ventasData.map(d => d.total),
+            borderColor: '#E07B54',
+            backgroundColor: 'rgba(224,123,84,0.1)',
+            fill: true,
+            tension: 0.3
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v.toLocaleString() } } }
+    }
+});
+</script>
+{% endblock %}

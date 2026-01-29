@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}Inventario - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Inventario</h2>
+    <a href="{{ url_for('inventario.ajuste') }}" class="btn btn-primary">
+        <span class="material-symbols-rounded me-2">tune</span>Ajustar Stock
+    </a>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="metric-card">
+            <span class="metric-label">Total Productos</span>
+            <div class="metric-value">{{ total_productos }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="metric-card {% if productos_bajo_minimo > 0 %}border-danger{% endif %}">
+            <span class="metric-label">Bajo Stock Mínimo</span>
+            <div class="metric-value {% if productos_bajo_minimo > 0 %}text-danger{% endif %}">{{ productos_bajo_minimo }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="d-flex gap-2 h-100 align-items-center">
+            <a href="{{ url_for('inventario.bajo_minimo') }}" class="btn btn-outline-danger">
+                <span class="material-symbols-rounded me-2">warning</span>Ver Bajo Mínimo
+            </a>
+            <a href="{{ url_for('inventario.movimientos') }}" class="btn btn-outline-secondary">
+                <span class="material-symbols-rounded me-2">history</span>Movimientos
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form class="filter-bar">
+            <div class="search-bar flex-grow-1" style="max-width: 400px;">
+                <span class="material-symbols-rounded">search</span>
+                <input type="text" name="q" class="form-control" placeholder="Buscar producto..." value="{{ busqueda }}">
+            </div>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" name="bajo_minimo" value="1" id="bajo_minimo" {% if solo_bajo_minimo %}checked{% endif %}>
+                <label class="form-check-label" for="bajo_minimo">Solo bajo mínimo</label>
+            </div>
+            <button type="submit" class="btn btn-secondary">Filtrar</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Producto</th>
+                        <th>Categoría</th>
+                        <th class="text-end">Stock Actual</th>
+                        <th class="text-end">Stock Mínimo</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in productos.items %}
+                    <tr class="{% if p.stock_bajo %}row-stock-bajo{% endif %}">
+                        <td><code class="table-code">{{ p.codigo }}</code></td>
+                        <td>{{ p.nombre }}</td>
+                        <td>{{ p.categoria.nombre if p.categoria else '-' }}</td>
+                        <td class="text-end {% if p.stock_bajo %}text-danger fw-bold{% endif %}">{{ p.stock_actual|int }} {{ p.unidad_medida_abrev }}</td>
+                        <td class="text-end">{{ p.stock_minimo|int }}</td>
+                        <td class="text-center">
+                            {% if p.stock_bajo %}<span class="badge badge-danger">Bajo</span>
+                            {% else %}<span class="badge badge-success">OK</span>{% endif %}
+                        </td>
+                        <td>
+                            <div class="action-icons">
+                                <a href="{{ url_for('inventario.ajuste') }}?producto_id={{ p.id }}" class="action-icon" title="Ajustar"><span class="material-symbols-rounded">tune</span></a>
+                                <a href="{{ url_for('inventario.movimientos_producto', producto_id=p.id) }}" class="action-icon" title="Movimientos"><span class="material-symbols-rounded">history</span></a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7" class="text-center py-4 text-muted">No se encontraron productos</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if productos.pages > 1 %}{% set pagination = productos %}{% include 'components/pagination.html' %}{% endif %}
+    </div>
+</div>
+{% endblock %}

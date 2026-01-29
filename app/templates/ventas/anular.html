@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block title %}Anular Venta #{{ venta.numero_completo }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{{ url_for('ventas.historial') }}">Historial de Ventas</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('ventas.detalle', id=venta.id) }}">{{ venta.numero_completo }}</a></li>
+                <li class="breadcrumb-item active">Anular</li>
+            </ol>
+        </nav>
+        <h2>Anular Venta #{{ venta.numero_completo }}</h2>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="alert alert-warning mb-4">
+            <span class="material-symbols-rounded me-2">warning</span>
+            <strong>Atencion:</strong> Esta accion no se puede deshacer. Al anular la venta:
+            <ul class="mb-0 mt-2">
+                <li>Se reintegrara el stock de todos los productos</li>
+                {% if venta.forma_pago == 'cuenta_corriente' %}
+                <li>Se acreditara el monto en la cuenta corriente del cliente</li>
+                {% endif %}
+                <li>La venta quedara marcada como anulada en el sistema</li>
+            </ul>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">Resumen de la Venta</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl>
+                            <dt class="text-muted">Numero:</dt>
+                            <dd>{{ venta.numero_completo }}</dd>
+                            <dt class="text-muted">Fecha:</dt>
+                            <dd>{{ venta.fecha|datetime }}</dd>
+                            <dt class="text-muted">Cliente:</dt>
+                            <dd>{{ venta.cliente.nombre if venta.cliente else 'Consumidor Final' }}</dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <dl>
+                            <dt class="text-muted">Forma de Pago:</dt>
+                            <dd>
+                                {% if venta.forma_pago == 'efectivo' %}Efectivo
+                                {% elif venta.forma_pago == 'tarjeta_debito' %}Tarjeta Debito
+                                {% elif venta.forma_pago == 'tarjeta_credito' %}Tarjeta Credito
+                                {% elif venta.forma_pago == 'transferencia' %}Transferencia
+                                {% elif venta.forma_pago == 'cuenta_corriente' %}Cuenta Corriente
+                                {% endif %}
+                            </dd>
+                            <dt class="text-muted">Total:</dt>
+                            <dd class="fw-bold" style="font-size: 1.3em;">{{ venta.total|currency }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Motivo de Anulacion</div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    <div class="mb-4">
+                        {{ form.motivo(class="form-control", rows=4, placeholder="Ingresa el motivo de la anulacion...") }}
+                        {% if form.motivo.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.motivo.errors[0] }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">
+                            <span class="material-symbols-rounded me-2">cancel</span>
+                            Confirmar Anulacion
+                        </button>
+                        <a href="{{ url_for('ventas.detalle', id=venta.id) }}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">Productos a Reintegrar</div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for detalle in venta.detalles %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="table-code">{{ detalle.producto.codigo }}</span>
+                            <br>
+                            <small>{{ detalle.producto.nombre }}</small>
+                        </div>
+                        <span class="badge bg-primary">+{{ detalle.cantidad|int }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
