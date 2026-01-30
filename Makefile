@@ -21,6 +21,9 @@ help:
 	@echo "  make test-dev-run - Ejecutar tests en contenedor nuevo (dev)"
 	@echo "  make install-hooks - Instalar hook pre-push"
 	@echo "  make clean      - Eliminar contenedores, volumenes e imagenes"
+	@echo "  make restart    - Reiniciar aplicacion"
+	@echo "  make status     - Ver estado de contenedores"
+	@echo "  make restart-web - Reiniciar solo el contenedor web"
 	@echo ""
 
 # Construir imagenes
@@ -45,6 +48,15 @@ up-dev:
 down:
 	docker-compose down
 	docker-compose -f docker-compose.dev.yml down 2>/dev/null || true
+
+restart:
+	docker-compose down
+	@echo ""
+	@echo "Contenedores detenidos"
+	docker-compose -f docker-compose.dev.yml up -d
+	@echo ""
+	@echo "FerrERP (Dev) iniciado en http://localhost:5000"
+	@echo "Hot-reload activado"
 
 # Ver logs
 logs:
@@ -100,7 +112,7 @@ clean:
 	@echo "Contenedores, volumenes e imagenes eliminados"
 
 # Reiniciar aplicacion
-restart:
+restart-web:
 	docker-compose restart web
 
 # Ver estado de contenedores
