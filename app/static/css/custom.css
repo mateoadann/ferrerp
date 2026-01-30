@@ -639,6 +639,40 @@ body {
     width: 60px;
     text-align: center;
     padding: 4px 8px;
+    min-width: 56px;
+    color: var(--foreground);
+    background-color: var(--background-surface);
+    font-weight: 600;
+}
+
+.cart-area .input-group {
+    flex-wrap: nowrap;
+    align-items: center;
+}
+
+.cart-area .input-group .btn {
+    width: 32px;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.cart-area .input-group .qty-input {
+    flex: 1 1 auto;
+    width: 44px;
+    min-width: 44px;
+    max-width: 64px;
+}
+
+/* Remove number input spinners in cart quantity */
+.cart-area .qty-input::-webkit-outer-spin-button,
+.cart-area .qty-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.cart-area .qty-input {
+    -moz-appearance: textfield;
+    appearance: textfield;
 }
 
 /* Action icons in tables */

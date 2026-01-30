@@ -101,6 +101,8 @@ class Producto(db.Model):
             'categoria_id': self.categoria_id,
             'categoria_nombre': self.categoria.nombre if self.categoria else None,
             'unidad_medida': self.unidad_medida,
+            'unidad_medida_display': self.unidad_medida_display,
+            'unidad_medida_abrev': self.unidad_medida_abrev,
             'precio_costo': float(self.precio_costo) if self.precio_costo else 0,
             'precio_venta': float(self.precio_venta) if self.precio_venta else 0,
             'stock_actual': float(self.stock_actual) if self.stock_actual else 0,

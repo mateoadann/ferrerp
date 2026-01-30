@@ -22,6 +22,21 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+document.addEventListener('DOMContentLoaded', function() {
+    const moneyInputs = document.querySelectorAll('input[data-mask="money"]');
+    moneyInputs.forEach(initMoneyInput);
+
+    const forms = document.querySelectorAll('form');
+    forms.forEach((form) => {
+        form.addEventListener('submit', () => {
+            const masked = form.querySelectorAll('input[data-mask="money"]');
+            masked.forEach((input) => {
+                input.value = normalizeMoneyValue(input.value);
+            });
+        });
+    });
+});
+
 // Modal de confirmación (para forms con action URL)
 function confirmAction(url, message, buttonText = 'Confirmar', buttonClass = 'btn-danger') {
     const modal = document.getElementById('confirmModal');
@@ -34,6 +49,7 @@ function confirmAction(url, message, buttonText = 'Confirmar', buttonClass = 'bt
     messageEl.textContent = message;
     submitBtn.textContent = buttonText;
     submitBtn.className = 'btn ' + buttonClass;
+    submitBtn.type = 'submit';
     iconEl.textContent = buttonClass.includes('danger') ? 'warning' : 'help_outline';
     iconEl.style.color = buttonClass.includes('danger') ? 'var(--error)' : 'var(--warning)';
 
@@ -77,9 +93,18 @@ function showConfirm(message, options = {}) {
         // Deshabilitar submit del form y usar click handler
         form.action = '';
         form.onsubmit = (e) => e.preventDefault();
+        submitBtn.type = 'button';
 
-        const handleConfirm = () => {
+        const handleConfirm = (event) => {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
             cleanup();
+            const bsModal = bootstrap.Modal.getInstance(modal);
+            if (bsModal) {
+                bsModal.hide();
+            }
             resolve(true);
         };
         const handleDismiss = () => {
@@ -116,6 +141,149 @@ function formatNumber(value, decimals = 2) {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals
     }).format(value);
+}
+
+function formatThousands(value) {
+    return value.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function normalizeDecimalSeparator(value) {
+    if (value.includes(',')) {
+        return value;
+    }
+    if (value.includes('.')) {
+        const lastDot = value.lastIndexOf('.');
+        const decimalPart = value.slice(lastDot + 1);
+        if (/^\d{1,2}$/.test(decimalPart)) {
+            const integerPart = value.slice(0, lastDot).replace(/\./g, '');
+            return `${integerPart},${decimalPart}`;
+        }
+        return value.replace(/\./g, '');
+    }
+    return value;
+}
+
+function getMoneyParts(value) {
+    const normalized = normalizeDecimalSeparator(value);
+    const cleaned = normalized.replace(/[^\d,]/g, '');
+    if (cleaned === '') {
+        return { integer: '', decimals: '', hasComma: false };
+    }
+    const parts = cleaned.split(',');
+    const integer = (parts[0] || '').replace(/^0+(?=\d)/, '');
+    const decimals = (parts[1] || '').slice(0, 2);
+    return {
+        integer,
+        decimals,
+        hasComma: cleaned.includes(',')
+    };
+}
+
+function formatMoneyOnInput(value) {
+    const { integer, decimals, hasComma } = getMoneyParts(value);
+    if (integer === '' && !hasComma) {
+        return '';
+    }
+    const formattedInt = formatThousands(integer === '' ? '0' : integer);
+    if (hasComma) {
+        return `${formattedInt},${decimals}`;
+    }
+    return formattedInt;
+}
+
+function formatMoneyOnBlur(value) {
+    const { integer, decimals } = getMoneyParts(value);
+    if (integer === '' && decimals === '') {
+        return '';
+    }
+    const formattedInt = formatThousands(integer === '' ? '0' : integer);
+    const decimalPart = (decimals || '').padEnd(2, '0').slice(0, 2);
+    return `${formattedInt},${decimalPart}`;
+}
+
+function normalizeMoneyValue(value) {
+    const { integer, decimals } = getMoneyParts(value);
+    if (integer === '' && decimals === '') {
+        return '';
+    }
+    const decimalPart = (decimals || '').padEnd(2, '0').slice(0, 2);
+    return `${integer === '' ? '0' : integer}.${decimalPart}`;
+}
+
+function parseMoneyNumber(value) {
+    if (value === null || value === undefined) {
+        return 0;
+    }
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? value : 0;
+    }
+    const normalized = normalizeMoneyValue(String(value));
+    if (!normalized) {
+        return 0;
+    }
+    const parsed = Number.parseFloat(normalized);
+    return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function getCursorPosition(formatted, digitsBefore, hadCommaBefore) {
+    if (digitsBefore === 0) {
+        if (hadCommaBefore) {
+            const commaIndex = formatted.indexOf(',');
+            return commaIndex >= 0 ? commaIndex + 1 : 0;
+        }
+        return 0;
+    }
+    let count = 0;
+    for (let i = 0; i < formatted.length; i++) {
+        if (/\d/.test(formatted[i])) {
+            count += 1;
+            if (count >= digitsBefore) {
+                const commaIndex = formatted.indexOf(',');
+                const position = i + 1;
+                if (hadCommaBefore && commaIndex >= 0 && position <= commaIndex) {
+                    return commaIndex + 1;
+                }
+                return position;
+            }
+        }
+    }
+    return formatted.length;
+}
+
+function initMoneyInput(input) {
+    if (input.dataset.moneyInit === 'true') {
+        return;
+    }
+    input.dataset.moneyInit = 'true';
+
+    if (input.type === 'number') {
+        input.type = 'text';
+    }
+    if (!input.getAttribute('inputmode')) {
+        input.setAttribute('inputmode', 'decimal');
+    }
+
+    const updateValue = () => {
+        input.value = formatMoneyOnBlur(input.value);
+    };
+
+    input.addEventListener('input', () => {
+        const original = input.value;
+        const cursor = input.selectionStart || 0;
+        const rawBefore = original.slice(0, cursor);
+        const digitsBefore = rawBefore.replace(/\D/g, '').length;
+        const hadCommaBefore = rawBefore.includes(',');
+        const formatted = formatMoneyOnInput(original);
+        input.value = formatted;
+        const newPos = getCursorPosition(formatted, digitsBefore, hadCommaBefore);
+        input.setSelectionRange(newPos, newPos);
+    });
+
+    input.addEventListener('blur', () => {
+        input.value = formatMoneyOnBlur(input.value);
+    });
+
+    updateValue();
 }
 
 // Debounce para búsquedas

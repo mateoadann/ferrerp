@@ -55,7 +55,16 @@
                         <span class="material-symbols-rounded me-2">shopping_cart</span>
                         Productos en carrito
                     </span>
-                    <span class="badge bg-primary" x-text="cart.length + ' items'"></span>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button"
+                                class="btn btn-outline-secondary btn-sm"
+                                @click="limpiarCarrito()"
+                                :disabled="cart.length === 0">
+                            <span class="material-symbols-rounded" style="font-size: 18px;">delete_sweep</span>
+                            Resetear
+                        </button>
+                        <span class="badge bg-primary" x-text="cart.length + ' items'"></span>
+                    </div>
                 </div>
                 <div class="card-body p-0">
                     <template x-if="cart.length === 0">
@@ -85,6 +94,9 @@
                                                 <span class="table-code" x-text="item.codigo"></span>
                                                 <br>
                                                 <small x-text="item.nombre"></small>
+                                                <div class="text-muted small">
+                                                    Unidad: <span x-text="item.unidad_medida_display || item.unidad_medida"></span>
+                                                </div>
                                             </td>
                                             <td>
                                                 <div class="input-group input-group-sm">
@@ -208,8 +220,9 @@
                 <div class="row g-2">
                     <div class="col-6">
                         <label class="form-label small text-muted">Monto recibido</label>
-                        <input type="number" class="form-control"
-                               x-model.number="montoRecibido"
+                        <input type="text" class="form-control" data-mask="money" inputmode="decimal"
+                               x-model="montoRecibido"
+                               x-init="initMoneyInput($el)"
                                placeholder="$0.00"
                                step="0.01">
                     </div>
@@ -258,13 +271,15 @@
 <script>
 function posApp() {
     return {
+        clearStorageOnLoad: {{ 'true' if limpiar_carrito else 'false' }},
+        storageKey: 'pos_state_v1',
         searchQuery: '',
         searchResults: [],
         cart: [],
         clienteId: '',
         formaPago: 'efectivo',
         descuentoPorcentaje: 0,
-        montoRecibido: 0,
+        montoRecibido: '',
         processing: false,
 
         get subtotal() {
@@ -295,7 +310,7 @@ function posApp() {
         },
 
         get vuelto() {
-            return Math.max(0, this.montoRecibido - this.totalConIva);
+            return Math.max(0, parseMoneyNumber(this.montoRecibido) - this.totalConIva);
         },
 
         formatCurrency(value) {
@@ -303,6 +318,42 @@ function posApp() {
                 style: 'currency',
                 currency: 'ARS'
             }).format(value || 0);
+        },
+
+        persistState() {
+            const payload = {
+                cart: this.cart,
+                clienteId: this.clienteId,
+                formaPago: this.formaPago,
+                descuentoPorcentaje: this.descuentoPorcentaje
+            };
+            localStorage.setItem(this.storageKey, JSON.stringify(payload));
+        },
+
+        restoreState() {
+            const raw = localStorage.getItem(this.storageKey);
+            if (!raw) return;
+            try {
+                const payload = JSON.parse(raw);
+                if (Array.isArray(payload.cart)) {
+                    this.cart = payload.cart;
+                }
+                if (payload.clienteId !== undefined && payload.clienteId !== null) {
+                    this.clienteId = payload.clienteId;
+                }
+                if (payload.formaPago) {
+                    this.formaPago = payload.formaPago;
+                }
+                if (payload.descuentoPorcentaje !== undefined && payload.descuentoPorcentaje !== null) {
+                    this.descuentoPorcentaje = payload.descuentoPorcentaje;
+                }
+            } catch (error) {
+                localStorage.removeItem(this.storageKey);
+            }
+        },
+
+        clearPersistedState() {
+            localStorage.removeItem(this.storageKey);
         },
 
         async searchProducts() {
@@ -347,6 +398,8 @@ function posApp() {
                     producto_id: product.id,
                     codigo: product.codigo,
                     nombre: product.nombre,
+                    unidad_medida: product.unidad_medida,
+                    unidad_medida_display: product.unidad_medida_display,
                     cantidad: 1,
                     precio_unitario: product.precio_venta,
                     stock_disponible: product.stock_actual
@@ -402,8 +455,10 @@ function posApp() {
             if (ok) {
                 this.cart = [];
                 this.descuentoPorcentaje = 0;
-                this.montoRecibido = 0;
+                this.montoRecibido = '';
                 this.clienteId = '';
+                this.formaPago = 'efectivo';
+                this.clearPersistedState();
             }
         },
 
@@ -418,7 +473,7 @@ function posApp() {
                 return;
             }
 
-            if (this.formaPago === 'efectivo' && this.montoRecibido < this.total) {
+            if (this.formaPago === 'efectivo' && parseMoneyNumber(this.montoRecibido) < this.total) {
                 const ok = await showConfirm('El monto recibido es menor al total. ¿Deseas continuar?', {
                     title: 'Monto insuficiente',
                     confirmText: 'Continuar',
@@ -434,6 +489,17 @@ function posApp() {
         },
 
         init() {
+            if (this.clearStorageOnLoad) {
+                this.clearPersistedState();
+            } else {
+                this.restoreState();
+            }
+
+            this.$watch('cart', () => this.persistState());
+            this.$watch('clienteId', () => this.persistState());
+            this.$watch('formaPago', () => this.persistState());
+            this.$watch('descuentoPorcentaje', () => this.persistState());
+
             // Keyboard shortcuts
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'F2') {

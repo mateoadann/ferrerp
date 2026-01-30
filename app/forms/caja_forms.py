@@ -15,7 +15,13 @@ class AperturaCajaForm(FlaskForm):
             NumberRange(min=0, message='El monto debe ser mayor o igual a 0')
         ],
         places=2,
-        render_kw={'placeholder': '0.00', 'step': '0.01', 'autofocus': True}
+        render_kw={
+            'placeholder': '0,00',
+            'step': '0.01',
+            'autofocus': True,
+            'data-mask': 'money',
+            'inputmode': 'decimal'
+        }
     )
 
     submit = SubmitField('Abrir Caja')
@@ -31,7 +37,13 @@ class CierreCajaForm(FlaskForm):
             NumberRange(min=0, message='El monto debe ser mayor o igual a 0')
         ],
         places=2,
-        render_kw={'placeholder': '0.00', 'step': '0.01', 'autofocus': True}
+        render_kw={
+            'placeholder': '0,00',
+            'step': '0.01',
+            'autofocus': True,
+            'data-mask': 'money',
+            'inputmode': 'decimal'
+        }
     )
 
     observaciones = TextAreaField(
@@ -72,7 +84,12 @@ class EgresoCajaForm(FlaskForm):
             NumberRange(min=0.01, message='El monto debe ser mayor a 0')
         ],
         places=2,
-        render_kw={'placeholder': '0.00', 'step': '0.01'}
+        render_kw={
+            'placeholder': '0,00',
+            'step': '0.01',
+            'data-mask': 'money',
+            'inputmode': 'decimal'
+        }
     )
 
     submit = SubmitField('Registrar Egreso')

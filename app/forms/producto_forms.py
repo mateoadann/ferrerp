@@ -69,7 +69,12 @@ class ProductoForm(FlaskForm):
             NumberRange(min=0, message='El precio debe ser mayor o igual a 0')
         ],
         places=2,
-        render_kw={'placeholder': '0.00', 'step': '0.01'}
+        render_kw={
+            'placeholder': '0,00',
+            'step': '0.01',
+            'data-mask': 'money',
+            'inputmode': 'decimal'
+        }
     )
 
     precio_venta = DecimalField(
@@ -79,7 +84,12 @@ class ProductoForm(FlaskForm):
             NumberRange(min=0, message='El precio debe ser mayor o igual a 0')
         ],
         places=2,
-        render_kw={'placeholder': '0.00', 'step': '0.01'}
+        render_kw={
+            'placeholder': '0,00',
+            'step': '0.01',
+            'data-mask': 'money',
+            'inputmode': 'decimal'
+        }
     )
 
     stock_actual = DecimalField(

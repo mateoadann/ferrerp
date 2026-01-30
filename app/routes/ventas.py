@@ -3,7 +3,7 @@
 import json
 from datetime import datetime
 from decimal import Decimal
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, session
 from flask_login import login_required, current_user
 
 from ..extensions import db
@@ -179,6 +179,8 @@ def punto_de_venta():
 
             flash(f'Venta #{venta.numero_completo} registrada. Total: ${venta.total:.2f}', 'success')
 
+            session['limpiar_carrito'] = True
+
             # Redirigir al ticket o al POS
             if request.form.get('imprimir_ticket'):
                 return redirect(url_for('ventas.ticket', id=venta.id))
@@ -192,10 +194,13 @@ def punto_de_venta():
     # GET - Mostrar pantalla de POS
     clientes = Cliente.query.filter_by(activo=True).order_by(Cliente.nombre).all()
 
+    limpiar_carrito = session.pop('limpiar_carrito', False)
+
     return render_template(
         'ventas/punto_venta.html',
         form=form,
-        clientes=clientes
+        clientes=clientes,
+        limpiar_carrito=limpiar_carrito
     )
 
 

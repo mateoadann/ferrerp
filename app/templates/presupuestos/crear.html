@@ -3,7 +3,7 @@
 {% block title %}{% if editando %}Editar{% else %}Nuevo{% endif %} Presupuesto - {{ app_name }}{% endblock %}
 
 {% block content %}
-<div class="pos-container" x-data="presupuestoApp()">
+<div class="pos-container" x-data="presupuestoApp()" x-init="init()">
     <!-- Panel izquierdo: Búsqueda y productos -->
     <div class="pos-left">
         <div class="pos-header">
@@ -96,13 +96,17 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <input type="number"
+                                                <input type="text"
                                                        class="form-control form-control-sm text-end"
-                                                       x-model.number="item.precio_unitario"
+                                                       x-model="item.precio_unitario_display"
+                                                       data-mask="money"
+                                                       inputmode="decimal"
+                                                       x-init="initMoneyInput($el)"
+                                                       @input="actualizarPrecio(index, $event)"
                                                        min="0"
                                                        step="0.01">
                                             </td>
-                                            <td class="fw-bold" x-text="formatCurrency(item.cantidad * item.precio_unitario)"></td>
+                                            <td class="fw-bold" x-text="formatCurrency(item.cantidad * parseMoneyNumber(item.precio_unitario))"></td>
                                             <td>
                                                 <button class="btn btn-sm btn-outline-danger" @click="removeFromCart(index)">
                                                     <span class="material-symbols-rounded">delete</span>
@@ -267,7 +271,10 @@ function presupuestoApp() {
         processing: false,
 
         get subtotal() {
-            return this.cart.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
+            return this.cart.reduce(
+                (sum, item) => sum + (item.cantidad * parseMoneyNumber(item.precio_unitario)),
+                0
+            );
         },
 
         get descuentoMonto() {
@@ -337,6 +344,7 @@ function presupuestoApp() {
                     nombre: product.nombre,
                     cantidad: 1,
                     precio_unitario: product.precio_venta,
+                    precio_unitario_display: formatMoneyOnBlur(String(product.precio_venta || 0)),
                     stock_disponible: product.stock_actual
                 });
             }
@@ -365,6 +373,12 @@ function presupuestoApp() {
             }
         },
 
+        actualizarPrecio(index, event) {
+            const value = event.target.value;
+            this.cart[index].precio_unitario_display = value;
+            this.cart[index].precio_unitario = parseMoneyNumber(value);
+        },
+
         clearSearch() {
             this.searchQuery = '';
             this.searchResults = [];
@@ -377,6 +391,13 @@ function presupuestoApp() {
             }
             this.processing = true;
             document.getElementById('presupuestoForm').submit();
+        },
+
+        init() {
+            this.cart = (this.cart || []).map((item) => ({
+                ...item,
+                precio_unitario_display: formatMoneyOnBlur(String(item.precio_unitario || 0))
+            }));
         }
     }
 }

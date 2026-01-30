@@ -83,8 +83,9 @@
                                                min="0" step="0.001">
                                     </td>
                                     <td>
-                                        <input type="number" :name="'precio[]'" class="form-control"
-                                               x-model.number="linea.precio" @input="calcularSubtotal(index)"
+                                         <input type="text" :name="'precio[]'" class="form-control"
+                                               x-model="linea.precio_display" @input="actualizarPrecioInput(index, $event)"
+                                               data-mask="money" inputmode="decimal" x-init="initMoneyInput($el)"
                                                min="0" step="0.01">
                                     </td>
                                     <td class="text-end fw-bold" x-text="formatCurrency(linea.subtotal)"></td>
@@ -146,14 +147,14 @@ const productosPrecios = {
 
 function ordenCompraForm() {
     return {
-        lineas: [{ producto_id: '', cantidad: 1, precio: 0, subtotal: 0 }],
+        lineas: [{ producto_id: '', cantidad: 1, precio: 0, precio_display: '0,00', subtotal: 0 }],
 
         get total() {
             return this.lineas.reduce((sum, l) => sum + (l.subtotal || 0), 0);
         },
 
         agregarLinea() {
-            this.lineas.push({ producto_id: '', cantidad: 1, precio: 0, subtotal: 0 });
+            this.lineas.push({ producto_id: '', cantidad: 1, precio: 0, precio_display: '0,00', subtotal: 0 });
         },
 
         eliminarLinea(index) {
@@ -166,8 +167,17 @@ function ordenCompraForm() {
             const linea = this.lineas[index];
             if (linea.producto_id && productosPrecios[linea.producto_id]) {
                 linea.precio = productosPrecios[linea.producto_id];
+                linea.precio_display = formatMoneyOnBlur(String(linea.precio || 0));
                 this.calcularSubtotal(index);
             }
+        },
+
+        actualizarPrecioInput(index, event) {
+            const value = event.target.value;
+            const linea = this.lineas[index];
+            linea.precio_display = value;
+            linea.precio = parseMoneyNumber(value);
+            this.calcularSubtotal(index);
         },
 
         calcularSubtotal(index) {

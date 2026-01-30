@@ -62,7 +62,12 @@ class ClienteForm(FlaskForm):
         ],
         places=2,
         default=0,
-        render_kw={'placeholder': '0.00', 'step': '0.01'}
+        render_kw={
+            'placeholder': '0,00',
+            'step': '0.01',
+            'data-mask': 'money',
+            'inputmode': 'decimal'
+        }
     )
 
     notas = TextAreaField(
@@ -86,7 +91,12 @@ class PagoCuentaCorrienteForm(FlaskForm):
             NumberRange(min=0.01, message='El monto debe ser mayor a 0')
         ],
         places=2,
-        render_kw={'placeholder': '0.00', 'step': '0.01'}
+        render_kw={
+            'placeholder': '0,00',
+            'step': '0.01',
+            'data-mask': 'money',
+            'inputmode': 'decimal'
+        }
     )
 
     descripcion = StringField(
