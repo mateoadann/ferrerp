@@ -40,6 +40,7 @@
             <div class="card-body">
                 <form method="POST" action="{{ url_for('clientes.registrar_pago', id=cliente.id) }}">
                     {{ form.hidden_tag() }}
+                    <input type="hidden" name="forma_pago" id="formaPagoInput" value="{{ form.forma_pago.data or 'efectivo' }}">
                     <div class="mb-3">
                         <label class="form-label">Monto *</label>
                         <div class="input-group">
@@ -51,7 +52,10 @@
                         <label class="form-label">Descripción</label>
                         {{ form.descripcion(class="form-control") }}
                     </div>
-                    <button type="submit" class="btn btn-success w-100">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <span class="text-muted small">Forma de pago: <strong id="formaPagoLabel">Efectivo</strong></span>
+                    </div>
+                    <button type="button" class="btn btn-success w-100" id="registrarPagoBtn">
                         <span class="material-symbols-rounded me-2">payments</span>Registrar Pago
                     </button>
                 </form>
@@ -71,6 +75,7 @@
                                 <th>Fecha</th>
                                 <th>Tipo</th>
                                 <th>Descripción</th>
+                                <th>Forma Pago</th>
                                 <th class="text-end">Monto</th>
                                 <th class="text-end">Saldo</th>
                             </tr>
@@ -87,13 +92,20 @@
                                     {% endif %}
                                 </td>
                                 <td>{{ mov.descripcion or '-' }}</td>
+                                <td>
+                                    {% if mov.tipo == 'pago' and formas_pago.get(mov.id) %}
+                                    <span class="badge badge-secondary">{{ formas_pago.get(mov.id) }}</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
                                 <td class="text-end {% if mov.tipo == 'cargo' %}text-danger{% else %}text-success{% endif %}">
                                     {% if mov.tipo == 'cargo' %}+{% else %}-{% endif %}{{ mov.monto|currency }}
                                 </td>
                                 <td class="text-end">{{ mov.saldo_posterior|currency }}</td>
                             </tr>
                             {% else %}
-                            <tr><td colspan="5" class="text-center py-4 text-muted">Sin movimientos</td></tr>
+                            <tr><td colspan="6" class="text-center py-4 text-muted">Sin movimientos</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -103,4 +115,95 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de forma de pago (Cuenta Corriente) -->
+<div class="modal fade" id="pagoCtaModal" tabindex="-1" aria-labelledby="pagoCtaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="material-symbols-rounded" style="font-size: 24px;">payments</span>
+                    <h5 class="modal-title mb-0" id="pagoCtaModalLabel">Seleccionar forma de pago</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="payment-methods">
+                    <div class="payment-method" data-value="efectivo">
+                        <span class="material-symbols-rounded">payments</span>
+                        <div>Efectivo</div>
+                    </div>
+                    <div class="payment-method" data-value="tarjeta_debito">
+                        <span class="material-symbols-rounded">credit_card</span>
+                        <div>Tarjeta Débito</div>
+                    </div>
+                    <div class="payment-method" data-value="tarjeta_credito">
+                        <span class="material-symbols-rounded">credit_card</span>
+                        <div>Tarjeta Crédito</div>
+                    </div>
+                    <div class="payment-method" data-value="transferencia">
+                        <span class="material-symbols-rounded">account_balance</span>
+                        <div>Transferencia</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmarPagoBtn">Continuar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const modalEl = document.getElementById('pagoCtaModal');
+    const modal = new bootstrap.Modal(modalEl);
+    const form = document.querySelector('form[action="{{ url_for('clientes.registrar_pago', id=cliente.id) }}"]');
+    const formaPagoInput = document.getElementById('formaPagoInput');
+    const formaPagoLabel = document.getElementById('formaPagoLabel');
+    const registrarBtn = document.getElementById('registrarPagoBtn');
+    const confirmarBtn = document.getElementById('confirmarPagoBtn');
+    const methodEls = modalEl.querySelectorAll('.payment-method');
+
+    if (!form || !formaPagoInput || !formaPagoLabel || !registrarBtn || !confirmarBtn) {
+        return;
+    }
+
+    const labelMap = {
+        efectivo: 'Efectivo',
+        tarjeta_debito: 'Tarjeta Débito',
+        tarjeta_credito: 'Tarjeta Crédito',
+        transferencia: 'Transferencia'
+    };
+
+    function setActive(value) {
+        methodEls.forEach((el) => {
+            el.classList.toggle('active', el.dataset.value === value);
+        });
+        formaPagoInput.value = value;
+        formaPagoLabel.textContent = labelMap[value] || value;
+    }
+
+    setActive(formaPagoInput.value || 'efectivo');
+
+    methodEls.forEach((el) => {
+        el.addEventListener('click', () => {
+            setActive(el.dataset.value);
+        });
+    });
+
+    registrarBtn.addEventListener('click', () => {
+        setActive(formaPagoInput.value || 'efectivo');
+        modal.show();
+    });
+
+    confirmarBtn.addEventListener('click', () => {
+        modal.hide();
+        form.requestSubmit();
+    });
+});
+</script>
 {% endblock %}

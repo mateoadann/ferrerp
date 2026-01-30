@@ -1,7 +1,7 @@
 """Formularios de clientes."""
 
 from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, DecimalField, BooleanField, SubmitField
+from wtforms import StringField, TextAreaField, DecimalField, BooleanField, SubmitField, SelectField
 from wtforms.validators import DataRequired, Length, Optional, Email, NumberRange
 
 
@@ -97,6 +97,18 @@ class PagoCuentaCorrienteForm(FlaskForm):
             'data-mask': 'money',
             'inputmode': 'decimal'
         }
+    )
+
+    forma_pago = SelectField(
+        'Forma de Pago',
+        choices=[
+            ('efectivo', 'Efectivo'),
+            ('tarjeta_debito', 'Tarjeta Débito'),
+            ('tarjeta_credito', 'Tarjeta Crédito'),
+            ('transferencia', 'Transferencia')
+        ],
+        default='efectivo',
+        validators=[DataRequired(message='Selecciona una forma de pago')]
     )
 
     descripcion = StringField(

@@ -6,7 +6,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 
 from ..extensions import db
-from ..models import Caja, MovimientoCaja
+from ..models import Caja, MovimientoCaja, Venta
 from ..forms.caja_forms import AperturaCajaForm, CierreCajaForm, EgresoCajaForm
 from ..utils.helpers import paginar_query
 from ..utils.decorators import admin_required
@@ -23,11 +23,50 @@ def index():
 
     if caja:
         # Calcular totales
-        movimientos = caja.movimientos.order_by(MovimientoCaja.created_at.desc()).all()
+        movimientos_caja = caja.movimientos.order_by(MovimientoCaja.created_at.desc()).all()
+        ventas_cc = Venta.query.filter_by(
+            caja_id=caja.id,
+            forma_pago='cuenta_corriente',
+            estado='completada'
+        ).order_by(Venta.fecha.desc()).all()
+
+        total_cc_ventas = sum((v.total for v in ventas_cc), Decimal('0'))
+
+        movimientos = [
+            {
+                'fecha': mov.created_at,
+                'tipo': mov.tipo,
+                'tipo_display': mov.tipo_display,
+                'concepto_display': mov.concepto_display,
+                'forma_pago': mov.forma_pago,
+                'forma_pago_display': mov.forma_pago_display,
+                'descripcion': mov.descripcion,
+                'monto': mov.monto,
+                'es_informativo': False
+            }
+            for mov in movimientos_caja
+        ]
+
+        movimientos += [
+            {
+                'fecha': venta.fecha,
+                'tipo': 'informativo',
+                'tipo_display': 'Venta',
+                'concepto_display': 'Venta',
+                'forma_pago': 'cuenta_corriente',
+                'forma_pago_display': 'Cuenta Corriente',
+                'descripcion': f'Venta #{venta.numero_completo}',
+                'monto': venta.total,
+                'es_informativo': True
+            }
+            for venta in ventas_cc
+        ]
+
+        movimientos.sort(key=lambda mov: mov['fecha'], reverse=True)
 
         # Totales por forma de pago
         totales_forma_pago = {}
-        for mov in movimientos:
+        for mov in movimientos_caja:
             if mov.tipo == 'ingreso':
                 if mov.forma_pago not in totales_forma_pago:
                     totales_forma_pago[mov.forma_pago] = {'ingresos': Decimal('0'), 'egresos': Decimal('0')}
@@ -37,11 +76,29 @@ def index():
                     totales_forma_pago[mov.forma_pago] = {'ingresos': Decimal('0'), 'egresos': Decimal('0')}
                 totales_forma_pago[mov.forma_pago]['egresos'] += mov.monto
 
+        if total_cc_ventas > 0:
+            totales_forma_pago['cuenta_corriente'] = {
+                'ingresos': total_cc_ventas,
+                'egresos': Decimal('0')
+            }
+
+        total_ingresos_forma = sum(
+            (totales['ingresos'] for totales in totales_forma_pago.values()),
+            Decimal('0')
+        )
+        total_egresos_forma = sum(
+            (totales['egresos'] for totales in totales_forma_pago.values()),
+            Decimal('0')
+        )
+
         return render_template(
             'caja/index.html',
             caja=caja,
             movimientos=movimientos,
-            totales_forma_pago=totales_forma_pago
+            totales_forma_pago=totales_forma_pago,
+            total_cc_ventas=total_cc_ventas,
+            total_ingresos_forma=total_ingresos_forma,
+            total_egresos_forma=total_egresos_forma
         )
 
     # No hay caja abierta
@@ -169,11 +226,50 @@ def detalle(id):
     """Ver detalle de una caja."""
     caja = Caja.query.get_or_404(id)
 
-    movimientos = caja.movimientos.order_by(MovimientoCaja.created_at.desc()).all()
+    movimientos_caja = caja.movimientos.order_by(MovimientoCaja.created_at.desc()).all()
+    ventas_cc = Venta.query.filter_by(
+        caja_id=caja.id,
+        forma_pago='cuenta_corriente',
+        estado='completada'
+    ).order_by(Venta.fecha.desc()).all()
+
+    total_cc_ventas = sum((v.total for v in ventas_cc), Decimal('0'))
+
+    movimientos = [
+        {
+            'fecha': mov.created_at,
+            'tipo': mov.tipo,
+            'tipo_display': mov.tipo_display,
+            'concepto_display': mov.concepto_display,
+            'forma_pago': mov.forma_pago,
+            'forma_pago_display': mov.forma_pago_display,
+            'descripcion': mov.descripcion,
+            'monto': mov.monto,
+            'es_informativo': False
+        }
+        for mov in movimientos_caja
+    ]
+
+    movimientos += [
+        {
+            'fecha': venta.fecha,
+            'tipo': 'informativo',
+            'tipo_display': 'Venta',
+            'concepto_display': 'Venta',
+            'forma_pago': 'cuenta_corriente',
+            'forma_pago_display': 'Cuenta Corriente',
+            'descripcion': f'Venta #{venta.numero_completo}',
+            'monto': venta.total,
+            'es_informativo': True
+        }
+        for venta in ventas_cc
+    ]
+
+    movimientos.sort(key=lambda mov: mov['fecha'], reverse=True)
 
     # Totales por forma de pago
     totales_forma_pago = {}
-    for mov in movimientos:
+    for mov in movimientos_caja:
         if mov.forma_pago not in totales_forma_pago:
             totales_forma_pago[mov.forma_pago] = {'ingresos': Decimal('0'), 'egresos': Decimal('0')}
 
@@ -182,9 +278,27 @@ def detalle(id):
         else:
             totales_forma_pago[mov.forma_pago]['egresos'] += mov.monto
 
+    if total_cc_ventas > 0:
+        totales_forma_pago['cuenta_corriente'] = {
+            'ingresos': total_cc_ventas,
+            'egresos': Decimal('0')
+        }
+
+    total_ingresos_forma = sum(
+        (totales['ingresos'] for totales in totales_forma_pago.values()),
+        Decimal('0')
+    )
+    total_egresos_forma = sum(
+        (totales['egresos'] for totales in totales_forma_pago.values()),
+        Decimal('0')
+    )
+
     return render_template(
         'caja/detalle.html',
         caja=caja,
         movimientos=movimientos,
-        totales_forma_pago=totales_forma_pago
+        totales_forma_pago=totales_forma_pago,
+        total_cc_ventas=total_cc_ventas,
+        total_ingresos_forma=total_ingresos_forma,
+        total_egresos_forma=total_egresos_forma
     )

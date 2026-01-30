@@ -41,7 +41,6 @@
         </div>
     </div>
 </div>
-
 <div class="row g-4">
     <!-- Movimientos -->
     <div class="col-lg-8">
@@ -55,6 +54,7 @@
                                 <th>Hora</th>
                                 <th>Tipo</th>
                                 <th>Concepto</th>
+                                <th>Forma Pago</th>
                                 <th>Descripción</th>
                                 <th class="text-end">Monto</th>
                             </tr>
@@ -62,22 +62,35 @@
                         <tbody>
                             {% for mov in movimientos %}
                             <tr>
-                                <td>{{ mov.created_at.strftime('%H:%M') }}</td>
+                                <td>{{ mov.fecha.strftime('%H:%M') }}</td>
                                 <td>
-                                    {% if mov.tipo == 'ingreso' %}
+                                    {% if mov.es_informativo %}
+                                    <span class="badge badge-secondary">Venta</span>
+                                    {% elif mov.tipo == 'ingreso' %}
                                     <span class="badge badge-success">Ingreso</span>
                                     {% else %}
                                     <span class="badge badge-danger">Egreso</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ mov.concepto_display }}</td>
+                                <td>
+                                    {% if mov.forma_pago == 'cuenta_corriente' %}
+                                    <span class="badge badge-secondary">Cuenta Corriente</span>
+                                    {% else %}
+                                    {{ mov.forma_pago_display }}
+                                    {% endif %}
+                                </td>
                                 <td>{{ mov.descripcion or '-' }}</td>
-                                <td class="text-end fw-bold {% if mov.tipo == 'ingreso' %}text-success{% else %}text-danger{% endif %}">
+                                <td class="text-end fw-bold {% if mov.es_informativo %}text-muted{% elif mov.tipo == 'ingreso' %}text-success{% else %}text-danger{% endif %}">
+                                    {% if mov.es_informativo %}
+                                    {{ mov.monto|currency }}
+                                    {% else %}
                                     {% if mov.tipo == 'ingreso' %}+{% else %}-{% endif %}{{ mov.monto|currency }}
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% else %}
-                            <tr><td colspan="5" class="text-center py-4 text-muted">Sin movimientos</td></tr>
+                            <tr><td colspan="6" class="text-center py-4 text-muted">Sin movimientos</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -119,6 +132,47 @@
                 </form>
             </div>
         </div>
+
+        {% if totales_forma_pago %}
+        <div class="card mt-4">
+            <div class="card-header">Totales por Forma de Pago</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Forma</th>
+                                <th class="text-end">Ingresos</th>
+                                <th class="text-end">Egresos</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for forma, totales in totales_forma_pago.items() %}
+                            <tr>
+                                <td>
+                                    {% if forma == 'efectivo' %}Efectivo
+                                    {% elif forma == 'tarjeta_debito' %}Tarjeta Débito
+                                    {% elif forma == 'tarjeta_credito' %}Tarjeta Crédito
+                                    {% elif forma == 'transferencia' %}Transferencia
+                                    {% elif forma == 'cuenta_corriente' %}Cuenta Corriente
+                                    {% else %}{{ forma }}
+                                    {% endif %}
+                                </td>
+                                <td class="text-end text-success">{{ totales.ingresos|currency }}</td>
+                                <td class="text-end text-danger">{{ totales.egresos|currency }}</td>
+                            </tr>
+                            {% endfor %}
+                            <tr class="table-light fw-bold">
+                                <td>Total</td>
+                                <td class="text-end text-success">{{ total_ingresos_forma|currency }}</td>
+                                <td class="text-end text-danger">{{ total_egresos_forma|currency }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

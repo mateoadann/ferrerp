@@ -122,13 +122,23 @@ def cuenta_corriente(id):
         MovimientoCuentaCorriente.created_at.desc()
     ).paginate(page=page, per_page=20)
 
+    movimientos_ids = [mov.id for mov in movimientos.items if mov.tipo == 'pago']
+    formas_pago = {}
+    if movimientos_ids:
+        movimientos_caja = MovimientoCaja.query.filter(
+            MovimientoCaja.referencia_tipo == 'pago_cc',
+            MovimientoCaja.referencia_id.in_(movimientos_ids)
+        ).all()
+        formas_pago = {mov.referencia_id: mov.forma_pago_display for mov in movimientos_caja}
+
     form = PagoCuentaCorrienteForm()
 
     return render_template(
         'clientes/cuenta_corriente.html',
         cliente=cliente,
         movimientos=movimientos,
-        form=form
+        form=form,
+        formas_pago=formas_pago
     )
 
 
@@ -171,13 +181,15 @@ def registrar_pago(id):
         db.session.flush()  # Para obtener el ID del movimiento
 
         # Registrar ingreso en caja
+        forma_pago = form.forma_pago.data or 'efectivo'
+
         movimiento_caja = MovimientoCaja(
             caja_id=caja.id,
             tipo='ingreso',
             concepto='cobro_cuenta_corriente',
             descripcion=f'Pago de {cliente.nombre}',
             monto=monto,
-            forma_pago='efectivo',
+            forma_pago=forma_pago,
             referencia_tipo='pago_cc',
             referencia_id=movimiento_cc.id,
             usuario_id=current_user.id

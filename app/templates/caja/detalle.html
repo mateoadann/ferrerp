@@ -47,6 +47,8 @@
     </div>
 </div>
 
+<p class="text-muted small mb-4">Las ventas por cuenta corriente se muestran como informativas y no afectan el saldo en caja.</p>
+
 <div class="row g-4">
     <!-- Movimientos -->
     <div class="col-lg-8">
@@ -71,19 +73,31 @@
                         <tbody>
                             {% for mov in movimientos %}
                             <tr>
-                                <td>{{ mov.created_at.strftime('%H:%M') }}</td>
+                                <td>{{ mov.fecha.strftime('%H:%M') }}</td>
                                 <td>
-                                    {% if mov.tipo == 'ingreso' %}
+                                    {% if mov.es_informativo %}
+                                    <span class="badge badge-secondary">Venta</span>
+                                    {% elif mov.tipo == 'ingreso' %}
                                     <span class="badge badge-success">Ingreso</span>
                                     {% else %}
                                     <span class="badge badge-danger">Egreso</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ mov.concepto_display }}</td>
-                                <td>{{ mov.forma_pago_display }}</td>
+                                <td>
+                                    {% if mov.forma_pago == 'cuenta_corriente' %}
+                                    <span class="badge badge-secondary">Cuenta Corriente</span>
+                                    {% else %}
+                                    {{ mov.forma_pago_display }}
+                                    {% endif %}
+                                </td>
                                 <td>{{ mov.descripcion or '-' }}</td>
-                                <td class="text-end fw-bold {% if mov.tipo == 'ingreso' %}text-success{% else %}text-danger{% endif %}">
+                                <td class="text-end fw-bold {% if mov.es_informativo %}text-muted{% elif mov.tipo == 'ingreso' %}text-success{% else %}text-danger{% endif %}">
+                                    {% if mov.es_informativo %}
+                                    {{ mov.monto|currency }}
+                                    {% else %}
                                     {% if mov.tipo == 'ingreso' %}+{% else %}-{% endif %}{{ mov.monto|currency }}
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% else %}
@@ -171,6 +185,7 @@
                                     {% elif forma == 'tarjeta_debito' %}Tarjeta Débito
                                     {% elif forma == 'tarjeta_credito' %}Tarjeta Crédito
                                     {% elif forma == 'transferencia' %}Transferencia
+                                    {% elif forma == 'cuenta_corriente' %}Cuenta Corriente
                                     {% else %}{{ forma }}
                                     {% endif %}
                                 </td>
@@ -178,6 +193,11 @@
                                 <td class="text-end text-danger">{{ totales.egresos|currency }}</td>
                             </tr>
                             {% endfor %}
+                            <tr class="table-light fw-bold">
+                                <td>Total</td>
+                                <td class="text-end text-success">{{ total_ingresos_forma|currency }}</td>
+                                <td class="text-end text-danger">{{ total_egresos_forma|currency }}</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
