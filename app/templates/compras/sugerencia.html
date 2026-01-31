@@ -64,7 +64,7 @@
                             <td>
                                 <input type="number" class="form-control cantidad-{{ proveedor_id }}"
                                        value="{{ item.cantidad_sugerida|int }}" min="1" step="1"
-                                       data-producto="{{ item.producto.id }}" disabled>
+                                       data-producto="{{ item.producto.id }}">
                             </td>
                         </tr>
                         {% endfor %}
@@ -101,7 +101,6 @@ function toggleAll(checkbox, proveedorId) {
 
     checks.forEach((check, i) => {
         check.checked = checkbox.checked;
-        cantidades[i].disabled = !checkbox.checked;
     });
 }
 
@@ -109,8 +108,6 @@ document.querySelectorAll('[class^="producto-check-"]').forEach(check => {
     check.addEventListener('change', function() {
         const proveedorId = this.className.match(/producto-check-(\d+)/)[1];
         const productoId = this.dataset.producto;
-        const cantidad = document.querySelector(`.cantidad-${proveedorId}[data-producto="${productoId}"]`);
-        cantidad.disabled = !this.checked;
     });
 });
 

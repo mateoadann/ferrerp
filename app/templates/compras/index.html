@@ -67,6 +67,9 @@
                         <td>
                             <div class="action-icons">
                                 <a href="{{ url_for('compras.detalle', id=o.id) }}" class="action-icon"><span class="material-symbols-rounded">visibility</span></a>
+                                <a href="{{ url_for('compras.pdf', id=o.id) }}" class="action-icon" target="_blank" title="PDF">
+                                    <span class="material-symbols-rounded">picture_as_pdf</span>
+                                </a>
                                 {% if o.puede_recibir %}
                                 <a href="{{ url_for('compras.recibir', id=o.id) }}" class="action-icon text-success"><span class="material-symbols-rounded">download</span></a>
                                 {% endif %}

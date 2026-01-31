@@ -2,6 +2,10 @@
 
 {% block title %}Nueva Orden de Compra - {{ app_name }}{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/air-datepicker@3.5.3/air-datepicker.css">
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
     <div>
@@ -15,7 +19,7 @@
     </div>
 </div>
 
-<form method="POST" x-data="ordenCompraForm()">
+<form method="POST" x-data="ordenCompraForm()" x-init="init()">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <div class="row">
@@ -26,7 +30,7 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label">Proveedor *</label>
-                            <select name="proveedor_id" class="form-select" required>
+                            <select name="proveedor_id" class="form-select" x-model="proveedorId" @change="proveedorId = $event.target.value; filtrarProductos()" required>
                                 <option value="">Seleccionar proveedor...</option>
                                 {% for proveedor in proveedores %}
                                 <option value="{{ proveedor.id }}">{{ proveedor.nombre }}</option>
@@ -35,7 +39,12 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Fecha</label>
-                            <input type="text" class="form-control" value="{{ now().strftime('%d/%m/%Y') if now else '' }}" readonly>
+                            <input type="text"
+                                   name="fecha"
+                                   class="form-control"
+                                   placeholder="dd/mm/aaaa"
+                                   value="{{ now().strftime('%d/%m/%Y') if now else '' }}"
+                                   x-ref="fechaInput">
                         </div>
                         <div class="col-12">
                             <label class="form-label">Notas</label>
@@ -70,11 +79,9 @@
                                     <td>
                                         <select :name="'producto_id[]'" class="form-select" x-model="linea.producto_id" @change="actualizarPrecio(index)">
                                             <option value="">Seleccionar...</option>
-                                            {% for producto in productos %}
-                                            <option value="{{ producto.id }}" data-precio="{{ producto.precio_costo }}">
-                                                {{ producto.codigo }} - {{ producto.nombre }}
-                                            </option>
-                                            {% endfor %}
+                                            <template x-for="producto in productosFiltrados" :key="producto.id">
+                                                <option :value="producto.id" x-text="`${producto.codigo} - ${producto.nombre}`"></option>
+                                            </template>
                                         </select>
                                     </td>
                                     <td>
@@ -138,23 +145,59 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/air-datepicker@3.5.3/air-datepicker.js"></script>
 <script>
-const productosPrecios = {
-    {% for producto in productos %}
-    '{{ producto.id }}': {{ producto.precio_costo }},
-    {% endfor %}
+const localeEs = {
+    days: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
+    daysShort: ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'],
+    daysMin: ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'],
+    months: [
+        'Enero',
+        'Febrero',
+        'Marzo',
+        'Abril',
+        'Mayo',
+        'Junio',
+        'Julio',
+        'Agosto',
+        'Septiembre',
+        'Octubre',
+        'Noviembre',
+        'Diciembre'
+    ],
+    monthsShort: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+    today: 'Hoy',
+    clear: 'Limpiar',
+    dateFormat: 'dd/MM/yyyy',
+    timeFormat: 'hh:mm aa',
+    firstDay: 1
 };
+
+const productosData = {{ productos_data|tojson }};
 
 function ordenCompraForm() {
     return {
+        proveedorId: '',
+        productos: productosData,
         lineas: [{ producto_id: '', cantidad: 1, precio: 0, precio_display: '0,00', subtotal: 0 }],
 
         get total() {
             return this.lineas.reduce((sum, l) => sum + (l.subtotal || 0), 0);
         },
 
+        get productosFiltrados() {
+            if (!this.proveedorId) {
+                return this.productos;
+            }
+            const proveedorId = String(this.proveedorId);
+            return this.productos.filter(
+                (producto) => String(producto.proveedor_id || '') === proveedorId
+            );
+        },
+
         agregarLinea() {
             this.lineas.push({ producto_id: '', cantidad: 1, precio: 0, precio_display: '0,00', subtotal: 0 });
+            this.$nextTick(() => this.filtrarProductos());
         },
 
         eliminarLinea(index) {
@@ -163,13 +206,84 @@ function ordenCompraForm() {
             }
         },
 
+        obtenerProducto(productoId) {
+            return this.productos.find(
+                (producto) => String(producto.id) === String(productoId)
+            );
+        },
+
+        formatFecha(date) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+        },
+
+        parseFecha(value) {
+            const parts = String(value || '').split('/');
+            if (parts.length !== 3) {
+                return null;
+            }
+            const day = Number.parseInt(parts[0], 10);
+            const month = Number.parseInt(parts[1], 10) - 1;
+            const year = Number.parseInt(parts[2], 10);
+            if (Number.isNaN(day) || Number.isNaN(month) || Number.isNaN(year)) {
+                return null;
+            }
+            return new Date(year, month, day);
+        },
+
+        initDatepicker() {
+            const input = this.$refs.fechaInput;
+            if (!input || typeof AirDatepicker === 'undefined') {
+                return;
+            }
+
+            const initialDate = this.parseFecha(input.value) || new Date();
+            if (!input.value) {
+                input.value = this.formatFecha(initialDate);
+            }
+
+            new AirDatepicker(input, {
+                autoClose: true,
+                locale: localeEs,
+                dateFormat: 'dd/MM/yyyy',
+                selectedDates: [initialDate]
+            });
+        },
+
         actualizarPrecio(index) {
             const linea = this.lineas[index];
-            if (linea.producto_id && productosPrecios[linea.producto_id]) {
-                linea.precio = productosPrecios[linea.producto_id];
+            const producto = this.obtenerProducto(linea.producto_id);
+            if (producto) {
+                linea.precio = producto.precio_costo || 0;
                 linea.precio_display = formatMoneyOnBlur(String(linea.precio || 0));
                 this.calcularSubtotal(index);
+                return;
             }
+            linea.precio = 0;
+            linea.precio_display = '0,00';
+            this.calcularSubtotal(index);
+        },
+
+        filtrarProductos() {
+            if (!this.proveedorId) {
+                return;
+            }
+            const proveedorId = String(this.proveedorId);
+            this.lineas.forEach((linea) => {
+                if (!linea.producto_id) {
+                    return;
+                }
+                const producto = this.obtenerProducto(linea.producto_id);
+                const productoProveedor = producto ? String(producto.proveedor_id || '') : '';
+                if (!producto || productoProveedor !== proveedorId) {
+                    linea.producto_id = '';
+                    linea.precio = 0;
+                    linea.precio_display = '0,00';
+                    linea.subtotal = 0;
+                }
+            });
         },
 
         actualizarPrecioInput(index, event) {
@@ -190,6 +304,13 @@ function ordenCompraForm() {
                 style: 'currency',
                 currency: 'ARS'
             }).format(value || 0);
+        },
+
+        init() {
+            this.$nextTick(() => {
+                this.filtrarProductos();
+                this.initDatepicker();
+            });
         }
     }
 }

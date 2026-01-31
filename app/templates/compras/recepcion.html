@@ -60,11 +60,14 @@
                                     {% if detalle.cantidad_pendiente > 0 %}
                                     <input type="number"
                                            name="cantidad_{{ detalle.id }}"
-                                           class="form-control"
+                                           class="form-control recibir-cantidad"
                                            min="0"
-                                           max="{{ detalle.cantidad_pendiente }}"
                                            step="0.001"
-                                           value="0">
+                                           value="0"
+                                           data-detalle-id="{{ detalle.id }}"
+                                           data-pendiente="{{ detalle.cantidad_pendiente }}"
+                                           data-producto="{{ detalle.producto.codigo }}"
+                                           data-producto-nombre="{{ detalle.producto.nombre }}">
                                     {% else %}
                                     <span class="text-muted">-</span>
                                     {% endif %}
@@ -81,6 +84,10 @@
             <div class="card">
                 <div class="card-header">Opciones</div>
                 <div class="card-body">
+                    <div class="d-flex align-items-start gap-2 text-muted small mb-3">
+                        <span class="material-symbols-rounded" style="font-size: 18px;">info</span>
+                        <span>Si se recibe más de lo pendiente, se pedirá un motivo.</span>
+                    </div>
                     <div class="form-check mb-3">
                         <input type="checkbox" class="form-check-input" name="actualizar_precios" value="1" id="actualizarPrecios">
                         <label class="form-check-label" for="actualizarPrecios">
@@ -116,4 +123,137 @@
         </div>
     </div>
 </form>
+
+<!-- Modal de exceso de recepción -->
+<div class="modal fade" id="excesoRecepcionModal" tabindex="-1" aria-labelledby="excesoRecepcionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="material-symbols-rounded" style="font-size: 24px;">inventory</span>
+                    <h5 class="modal-title mb-0" id="excesoRecepcionLabel">Motivo de exceso</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">
+                    Se detectaron cantidades mayores a lo pendiente. Indica el motivo del exceso para continuar.
+                </p>
+                <div id="motivosExcesoContainer" class="d-grid gap-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmarExcesoBtn">Confirmar Recepción</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.querySelector('form[method="POST"]');
+    const modalEl = document.getElementById('excesoRecepcionModal');
+    const modal = new bootstrap.Modal(modalEl);
+    const container = document.getElementById('motivosExcesoContainer');
+    const confirmarBtn = document.getElementById('confirmarExcesoBtn');
+    let modalConfirmed = false;
+
+    if (!form || !modalEl || !container || !confirmarBtn) {
+        return;
+    }
+
+    function getExcesos() {
+        const inputs = form.querySelectorAll('.recibir-cantidad');
+        const excesos = [];
+        inputs.forEach((input) => {
+            const pendiente = Number.parseFloat(input.dataset.pendiente || '0') || 0;
+            const value = Number.parseFloat(input.value || '0') || 0;
+            if (value > pendiente) {
+                excesos.push({
+                    id: input.dataset.detalleId,
+                    codigo: input.dataset.producto,
+                    nombre: input.dataset.productoNombre,
+                    pendiente,
+                    recibido: value
+                });
+            }
+        });
+        return excesos;
+    }
+
+    function buildMotivos(excesos) {
+        container.innerHTML = '';
+        excesos.forEach((item) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'border rounded p-3';
+
+            wrapper.innerHTML = `
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="fw-semibold">${item.codigo} - ${item.nombre}</div>
+                        <div class="small text-muted">Pendiente: ${item.pendiente} | Recibido: ${item.recibido}</div>
+                    </div>
+                </div>
+                <label class="form-label">Motivo del exceso</label>
+                <textarea class="form-control" rows="2" data-motivo-id="${item.id}" placeholder="Ej: Envío extra del proveedor"></textarea>
+            `;
+
+            container.appendChild(wrapper);
+        });
+    }
+
+    function syncMotivosToForm() {
+        form.querySelectorAll('.exceso-input').forEach((el) => el.remove());
+        const motivos = container.querySelectorAll('textarea[data-motivo-id]');
+        motivos.forEach((textarea) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = `motivo_exceso_${textarea.dataset.motivoId}`;
+            input.value = textarea.value.trim();
+            input.classList.add('exceso-input');
+            form.appendChild(input);
+        });
+    }
+
+    form.addEventListener('submit', (event) => {
+        if (modalConfirmed) {
+            modalConfirmed = false;
+            return;
+        }
+
+        const excesos = getExcesos();
+        if (excesos.length === 0) {
+            return;
+        }
+
+        event.preventDefault();
+        buildMotivos(excesos);
+        modal.show();
+    });
+
+    confirmarBtn.addEventListener('click', () => {
+        const motivos = container.querySelectorAll('textarea[data-motivo-id]');
+        let valido = true;
+        motivos.forEach((textarea) => {
+            if (!textarea.value.trim()) {
+                valido = false;
+                textarea.classList.add('is-invalid');
+            } else {
+                textarea.classList.remove('is-invalid');
+            }
+        });
+
+        if (!valido) {
+            return;
+        }
+
+        syncMotivosToForm();
+        modalConfirmed = true;
+        modal.hide();
+        form.requestSubmit();
+    });
+});
+</script>
 {% endblock %}

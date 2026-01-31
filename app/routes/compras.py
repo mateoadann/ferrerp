@@ -2,11 +2,12 @@
 
 from datetime import datetime
 from decimal import Decimal
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, make_response
 from flask_login import login_required, current_user
 
 from ..extensions import db
 from ..models import OrdenCompra, OrdenCompraDetalle, Producto, Proveedor, MovimientoStock
+from ..services import orden_compra_service
 from ..utils.helpers import paginar_query, generar_numero_orden_compra, es_peticion_htmx
 
 bp = Blueprint('compras', __name__, url_prefix='/compras')
@@ -49,6 +50,7 @@ def nueva():
     if request.method == 'POST':
         proveedor_id = request.form.get('proveedor_id', type=int)
         notas = request.form.get('notas', '')
+        fecha_input = (request.form.get('fecha') or '').strip()
 
         if not proveedor_id:
             flash('Selecciona un proveedor.', 'danger')
@@ -63,10 +65,25 @@ def nueva():
             flash('Agrega al menos un producto a la orden.', 'danger')
             return redirect(url_for('compras.nueva'))
 
+        fecha_orden = datetime.utcnow()
+        if fecha_input:
+            fecha_parseada = None
+            for formato in ('%d/%m/%Y', '%Y-%m-%d'):
+                try:
+                    fecha_parseada = datetime.strptime(fecha_input, formato).date()
+                    break
+                except ValueError:
+                    continue
+
+            if fecha_parseada:
+                fecha_orden = datetime.combine(fecha_parseada, datetime.now().time())
+            else:
+                flash('Fecha inválida. Se usó la fecha actual.', 'warning')
+
         # Crear orden
         orden = OrdenCompra(
             numero=generar_numero_orden_compra(),
-            fecha=datetime.utcnow(),
+            fecha=fecha_orden,
             proveedor_id=proveedor_id,
             usuario_id=current_user.id,
             estado='pendiente',
@@ -108,11 +125,22 @@ def nueva():
     # GET - Mostrar formulario
     proveedores = Proveedor.query.filter_by(activo=True).order_by(Proveedor.nombre).all()
     productos = Producto.query.filter_by(activo=True).order_by(Producto.nombre).all()
+    productos_data = [
+        {
+            'id': producto.id,
+            'codigo': producto.codigo,
+            'nombre': producto.nombre,
+            'proveedor_id': producto.proveedor_id,
+            'precio_costo': float(producto.precio_costo or 0),
+        }
+        for producto in productos
+    ]
 
     return render_template(
         'compras/orden_form.html',
         proveedores=proveedores,
-        productos=productos
+        productos=productos,
+        productos_data=productos_data
     )
 
 
@@ -122,6 +150,22 @@ def detalle(id):
     """Ver detalle de orden de compra."""
     orden = OrdenCompra.query.get_or_404(id)
     return render_template('compras/orden_detalle.html', orden=orden)
+
+
+@bp.route('/<int:id>/pdf')
+@login_required
+def pdf(id):
+    """Descargar PDF de la orden de compra."""
+    orden = OrdenCompra.query.get_or_404(id)
+
+    pdf_bytes = orden_compra_service.generar_pdf(orden)
+
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = (
+        f'inline; filename=orden_compra_{orden.numero}.pdf'
+    )
+    return response
 
 
 @bp.route('/<int:id>/recibir', methods=['GET', 'POST'])
@@ -137,12 +181,36 @@ def recibir(id):
     if request.method == 'POST':
         actualizar_precios = request.form.get('actualizar_precios') == '1'
 
+        errores_exceso = []
+        for detalle in orden.detalles:
+            cantidad_recibida = request.form.get(f'cantidad_{detalle.id}', type=float)
+            if not cantidad_recibida or cantidad_recibida <= 0:
+                continue
+
+            cantidad_decimal = Decimal(str(cantidad_recibida))
+            pendiente = Decimal(str(detalle.cantidad_pendiente))
+            if cantidad_decimal > pendiente:
+                motivo = (request.form.get(f'motivo_exceso_{detalle.id}', '') or '').strip()
+                if not motivo:
+                    errores_exceso.append(detalle.producto.codigo)
+
+        if errores_exceso:
+            productos_txt = ', '.join(errores_exceso)
+            flash(
+                f'Debes indicar un motivo del exceso para: {productos_txt}.',
+                'danger'
+            )
+            return redirect(url_for('compras.recibir', id=id))
+
         # Procesar cantidades recibidas
         for detalle in orden.detalles:
             cantidad_recibida = request.form.get(f'cantidad_{detalle.id}', type=float)
 
             if cantidad_recibida and cantidad_recibida > 0:
                 cantidad_decimal = Decimal(str(cantidad_recibida))
+                pendiente = Decimal(str(detalle.cantidad_pendiente))
+                exceso = cantidad_decimal - pendiente
+                motivo_exceso = (request.form.get(f'motivo_exceso_{detalle.id}', '') or '').strip()
 
                 # Actualizar cantidad recibida
                 detalle.cantidad_recibida = (detalle.cantidad_recibida or 0) + cantidad_decimal
@@ -152,6 +220,10 @@ def recibir(id):
                 stock_anterior, stock_posterior = producto.actualizar_stock(cantidad_decimal, 'compra')
 
                 # Registrar movimiento de stock
+                motivo = f'Recepción de orden #{orden.numero}'
+                if exceso > 0 and motivo_exceso:
+                    motivo = f'{motivo}. Exceso: {motivo_exceso}'
+
                 movimiento = MovimientoStock(
                     producto_id=producto.id,
                     tipo='compra',
@@ -160,7 +232,7 @@ def recibir(id):
                     stock_posterior=stock_posterior,
                     referencia_tipo='orden_compra',
                     referencia_id=orden.id,
-                    motivo=f'Recepción de orden #{orden.numero}',
+                    motivo=motivo,
                     usuario_id=current_user.id
                 )
                 db.session.add(movimiento)

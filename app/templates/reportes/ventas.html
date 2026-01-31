@@ -1,5 +1,8 @@
 {% extends 'base.html' %}
 {% block title %}Reporte de Ventas - {{ app_name }}{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/air-datepicker@3.5.3/air-datepicker.css">
+{% endblock %}
 {% block content %}
 <div class="page-header">
     <h2>Reporte de Ventas</h2>
@@ -13,11 +16,19 @@
         <form class="filter-bar">
             <div>
                 <label class="form-label small">Desde</label>
-                <input type="date" name="fecha_desde" class="form-control" value="{{ fecha_desde }}">
+                <input type="text"
+                       name="fecha_desde"
+                       class="form-control js-air-date"
+                       placeholder="dd/mm/aaaa"
+                       value="{{ fecha_desde.strftime('%d/%m/%Y') if fecha_desde else '' }}">
             </div>
             <div>
                 <label class="form-label small">Hasta</label>
-                <input type="date" name="fecha_hasta" class="form-control" value="{{ fecha_hasta }}">
+                <input type="text"
+                       name="fecha_hasta"
+                       class="form-control js-air-date"
+                       placeholder="dd/mm/aaaa"
+                       value="{{ fecha_hasta.strftime('%d/%m/%Y') if fecha_hasta else '' }}">
             </div>
             <button type="submit" class="btn btn-primary mt-auto">Filtrar</button>
         </form>
@@ -93,7 +104,68 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/air-datepicker@3.5.3/air-datepicker.js"></script>
 <script>
+const localeEs = {
+    days: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
+    daysShort: ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'],
+    daysMin: ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'],
+    months: [
+        'Enero',
+        'Febrero',
+        'Marzo',
+        'Abril',
+        'Mayo',
+        'Junio',
+        'Julio',
+        'Agosto',
+        'Septiembre',
+        'Octubre',
+        'Noviembre',
+        'Diciembre'
+    ],
+    monthsShort: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+    today: 'Hoy',
+    clear: 'Limpiar',
+    dateFormat: 'dd/MM/yyyy',
+    timeFormat: 'hh:mm aa',
+    firstDay: 1
+};
+
+function formatFecha(date) {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+}
+
+function parseFecha(value) {
+    const parts = String(value || '').split('/');
+    if (parts.length !== 3) {
+        return null;
+    }
+    const day = Number.parseInt(parts[0], 10);
+    const month = Number.parseInt(parts[1], 10) - 1;
+    const year = Number.parseInt(parts[2], 10);
+    if (Number.isNaN(day) || Number.isNaN(month) || Number.isNaN(year)) {
+        return null;
+    }
+    return new Date(year, month, day);
+}
+
+document.querySelectorAll('.js-air-date').forEach((input) => {
+    const initialDate = parseFecha(input.value) || new Date();
+    if (!input.value) {
+        input.value = formatFecha(initialDate);
+    }
+    new AirDatepicker(input, {
+        autoClose: true,
+        locale: localeEs,
+        dateFormat: 'dd/MM/yyyy',
+        selectedDates: [initialDate]
+    });
+});
+
 const ventasData = {{ ventas_por_dia|tojson }};
 new Chart(document.getElementById('ventasDiaChart'), {
     type: 'line',

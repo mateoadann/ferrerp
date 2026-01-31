@@ -21,11 +21,25 @@ def ventas():
     fecha_hasta = datetime.utcnow().date()
     fecha_desde = fecha_hasta - timedelta(days=30)
 
+    def parse_fecha(valor):
+        if not valor:
+            return None
+        for formato in ('%Y-%m-%d', '%d/%m/%Y'):
+            try:
+                return datetime.strptime(valor, formato).date()
+            except ValueError:
+                continue
+        return None
+
     # Obtener parámetros
     if request.args.get('fecha_desde'):
-        fecha_desde = datetime.strptime(request.args.get('fecha_desde'), '%Y-%m-%d').date()
+        fecha_desde_parseada = parse_fecha(request.args.get('fecha_desde'))
+        if fecha_desde_parseada:
+            fecha_desde = fecha_desde_parseada
     if request.args.get('fecha_hasta'):
-        fecha_hasta = datetime.strptime(request.args.get('fecha_hasta'), '%Y-%m-%d').date()
+        fecha_hasta_parseada = parse_fecha(request.args.get('fecha_hasta'))
+        if fecha_hasta_parseada:
+            fecha_hasta = fecha_hasta_parseada
 
     inicio = datetime.combine(fecha_desde, datetime.min.time())
     fin = datetime.combine(fecha_hasta, datetime.max.time())
