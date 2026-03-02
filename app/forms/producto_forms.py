@@ -92,6 +92,16 @@ class ProductoForm(FlaskForm):
         }
     )
 
+    iva_porcentaje = SelectField(
+        'IVA',
+        choices=[
+            ('21', '21%'),
+            ('10.5', '10.5%'),
+            ('27', '27%')
+        ],
+        default='21'
+    )
+
     stock_actual = DecimalField(
         'Stock Actual',
         validators=[

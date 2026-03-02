@@ -362,18 +362,38 @@
     <!-- Totales -->
     <div class="totales-section">
         <div class="totales-box">
-            {% set iva_pct = config_negocio.iva_porcentaje|default(21)|float %}
             {% set con_iva = config_negocio.precios_con_iva|default(true) %}
-            {% set total_num = presupuesto.total|float %}
-            {% if con_iva %}
-                {% set neto = total_num / (1 + iva_pct / 100) %}
-                {% set iva_monto = total_num - neto %}
-                {% set total_final = total_num %}
-            {% else %}
-                {% set neto = total_num %}
-                {% set iva_monto = total_num * iva_pct / 100 %}
-                {% set total_final = total_num + iva_monto %}
-            {% endif %}
+            {% set detalles = presupuesto.detalles %}
+            
+            {% set iva_agrupado = {} %}
+            {% for detalle in detalles %}
+                {% set iva_pct = detalle.iva_porcentaje|default(21)|float %}
+                {% set item_subtotal = detalle.subtotal|float %}
+                {% set proporcion = presupuesto.subtotal|float > 0 ? item_subtotal / presupuesto.subtotal|float : 0 %}
+                {% set item_total = presupuesto.total|float * proporcion %}
+                
+                {% if con_iva %}
+                    {% set item_neto = item_total / (1 + iva_pct / 100) %}
+                    {% set item_iva = item_total - item_neto %}
+                {% else %}
+                    {% set item_neto = item_total %}
+                    {% set item_iva = item_total * iva_pct / 100 %}
+                {% endif %}
+                
+                {% if iva_pct|string in iva_agrupado %}
+                    {% set iva_agrupado = iva_agrupado|combine({iva_pct|string: {'subtotal': iva_agrupado[iva_pct|string].subtotal + item_neto, 'iva': iva_agrupado[iva_pct|string].iva + item_iva}}) %}
+                {% else %}
+                    {% set iva_agrupado = iva_agrupado|combine({iva_pct|string: {'subtotal': item_neto, 'iva': item_iva}}) %}
+                {% endif %}
+            {% endfor %}
+            
+            {% set neto_total = 0 %}
+            {% set iva_total = 0 %}
+            {% for pct, datos in iva_agrupado.items() %}
+                {% set neto_total = neto_total + datos.subtotal %}
+                {% set iva_total = iva_total + datos.iva %}
+            {% endfor %}
+            
             <div class="totales-row">
                 <span>Subtotal:</span>
                 <span>${{ '{:,.2f}'.format(presupuesto.subtotal) }}</span>
@@ -386,15 +406,17 @@
             {% endif %}
             <div class="totales-row">
                 <span>Neto gravado:</span>
-                <span>${{ '{:,.2f}'.format(neto) }}</span>
+                <span>${{ '{:,.2f}'.format(neto_total) }}</span>
             </div>
+            {% for pct, datos in iva_agrupado.items() %}
             <div class="totales-row">
-                <span>IVA ({{ '{:g}'.format(iva_pct) }}%):</span>
-                <span>${{ '{:,.2f}'.format(iva_monto) }}</span>
+                <span>IVA ({{ pct }}%):</span>
+                <span>${{ '{:,.2f}'.format(datos.iva) }}</span>
             </div>
+            {% endfor %}
             <div class="totales-row total">
                 <span>TOTAL:</span>
-                <span>${{ '{:,.2f}'.format(total_final) }}</span>
+                <span>${{ '{:,.2f}'.format(presupuesto.total) }}</span>
             </div>
             <div style="font-size: 9px; color: #999; text-align: right; margin-top: 4px;">
                 {% if con_iva %}Los precios incluyen IVA{% else %}Los precios no incluyen IVA{% endif %}

@@ -164,10 +164,12 @@
                     <span class="text-muted small">Neto (sin IVA)</span>
                     <span class="small" x-text="formatCurrency(netoSinIva)"></span>
                 </div>
-                <div class="summary-row mb-2">
-                    <span class="text-muted small">IVA (<span x-text="ivaPorcentaje"></span>%)</span>
-                    <span class="small" x-text="formatCurrency(ivaMonto)"></span>
-                </div>
+                <template x-for="(data, pct) in ivaAgrupado" :key="pct">
+                    <div class="summary-row mb-1">
+                        <span class="text-muted small">IVA (<span x-text="pct"></span>%)</span>
+                        <span class="small" x-text="formatCurrency(data.iva)"></span>
+                    </div>
+                </template>
                 <div class="summary-row">
                     <span class="fw-bold">TOTAL</span>
                     <span class="summary-total" x-text="formatCurrency(totalConIva)"></span>
@@ -294,19 +296,55 @@ function posApp() {
             return this.subtotal - this.descuentoMonto;
         },
 
-        get ivaPorcentaje() { return {{ iva_porcentaje|default(21) }}; },
         get preciosConIva() { return {{ 'true' if precios_con_iva else 'false' }}; },
+
+        get ivaAgrupado() {
+            const grupos = {};
+            const subtotalConDesc = this.total;
+            
+            this.cart.forEach(item => {
+                const ivaPct = item.iva_porcentaje || 21;
+                const itemSubtotal = item.cantidad * item.precio_unitario;
+                const proporcion = itemSubtotal / this.subtotal;
+                const itemTotal = subtotalConDesc * proporcion;
+                
+                if (!grupos[ivaPct]) {
+                    grupos[ivaPct] = { subtotal: 0, iva: 0 };
+                }
+                
+                if (this.preciosConIva) {
+                    const neto = itemTotal / (1 + ivaPct / 100);
+                    const iva = itemTotal - neto;
+                    grupos[ivaPct].subtotal += neto;
+                    grupos[ivaPct].iva += iva;
+                } else {
+                    const iva = itemTotal * ivaPct / 100;
+                    grupos[ivaPct].subtotal += itemTotal;
+                    grupos[ivaPct].iva += iva;
+                }
+            });
+            
+            return grupos;
+        },
+
         get netoSinIva() {
-            if (this.preciosConIva) return this.total / (1 + this.ivaPorcentaje / 100);
-            return this.total;
+            let neto = 0;
+            Object.values(this.ivaAgrupado).forEach(g => {
+                neto += g.subtotal;
+            });
+            return neto;
         },
+
         get ivaMonto() {
-            if (this.preciosConIva) return this.total - this.netoSinIva;
-            return this.total * this.ivaPorcentaje / 100;
+            let iva = 0;
+            Object.values(this.ivaAgrupado).forEach(g => {
+                iva += g.iva;
+            });
+            return iva;
         },
+
         get totalConIva() {
-            if (this.preciosConIva) return this.total;
-            return this.total + this.ivaMonto;
+            return this.netoSinIva + this.ivaMonto;
         },
 
         get vuelto() {
@@ -402,6 +440,7 @@ function posApp() {
                     unidad_medida_display: product.unidad_medida_display,
                     cantidad: 1,
                     precio_unitario: product.precio_venta,
+                    iva_porcentaje: product.iva_porcentaje || 21,
                     stock_disponible: product.stock_actual
                 });
             }

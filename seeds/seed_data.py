@@ -75,7 +75,6 @@ def seed_configuracion():
         ('email', 'contacto@eltornillo.com', 'string'),
         ('condicion_iva', 'responsable_inscripto', 'string'),
         ('moneda', 'ARS', 'string'),
-        ('porcentaje_iva', '21', 'decimal'),
         ('presupuesto_validez_dias', '15', 'integer'),
         ('presupuesto_texto_pie', 'Los precios pueden variar sin previo aviso. Este presupuesto no incluye IVA salvo indicación expresa.', 'string'),
     ]

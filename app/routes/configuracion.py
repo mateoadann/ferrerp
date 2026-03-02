@@ -27,7 +27,6 @@ def index():
         form.direccion.data = Configuracion.get('direccion', '')
         form.telefono.data = Configuracion.get('telefono', '')
         form.cuit.data = Configuracion.get('cuit', '')
-        form.iva_porcentaje.data = Configuracion.get('iva_porcentaje', 21)
         form.precios_con_iva.data = Configuracion.get('precios_con_iva', True)
 
     if form.validate_on_submit():
@@ -35,7 +34,6 @@ def index():
         Configuracion.set('direccion', form.direccion.data, 'string')
         Configuracion.set('telefono', form.telefono.data, 'string')
         Configuracion.set('cuit', form.cuit.data, 'string')
-        Configuracion.set('iva_porcentaje', str(form.iva_porcentaje.data), 'decimal')
         Configuracion.set('precios_con_iva', form.precios_con_iva.data, 'boolean')
 
         flash('Configuración guardada correctamente.', 'success')

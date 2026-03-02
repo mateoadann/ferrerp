@@ -54,6 +54,7 @@ def crear_presupuesto(items, usuario_id, cliente_id=None, cliente_nombre=None,
             producto_id=producto.id,
             cantidad=cantidad,
             precio_unitario=precio,
+            iva_porcentaje=producto.iva_porcentaje,
             subtotal=item_subtotal
         )
         presupuesto.detalles.append(detalle)
@@ -107,6 +108,7 @@ def actualizar_presupuesto(presupuesto, items, cliente_id=None, cliente_nombre=N
             producto_id=producto.id,
             cantidad=cantidad,
             precio_unitario=precio,
+            iva_porcentaje=producto.iva_porcentaje,
             subtotal=item_subtotal
         )
         db.session.add(detalle)
@@ -199,6 +201,7 @@ def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id):
             producto_id=producto.id,
             cantidad=cantidad,
             precio_unitario=precio,
+            iva_porcentaje=detalle.iva_porcentaje,
             subtotal=item_subtotal
         )
         venta.detalles.append(venta_detalle)
