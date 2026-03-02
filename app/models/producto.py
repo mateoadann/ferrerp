@@ -23,6 +23,7 @@ class Producto(db.Model):
     )
     precio_costo = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     precio_venta = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    iva_porcentaje = db.Column(db.Numeric(5, 2), nullable=False, default=Decimal('21'))
     stock_actual = db.Column(db.Numeric(12, 3), default=0, nullable=False)
     stock_minimo = db.Column(db.Numeric(12, 3), default=0, nullable=False)
     proveedor_id = db.Column(db.Integer, db.ForeignKey('proveedores.id'), index=True)
@@ -105,6 +106,7 @@ class Producto(db.Model):
             'unidad_medida_abrev': self.unidad_medida_abrev,
             'precio_costo': float(self.precio_costo) if self.precio_costo else 0,
             'precio_venta': float(self.precio_venta) if self.precio_venta else 0,
+            'iva_porcentaje': float(self.iva_porcentaje) if self.iva_porcentaje else 21,
             'stock_actual': float(self.stock_actual) if self.stock_actual else 0,
             'stock_minimo': float(self.stock_minimo) if self.stock_minimo else 0,
             'stock_bajo': self.stock_bajo,

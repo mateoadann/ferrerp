@@ -133,7 +133,6 @@ def register_template_context(app):
             'app_name': app.config.get('APP_NAME', 'FerrERP'),
             'current_year': datetime.now().year,
             'get_config': get_config,
-            'iva_porcentaje': get_config('iva_porcentaje', 21),
             'precios_con_iva': get_config('precios_con_iva', True),
         }
 

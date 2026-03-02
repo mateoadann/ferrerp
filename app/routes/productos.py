@@ -1,5 +1,7 @@
 """Rutas de productos."""
 
+from decimal import Decimal
+
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 
@@ -91,6 +93,7 @@ def nuevo():
             unidad_medida=form.unidad_medida.data,
             precio_costo=form.precio_costo.data,
             precio_venta=form.precio_venta.data,
+            iva_porcentaje=Decimal(str(form.iva_porcentaje.data)),
             stock_actual=form.stock_actual.data or 0,
             stock_minimo=form.stock_minimo.data or 0,
             proveedor_id=form.proveedor_id.data if form.proveedor_id.data else None,
@@ -145,6 +148,7 @@ def editar(id):
         producto.unidad_medida = form.unidad_medida.data
         producto.precio_costo = form.precio_costo.data
         producto.precio_venta = form.precio_venta.data
+        producto.iva_porcentaje = Decimal(str(form.iva_porcentaje.data))
         producto.stock_minimo = form.stock_minimo.data or 0
         producto.proveedor_id = form.proveedor_id.data if form.proveedor_id.data else None
         producto.ubicacion = form.ubicacion.data

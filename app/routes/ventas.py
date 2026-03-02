@@ -94,6 +94,7 @@ def punto_de_venta():
                     producto_id=producto.id,
                     cantidad=cantidad,
                     precio_unitario=precio,
+                    iva_porcentaje=producto.iva_porcentaje,
                     subtotal=item_subtotal
                 )
                 venta.detalles.append(detalle)

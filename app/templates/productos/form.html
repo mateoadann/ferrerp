@@ -75,6 +75,11 @@
             </div>
 
             <div class="col-md-3">
+                <label class="form-label">{{ form.iva_porcentaje.label.text }}</label>
+                {{ form.iva_porcentaje(class="form-select") }}
+            </div>
+
+            <div class="col-md-3">
                 <label class="form-label">{{ form.stock_actual.label.text }}</label>
                 {{ form.stock_actual(class="form-control", readonly=producto is defined) }}
                 {% if producto is defined %}

@@ -24,6 +24,7 @@ class VentaDetalle(db.Model):
     )
     cantidad = db.Column(db.Numeric(12, 3), nullable=False)
     precio_unitario = db.Column(db.Numeric(12, 2), nullable=False)
+    iva_porcentaje = db.Column(db.Numeric(5, 2), nullable=False, default=Decimal('21'))
     subtotal = db.Column(db.Numeric(12, 2), nullable=False)
 
     def __repr__(self):
@@ -44,5 +45,6 @@ class VentaDetalle(db.Model):
             'producto_nombre': self.producto.nombre if self.producto else None,
             'cantidad': float(self.cantidad) if self.cantidad else 0,
             'precio_unitario': float(self.precio_unitario) if self.precio_unitario else 0,
+            'iva_porcentaje': float(self.iva_porcentaje) if self.iva_porcentaje else 21,
             'subtotal': float(self.subtotal) if self.subtotal else 0
         }
