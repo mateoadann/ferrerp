@@ -1,5 +1,15 @@
 #!/bin/sh
 set -e
 
+while read local_ref local_sha remote_ref remote_sha; do
+    remote_name=$(echo "$remote_ref" | sed 's|refs/heads/||')
+
+    if [ "$remote_name" = "main" ] || [ "$remote_name" = "dev" ]; then
+        echo "ERROR: Push directo a '$remote_name' no permitido."
+        echo "Los cambios a main/dev deben hacerse via PR."
+        exit 1
+    fi
+done
+
 echo "Ejecutando tests antes de push..."
 make test-dev-run

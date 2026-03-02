@@ -97,10 +97,9 @@ test-dev-run:
 # Instalar hook pre-push
 install-hooks:
 	@if [ -d .git ]; then \
-		mkdir -p .git/hooks; \
-		cp .githooks/pre-push .git/hooks/pre-push; \
-		chmod +x .git/hooks/pre-push; \
-		echo "Hook pre-push instalado."; \
+		git config core.hooksPath .githooks; \
+		chmod +x .githooks/pre-push; \
+		echo "Hook pre-push instalado en .githooks/ (usando core.hooksPath)."; \
 	else \
 		echo "No existe .git, inicializa el repo antes de instalar hooks."; \
 	fi
