@@ -31,7 +31,7 @@
 
             <div class="col-md-4">
                 <label class="form-label">{{ form.unidad_medida.label.text }}</label>
-                {{ form.unidad_medida(class="form-select") }}
+                {{ form.unidad_medida(class="form-select", **{'@change': 'actualizarStepStock()'}) }}
             </div>
 
             <div class="col-md-8">
@@ -86,7 +86,7 @@
 
             <div class="col-md-3">
                 <label class="form-label">{{ form.stock_actual.label.text }}</label>
-                {{ form.stock_actual(class="form-control", readonly=producto is defined) }}
+                {{ form.stock_actual(class="form-control", id="stock_actual", readonly=producto is defined) }}
                 {% if producto is defined %}
                 <small class="text-muted">Usa ajustes de inventario para modificar</small>
                 {% endif %}
@@ -94,7 +94,7 @@
 
             <div class="col-md-3">
                 <label class="form-label">{{ form.stock_minimo.label.text }}</label>
-                {{ form.stock_minimo(class="form-control") }}
+                {{ form.stock_minimo(class="form-control", id="stock_minimo") }}
             </div>
 
             <div class="col-md-6">
@@ -197,9 +197,26 @@ function categoriaProductoForm() {
             await this.cargarSubcategorias();
         },
 
+        actualizarStepStock() {
+            const unidad = document.getElementById('unidad_medida').value;
+            const esEntero = (unidad === 'unidad' || unidad === 'par');
+            const step = esEntero ? '1' : '0.01';
+            const campos = ['stock_actual', 'stock_minimo'];
+            campos.forEach(id => {
+                const input = document.getElementById(id);
+                if (input) {
+                    input.step = step;
+                    if (esEntero) {
+                        input.value = Math.round(parseFloat(input.value) || 0);
+                    }
+                }
+            });
+        },
+
         init() {
             this.$nextTick(async () => {
                 await this.cargarSubcategorias();
+                this.actualizarStepStock();
             });
         }
     }

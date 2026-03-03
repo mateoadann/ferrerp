@@ -2,7 +2,7 @@
 
 from flask_wtf import FlaskForm
 from wtforms import BooleanField, DecimalField, SelectField, StringField, SubmitField, TextAreaField
-from wtforms.validators import DataRequired, Length, NumberRange, Optional
+from wtforms.validators import DataRequired, Length, NumberRange, Optional, ValidationError
 
 
 class ProductoForm(FlaskForm):
@@ -124,6 +124,30 @@ class ProductoForm(FlaskForm):
     activo = BooleanField('Producto activo', default=True)
 
     submit = SubmitField('Guardar Producto')
+
+    UNIDADES_ENTERAS = ('unidad', 'par')
+
+    def validate_stock_actual(self, field):
+        """Valida que el stock sea entero para unidades discretas."""
+        if (
+            field.data is not None
+            and self.unidad_medida.data in self.UNIDADES_ENTERAS
+            and field.data != int(field.data)
+        ):
+            raise ValidationError(
+                'El stock debe ser un número entero para esta unidad de medida.'
+            )
+
+    def validate_stock_minimo(self, field):
+        """Valida que el stock mínimo sea entero para unidades discretas."""
+        if (
+            field.data is not None
+            and self.unidad_medida.data in self.UNIDADES_ENTERAS
+            and field.data != int(field.data)
+        ):
+            raise ValidationError(
+                'El stock mínimo debe ser un número entero para esta unidad de medida.'
+            )
 
     def __init__(self, *args, **kwargs):
         super(ProductoForm, self).__init__(*args, **kwargs)

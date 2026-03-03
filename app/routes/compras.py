@@ -59,7 +59,6 @@ def nueva():
         # Obtener items del formulario
         productos_ids = request.form.getlist('producto_id[]')
         cantidades = request.form.getlist('cantidad[]')
-        precios = request.form.getlist('precio[]')
 
         if not productos_ids or not any(productos_ids):
             flash('Agrega al menos un producto a la orden.', 'danger')
@@ -94,30 +93,23 @@ def nueva():
         db.session.flush()
 
         # Agregar detalles
-        total = Decimal('0')
         for i, prod_id in enumerate(productos_ids):
             if not prod_id:
                 continue
 
             cantidad = Decimal(cantidades[i]) if cantidades[i] else Decimal('0')
-            precio = Decimal(precios[i]) if precios[i] else Decimal('0')
 
             if cantidad <= 0:
                 continue
-
-            subtotal = cantidad * precio
-            total += subtotal
 
             detalle = OrdenCompraDetalle(
                 orden_compra_id=orden.id,
                 producto_id=int(prod_id),
                 cantidad_pedida=cantidad,
-                precio_unitario=precio,
-                subtotal=subtotal
             )
             db.session.add(detalle)
 
-        orden.total = total
+        orden.total = Decimal('0')
         db.session.commit()
 
         flash(f'Orden de compra #{orden.numero} creada correctamente.', 'success')
@@ -132,7 +124,6 @@ def nueva():
             'codigo': producto.codigo,
             'nombre': producto.nombre,
             'proveedor_id': producto.proveedor_id,
-            'precio_costo': float(producto.precio_costo or 0),
         }
         for producto in productos
     ]
@@ -180,8 +171,6 @@ def recibir(id):
         return redirect(url_for('compras.detalle', id=id))
 
     if request.method == 'POST':
-        actualizar_precios = request.form.get('actualizar_precios') == '1'
-
         errores_exceso = []
         for detalle in orden.detalles:
             cantidad_recibida = request.form.get(f'cantidad_{detalle.id}', type=float)
@@ -238,10 +227,6 @@ def recibir(id):
                     empresa_id=current_user.empresa_id,
                 )
                 db.session.add(movimiento)
-
-                # Opcionalmente actualizar precio de costo
-                if actualizar_precios:
-                    producto.precio_costo = detalle.precio_unitario
 
         # Actualizar estado de la orden
         orden.actualizar_estado()
@@ -322,7 +307,6 @@ def generar_orden_sugerencia():
     db.session.add(orden)
     db.session.flush()
 
-    total = Decimal('0')
     items_agregados = 0
     for i, prod_id in enumerate(productos_ids):
         if not prod_id:
@@ -336,17 +320,12 @@ def generar_orden_sugerencia():
         if cantidad <= 0:
             continue
 
-        subtotal = cantidad * producto.precio_costo
-
         detalle = OrdenCompraDetalle(
             orden_compra_id=orden.id,
             producto_id=producto.id,
             cantidad_pedida=cantidad,
-            precio_unitario=producto.precio_costo,
-            subtotal=subtotal
         )
         db.session.add(detalle)
-        total += subtotal
         items_agregados += 1
 
     if items_agregados == 0:
@@ -354,7 +333,7 @@ def generar_orden_sugerencia():
         flash('No se seleccionó ningún producto válido.', 'danger')
         return redirect(url_for('compras.sugerencia'))
 
-    orden.total = total
+    orden.total = Decimal('0')
     db.session.commit()
 
     flash(f'Orden #{orden.numero} creada desde sugerencia con {items_agregados} producto(s).', 'success')

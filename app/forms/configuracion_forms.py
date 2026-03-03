@@ -44,6 +44,6 @@ class ConfiguracionForm(FlaskForm):
         render_kw={'placeholder': 'XX-XXXXXXXX-X'}
     )
 
-    precios_con_iva = BooleanField('Precios incluyen IVA', default=True)
+    precios_con_iva = BooleanField('Precios incluyen IVA', default=False)
 
     submit = SubmitField('Guardar Configuración')

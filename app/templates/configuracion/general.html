@@ -37,13 +37,46 @@
                     </div>
                     <div class="col-12">
                         <div class="form-check">
-                            {{ form.precios_con_iva(class="form-check-input") }}
-                            <label class="form-check-label">{{ form.precios_con_iva.label.text }}</label>
+                            {{ form.precios_con_iva(class="form-check-input", id="precios_con_iva") }}
+                            <label class="form-check-label" for="precios_con_iva">
+                                {{ form.precios_con_iva.label.text }}
+                            </label>
                         </div>
                         <small class="text-muted d-block mt-1 ms-4">
                             Si está activado, los precios cargados en productos ya incluyen IVA y se desglosa al facturar.
                             Si está desactivado, los precios son netos y el IVA se suma al total.
                         </small>
+                    </div>
+
+                    <!-- Modal confirmación IVA -->
+                    <div class="modal fade" id="modalIva" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">¿Activar precios con IVA incluido?</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Al activar esta opción, el sistema interpretará que los precios que cargues
+                                       en tus productos <strong>ya incluyen IVA</strong>.</p>
+                                    <div class="alert alert-info">
+                                        <strong>Ejemplo:</strong> Si cargás un producto a <strong>$1.000</strong>
+                                        con IVA 21%, el sistema entenderá que:<br>
+                                        • Precio neto: <strong>$826,45</strong><br>
+                                        • IVA 21%: <strong>$173,55</strong><br>
+                                        • Total: <strong>$1.000,00</strong>
+                                    </div>
+                                    <p>Si desactivás esta opción, los precios se consideran <strong>netos</strong>
+                                       y el IVA se <strong>suma</strong> al total.</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
+                                            id="btnCancelarIva">Cancelar</button>
+                                    <button type="button" class="btn btn-primary"
+                                            id="btnConfirmarIva">Sí, activar</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-12"><hr>
                         <button type="submit" class="btn btn-primary"><span class="material-symbols-rounded me-2">save</span>Guardar</button>
@@ -53,4 +86,29 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkbox = document.getElementById('precios_con_iva');
+    const modal = new bootstrap.Modal(document.getElementById('modalIva'));
+
+    checkbox.addEventListener('change', function() {
+        if (this.checked) {
+            this.checked = false;
+            modal.show();
+        }
+    });
+
+    document.getElementById('btnConfirmarIva').addEventListener('click', function() {
+        checkbox.checked = true;
+        modal.hide();
+    });
+
+    document.getElementById('btnCancelarIva').addEventListener('click', function() {
+        checkbox.checked = false;
+    });
+});
+</script>
 {% endblock %}

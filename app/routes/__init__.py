@@ -14,6 +14,7 @@ from .presupuestos import bp as presupuestos_bp
 from .caja import bp as caja_bp
 from .reportes import bp as reportes_bp
 from .configuracion import bp as configuracion_bp
+from .facturacion import bp as facturacion_bp
 
 __all__ = [
     'auth_bp',
@@ -27,5 +28,6 @@ __all__ = [
     'presupuestos_bp',
     'caja_bp',
     'reportes_bp',
-    'configuracion_bp'
+    'configuracion_bp',
+    'facturacion_bp',
 ]
