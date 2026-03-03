@@ -2,16 +2,23 @@
 
 from datetime import datetime
 from decimal import Decimal
+
+from sqlalchemy import UniqueConstraint
+
 from ..extensions import db
+from .mixins import EmpresaMixin
 
 
-class Producto(db.Model):
+class Producto(EmpresaMixin, db.Model):
     """Modelo de producto."""
 
     __tablename__ = 'productos'
+    __table_args__ = (
+        UniqueConstraint('empresa_id', 'codigo', name='uq_productos_empresa_codigo'),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
-    codigo = db.Column(db.String(20), unique=True, nullable=False, index=True)
+    codigo = db.Column(db.String(20), nullable=False, index=True)
     codigo_barras = db.Column(db.String(50), index=True)
     nombre = db.Column(db.String(100), nullable=False)
     descripcion = db.Column(db.Text)
@@ -19,7 +26,7 @@ class Producto(db.Model):
     unidad_medida = db.Column(
         db.Enum('unidad', 'metro', 'kilo', 'litro', 'par', name='unidad_medida'),
         nullable=False,
-        default='unidad'
+        default='unidad',
     )
     precio_costo = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     precio_venta = db.Column(db.Numeric(12, 2), nullable=False, default=0)
@@ -35,7 +42,9 @@ class Producto(db.Model):
     # Relaciones
     movimientos_stock = db.relationship('MovimientoStock', backref='producto', lazy='dynamic')
     detalles_venta = db.relationship('VentaDetalle', backref='producto', lazy='dynamic')
-    detalles_orden_compra = db.relationship('OrdenCompraDetalle', backref='producto', lazy='dynamic')
+    detalles_orden_compra = db.relationship(
+        'OrdenCompraDetalle', backref='producto', lazy='dynamic'
+    )
 
     def __repr__(self):
         return f'<Producto {self.codigo} - {self.nombre}>'
@@ -60,20 +69,14 @@ class Producto(db.Model):
             'metro': 'Metro',
             'kilo': 'Kilogramo',
             'litro': 'Litro',
-            'par': 'Par'
+            'par': 'Par',
         }
         return opciones.get(self.unidad_medida, self.unidad_medida)
 
     @property
     def unidad_medida_abrev(self):
         """Retorna la abreviatura de la unidad de medida."""
-        opciones = {
-            'unidad': 'u',
-            'metro': 'm',
-            'kilo': 'kg',
-            'litro': 'l',
-            'par': 'par'
-        }
+        opciones = {'unidad': 'u', 'metro': 'm', 'kilo': 'kg', 'litro': 'l', 'par': 'par'}
         return opciones.get(self.unidad_medida, self.unidad_medida)
 
     def actualizar_stock(self, cantidad, tipo_movimiento):
@@ -100,7 +103,7 @@ class Producto(db.Model):
             'nombre': self.nombre,
             'descripcion': self.descripcion,
             'categoria_id': self.categoria_id,
-            'categoria_nombre': self.categoria.nombre if self.categoria else None,
+            'categoria_nombre': self.categoria.nombre_completo if self.categoria else None,
             'unidad_medida': self.unidad_medida,
             'unidad_medida_display': self.unidad_medida_display,
             'unidad_medida_abrev': self.unidad_medida_abrev,
@@ -113,5 +116,5 @@ class Producto(db.Model):
             'proveedor_id': self.proveedor_id,
             'proveedor_nombre': self.proveedor.nombre if self.proveedor else None,
             'ubicacion': self.ubicacion,
-            'activo': self.activo
+            'activo': self.activo,
         }

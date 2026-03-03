@@ -55,7 +55,7 @@
                         <label class="text-muted small">Categoría</label>
                         <p class="mb-0">
                             {% if producto.categoria %}
-                            <span class="badge badge-secondary">{{ producto.categoria.nombre }}</span>
+                            <span class="badge badge-secondary">{{ producto.categoria.nombre_completo }}</span>
                             {% else %}
                             Sin categoría
                             {% endif %}

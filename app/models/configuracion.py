@@ -2,16 +2,26 @@
 
 import json
 from decimal import Decimal
+
+from flask_login import current_user
+from sqlalchemy import UniqueConstraint
+
 from ..extensions import db
+from .mixins import EmpresaMixin
 
 
-class Configuracion(db.Model):
+class Configuracion(EmpresaMixin, db.Model):
     """Modelo de configuración del sistema."""
 
     __tablename__ = 'configuraciones'
+    __table_args__ = (
+        UniqueConstraint(
+            'empresa_id', 'clave', name='uq_configuraciones_empresa_clave'
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
-    clave = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    clave = db.Column(db.String(50), nullable=False, index=True)
     valor = db.Column(db.Text)
     tipo = db.Column(
         db.Enum('string', 'integer', 'decimal', 'boolean', 'json', name='tipo_configuracion'),
@@ -50,22 +60,30 @@ class Configuracion(db.Model):
             self.valor = str(valor)
 
     @classmethod
-    def get(cls, clave, default=None):
+    def get(cls, clave, default=None, empresa_id=None):
         """
-        Obtiene el valor de una configuración por clave.
+        Obtiene el valor de una configuración por clave y empresa.
 
         Args:
             clave: Clave de la configuración
             default: Valor por defecto si no existe
+            empresa_id: ID de la empresa (si no se pasa, usa la del usuario actual)
 
         Returns:
             El valor de la configuración o el default
         """
-        config = cls.query.filter_by(clave=clave).first()
+        if empresa_id is None:
+            try:
+                if not current_user.is_authenticated:
+                    return default
+                empresa_id = current_user.empresa_id
+            except AttributeError:
+                return default
+        config = cls.query.filter_by(clave=clave, empresa_id=empresa_id).first()
         return config.get_valor() if config else default
 
     @classmethod
-    def set(cls, clave, valor, tipo='string'):
+    def set(cls, clave, valor, tipo='string', empresa_id=None):
         """
         Establece el valor de una configuración.
 
@@ -73,10 +91,18 @@ class Configuracion(db.Model):
             clave: Clave de la configuración
             valor: Valor a establecer
             tipo: Tipo de dato ('string', 'integer', 'decimal', 'boolean', 'json')
+            empresa_id: ID de la empresa (si no se pasa, usa la del usuario actual)
         """
-        config = cls.query.filter_by(clave=clave).first()
+        if empresa_id is None:
+            try:
+                if not current_user.is_authenticated:
+                    raise ValueError('Se requiere empresa_id o usuario autenticado')
+                empresa_id = current_user.empresa_id
+            except AttributeError:
+                raise ValueError('Se requiere empresa_id o usuario autenticado')
+        config = cls.query.filter_by(clave=clave, empresa_id=empresa_id).first()
         if not config:
-            config = cls(clave=clave, tipo=tipo)
+            config = cls(clave=clave, tipo=tipo, empresa_id=empresa_id)
             db.session.add(config)
         config.tipo = tipo
         config.set_valor(valor)

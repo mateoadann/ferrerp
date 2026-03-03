@@ -1,15 +1,15 @@
 """Rutas de configuración."""
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request
-from flask_login import login_required
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
 
 from ..extensions import db
-from ..models import Usuario, Categoria, Configuracion
-from ..forms.usuario_forms import UsuarioForm, UsuarioEditForm
-from ..forms.producto_forms import CategoriaForm
 from ..forms.configuracion_forms import ConfiguracionForm
-from ..utils.helpers import paginar_query, es_peticion_htmx
+from ..forms.producto_forms import CategoriaForm
+from ..forms.usuario_forms import UsuarioEditForm, UsuarioForm
+from ..models import Categoria, Configuracion, Usuario
 from ..utils.decorators import admin_required
+from ..utils.helpers import es_peticion_htmx
 
 bp = Blueprint('configuracion', __name__, url_prefix='/configuracion')
 
@@ -22,12 +22,12 @@ def index():
     form = ConfiguracionForm()
 
     if request.method == 'GET':
-        # Cargar valores actuales
-        form.nombre_negocio.data = Configuracion.get('nombre_negocio', 'Ferretería')
-        form.direccion.data = Configuracion.get('direccion', '')
-        form.telefono.data = Configuracion.get('telefono', '')
-        form.cuit.data = Configuracion.get('cuit', '')
-        form.precios_con_iva.data = Configuracion.get('precios_con_iva', True)
+        # Cargar valores actuales (Configuracion.get ya filtra por empresa)
+        form.nombre_negocio.data = Configuracion.get('nombre_negocio', default='Ferretería')
+        form.direccion.data = Configuracion.get('direccion', default='')
+        form.telefono.data = Configuracion.get('telefono', default='')
+        form.cuit.data = Configuracion.get('cuit', default='')
+        form.precios_con_iva.data = Configuracion.get('precios_con_iva', default=True)
 
     if form.validate_on_submit():
         Configuracion.set('nombre_negocio', form.nombre_negocio.data, 'string')
@@ -48,7 +48,11 @@ def index():
 def usuarios():
     """Listado de usuarios."""
     page = request.args.get('page', 1, type=int)
-    usuarios = Usuario.query.order_by(Usuario.nombre).paginate(page=page, per_page=20)
+    usuarios = (
+        Usuario.query.filter_by(empresa_id=current_user.empresa_id)
+        .order_by(Usuario.nombre)
+        .paginate(page=page, per_page=20)
+    )
 
     return render_template('configuracion/usuarios.html', usuarios=usuarios)
 
@@ -65,7 +69,8 @@ def nuevo_usuario():
             email=form.email.data.lower(),
             nombre=form.nombre.data,
             rol=form.rol.data,
-            activo=form.activo.data
+            activo=form.activo.data,
+            empresa_id=current_user.empresa_id,
         )
         usuario.set_password(form.password.data)
 
@@ -75,11 +80,7 @@ def nuevo_usuario():
         flash(f'Usuario "{usuario.nombre}" creado correctamente.', 'success')
         return redirect(url_for('configuracion.usuarios'))
 
-    return render_template(
-        'configuracion/usuario_form.html',
-        form=form,
-        titulo='Nuevo Usuario'
-    )
+    return render_template('configuracion/usuario_form.html', form=form, titulo='Nuevo Usuario')
 
 
 @bp.route('/usuarios/<int:id>/editar', methods=['GET', 'POST'])
@@ -87,7 +88,9 @@ def nuevo_usuario():
 @admin_required
 def editar_usuario(id):
     """Editar usuario."""
-    usuario = Usuario.query.get_or_404(id)
+    usuario = Usuario.query.filter_by(
+        id=id, empresa_id=current_user.empresa_id
+    ).first_or_404()
     form = UsuarioEditForm(original_email=usuario.email, obj=usuario)
 
     if form.validate_on_submit():
@@ -105,10 +108,7 @@ def editar_usuario(id):
         return redirect(url_for('configuracion.usuarios'))
 
     return render_template(
-        'configuracion/usuario_form.html',
-        form=form,
-        titulo='Editar Usuario',
-        usuario=usuario
+        'configuracion/usuario_form.html', form=form, titulo='Editar Usuario', usuario=usuario
     )
 
 
@@ -117,10 +117,10 @@ def editar_usuario(id):
 @admin_required
 def toggle_usuario(id):
     """Activar/desactivar usuario."""
-    usuario = Usuario.query.get_or_404(id)
+    usuario = Usuario.query.filter_by(
+        id=id, empresa_id=current_user.empresa_id
+    ).first_or_404()
 
-    # No permitir desactivar al propio usuario
-    from flask_login import current_user
     if usuario.id == current_user.id:
         flash('No puedes desactivar tu propio usuario.', 'danger')
         return redirect(url_for('configuracion.usuarios'))
@@ -145,27 +145,37 @@ def categorias():
     form = CategoriaForm()
 
     if form.validate_on_submit():
-        # Verificar nombre único
-        existente = Categoria.query.filter_by(nombre=form.nombre.data).first()
+        padre_id = form.padre_id.data or None
+
+        # Verificar nombre único por nivel dentro de la empresa
+        existente = Categoria.query_empresa().filter_by(
+            nombre=form.nombre.data,
+            padre_id=padre_id,
+        ).first()
         if existente:
-            flash('Ya existe una categoría con ese nombre.', 'danger')
+            flash('Ya existe una categoría con ese nombre en ese nivel.', 'danger')
         else:
             categoria = Categoria(
                 nombre=form.nombre.data,
                 descripcion=form.descripcion.data,
-                activa=form.activa.data
+                padre_id=padre_id,
+                activa=form.activa.data,
+                empresa_id=current_user.empresa_id,
             )
             db.session.add(categoria)
             db.session.commit()
             flash(f'Categoría "{categoria.nombre}" creada.', 'success')
             return redirect(url_for('configuracion.categorias'))
 
-    categorias = Categoria.query.order_by(Categoria.nombre).all()
+    categorias_padre = (
+        Categoria.query_empresa()
+        .filter_by(padre_id=None)
+        .order_by(Categoria.nombre)
+        .all()
+    )
 
     return render_template(
-        'configuracion/categorias.html',
-        form=form,
-        categorias=categorias
+        'configuracion/categorias.html', form=form, categorias_padre=categorias_padre
     )
 
 
@@ -174,22 +184,23 @@ def categorias():
 @admin_required
 def editar_categoria(id):
     """Editar categoría (HTMX)."""
-    categoria = Categoria.query.get_or_404(id)
+    categoria = Categoria.get_o_404(id)
 
     nombre = request.form.get('nombre')
     descripcion = request.form.get('descripcion')
+    padre_id = request.form.get('padre_id', 0, type=int) or None
 
     if nombre:
-        # Verificar nombre único
-        existente = Categoria.query.filter(
-            Categoria.nombre == nombre,
-            Categoria.id != id
+        # Verificar nombre único por nivel dentro de la empresa
+        existente = Categoria.query_empresa().filter(
+            Categoria.nombre == nombre, Categoria.padre_id == padre_id, Categoria.id != id
         ).first()
         if existente:
-            flash('Ya existe una categoría con ese nombre.', 'danger')
+            flash('Ya existe una categoría con ese nombre en ese nivel.', 'danger')
         else:
             categoria.nombre = nombre
             categoria.descripcion = descripcion
+            categoria.padre_id = padre_id
             db.session.commit()
             flash(f'Categoría "{categoria.nombre}" actualizada.', 'success')
 
@@ -201,8 +212,13 @@ def editar_categoria(id):
 @admin_required
 def toggle_categoria(id):
     """Activar/desactivar categoría."""
-    categoria = Categoria.query.get_or_404(id)
+    categoria = Categoria.get_o_404(id)
     categoria.activa = not categoria.activa
+
+    if not categoria.activa and categoria.es_padre:
+        for subcategoria in categoria.subcategorias:
+            subcategoria.activa = False
+
     db.session.commit()
 
     estado = 'activada' if categoria.activa else 'desactivada'
@@ -212,3 +228,26 @@ def toggle_categoria(id):
         return '', 204
 
     return redirect(url_for('configuracion.categorias'))
+
+
+@bp.route('/api/subcategorias/<int:padre_id>')
+@login_required
+def api_subcategorias(padre_id):
+    """Retorna subcategorías activas por categoría padre."""
+    subcategorias = (
+        Categoria.query_empresa()
+        .filter_by(padre_id=padre_id, activa=True)
+        .order_by(Categoria.nombre)
+        .all()
+    )
+
+    return jsonify(
+        [
+            {
+                'id': subcategoria.id,
+                'nombre': subcategoria.nombre,
+                'nombre_completo': subcategoria.nombre_completo,
+            }
+            for subcategoria in subcategorias
+        ]
+    )

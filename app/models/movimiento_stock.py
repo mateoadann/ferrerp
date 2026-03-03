@@ -1,10 +1,12 @@
 """Modelo de Movimiento de Stock."""
 
 from datetime import datetime
+
 from ..extensions import db
+from .mixins import EmpresaMixin
 
 
-class MovimientoStock(db.Model):
+class MovimientoStock(EmpresaMixin, db.Model):
     """Modelo de movimiento de stock (historial de cambios de inventario)."""
 
     __tablename__ = 'movimientos_stock'

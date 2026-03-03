@@ -1,15 +1,20 @@
 from decimal import Decimal
 
 from app.extensions import db
-from app.models import Cliente
+from app.models import Cliente, Empresa
 
 
 def test_cliente_credito_y_saldo(app):
+    empresa = Empresa(nombre='Empresa Test', activa=True)
+    db.session.add(empresa)
+    db.session.flush()
+
     cliente = Cliente(
         nombre='Cliente Prueba',
         limite_credito=Decimal('100.00'),
         saldo_cuenta_corriente=Decimal('20.00'),
         activo=True,
+        empresa_id=empresa.id,
     )
     db.session.add(cliente)
     db.session.commit()

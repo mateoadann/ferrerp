@@ -3,10 +3,12 @@
 import secrets
 from datetime import datetime, timedelta
 from decimal import Decimal
+
 from ..extensions import db
+from .mixins import EmpresaMixin
 
 
-class Presupuesto(db.Model):
+class Presupuesto(EmpresaMixin, db.Model):
     """Modelo de presupuesto / cotización."""
 
     __tablename__ = 'presupuestos'

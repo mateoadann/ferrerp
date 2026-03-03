@@ -50,7 +50,7 @@ class VentaForm(FlaskForm):
         """Carga las opciones de clientes."""
         from ..models import Cliente
 
-        clientes = Cliente.query.filter_by(activo=True).order_by(Cliente.nombre).all()
+        clientes = Cliente.query_empresa().filter_by(activo=True).order_by(Cliente.nombre).all()
         self.cliente_id.choices = [(0, 'Consumidor Final')] + [
             (c.id, f'{c.nombre} ({c.dni_cuit or "S/D"})') for c in clientes
         ]

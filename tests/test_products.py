@@ -1,10 +1,14 @@
 from decimal import Decimal
 
 from app.extensions import db
-from app.models import Producto
+from app.models import Empresa, Producto
 
 
 def test_create_producto(app):
+    empresa = Empresa(nombre='Empresa Test', activa=True)
+    db.session.add(empresa)
+    db.session.flush()
+
     producto = Producto(
         codigo='PRD-001',
         nombre='Martillo',
@@ -14,6 +18,7 @@ def test_create_producto(app):
         stock_actual=Decimal('10.000'),
         stock_minimo=Decimal('5.000'),
         activo=True,
+        empresa_id=empresa.id,
     )
 
     db.session.add(producto)

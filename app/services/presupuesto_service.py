@@ -1,24 +1,30 @@
 """Servicio de presupuestos."""
 
-import io
 from datetime import datetime, timedelta
 from decimal import Decimal
 from urllib.parse import quote
 
-from flask import render_template, url_for
+from flask import render_template
 
 from ..extensions import db
 from ..models import (
-    Presupuesto, PresupuestoDetalle, Producto, Venta, VentaDetalle,
-    Caja, MovimientoCaja, MovimientoStock, Cliente,
-    MovimientoCuentaCorriente, Configuracion
+    Caja,
+    Configuracion,
+    MovimientoCaja,
+    MovimientoCuentaCorriente,
+    MovimientoStock,
+    Presupuesto,
+    PresupuestoDetalle,
+    Producto,
+    Venta,
+    VentaDetalle,
 )
 from ..utils.helpers import generar_numero_presupuesto, generar_numero_venta
 
 
-def crear_presupuesto(items, usuario_id, cliente_id=None, cliente_nombre=None,
-                      cliente_telefono=None, descuento_porcentaje=0,
-                      validez_dias=None, notas=None):
+def crear_presupuesto(items, usuario_id, empresa_id=None, cliente_id=None,
+                      cliente_nombre=None, cliente_telefono=None,
+                      descuento_porcentaje=0, validez_dias=None, notas=None):
     """Crea un nuevo presupuesto con sus líneas de detalle."""
     if validez_dias is None:
         validez_dias = Configuracion.get('presupuesto_validez_dias', 15)
@@ -27,7 +33,7 @@ def crear_presupuesto(items, usuario_id, cliente_id=None, cliente_nombre=None,
     fecha_vencimiento = fecha + timedelta(days=int(validez_dias))
 
     presupuesto = Presupuesto(
-        numero=generar_numero_presupuesto(),
+        numero=generar_numero_presupuesto(empresa_id) if empresa_id else 1,
         fecha=fecha,
         fecha_vencimiento=fecha_vencimiento,
         cliente_id=cliente_id if cliente_id else None,
@@ -35,7 +41,8 @@ def crear_presupuesto(items, usuario_id, cliente_id=None, cliente_nombre=None,
         cliente_telefono=cliente_telefono,
         usuario_id=usuario_id,
         descuento_porcentaje=Decimal(str(descuento_porcentaje)),
-        notas=notas
+        notas=notas,
+        empresa_id=empresa_id,
     )
 
     subtotal = Decimal('0')
@@ -143,7 +150,8 @@ def cambiar_estado(presupuesto, nuevo_estado):
     return presupuesto
 
 
-def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id):
+def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id,
+                      empresa_id=None):
     """Convierte un presupuesto aceptado en venta."""
     if not presupuesto.puede_convertir:
         raise ValueError('Solo presupuestos aceptados pueden convertirse a venta.')
@@ -176,7 +184,7 @@ def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id):
 
     # Crear venta
     venta = Venta(
-        numero=generar_numero_venta(),
+        numero=generar_numero_venta(empresa_id),
         fecha=datetime.utcnow(),
         cliente_id=presupuesto.cliente_id,
         usuario_id=usuario_id,
@@ -184,7 +192,8 @@ def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id):
         forma_pago=forma_pago,
         estado='completada',
         caja_id=caja_id,
-        presupuesto_id=presupuesto.id
+        presupuesto_id=presupuesto.id,
+        empresa_id=empresa_id,
     )
 
     subtotal = Decimal('0')
@@ -216,7 +225,8 @@ def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id):
             stock_anterior=stock_anterior,
             stock_posterior=stock_posterior,
             referencia_tipo='venta',
-            usuario_id=usuario_id
+            usuario_id=usuario_id,
+            empresa_id=empresa_id,
         )
         db.session.add(movimiento_stock)
 
@@ -254,7 +264,8 @@ def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id):
             referencia_tipo='venta',
             referencia_id=venta.id,
             descripcion=f'Venta #{venta.numero_completo} (Presup. #{presupuesto.numero_completo})',
-            usuario_id=usuario_id
+            usuario_id=usuario_id,
+            empresa_id=empresa_id,
         )
         db.session.add(movimiento_cc)
     else:

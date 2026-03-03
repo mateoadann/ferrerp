@@ -1,10 +1,12 @@
 """Modelo de Movimiento de Cuenta Corriente."""
 
 from datetime import datetime
+
 from ..extensions import db
+from .mixins import EmpresaMixin
 
 
-class MovimientoCuentaCorriente(db.Model):
+class MovimientoCuentaCorriente(EmpresaMixin, db.Model):
     """Modelo de movimiento de cuenta corriente de cliente."""
 
     __tablename__ = 'movimientos_cuenta_corriente'

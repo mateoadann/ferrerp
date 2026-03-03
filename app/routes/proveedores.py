@@ -1,12 +1,12 @@
 """Rutas de proveedores."""
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request
-from flask_login import login_required
+from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
 
 from ..extensions import db
-from ..models import Proveedor, OrdenCompra
 from ..forms.proveedor_forms import ProveedorForm
-from ..utils.helpers import paginar_query, es_peticion_htmx
+from ..models import OrdenCompra, Proveedor
+from ..utils.helpers import es_peticion_htmx, paginar_query
 
 bp = Blueprint('proveedores', __name__, url_prefix='/proveedores')
 
@@ -19,7 +19,7 @@ def index():
     busqueda = request.args.get('q', '')
     solo_activos = request.args.get('activos', '1') == '1'
 
-    query = Proveedor.query
+    query = Proveedor.query_empresa()
 
     if busqueda:
         query = query.filter(
@@ -31,7 +31,7 @@ def index():
         )
 
     if solo_activos:
-        query = query.filter(Proveedor.activo == True)
+        query = query.filter(Proveedor.activo.is_(True))
 
     query = query.order_by(Proveedor.nombre)
     proveedores = paginar_query(query, page)
@@ -67,7 +67,8 @@ def nuevo():
             direccion=form.direccion.data,
             condicion_pago=form.condicion_pago.data,
             notas=form.notas.data,
-            activo=form.activo.data
+            activo=form.activo.data,
+            empresa_id=current_user.empresa_id,
         )
 
         db.session.add(proveedor)
@@ -83,9 +84,9 @@ def nuevo():
 @login_required
 def detalle(id):
     """Ver detalle de proveedor con historial de compras."""
-    proveedor = Proveedor.query.get_or_404(id)
+    proveedor = Proveedor.get_o_404(id)
 
-    # Últimas órdenes de compra
+    # Últimas órdenes de compra (OrdenCompra aún no tiene empresa_id, se agrega en PR3)
     ordenes = OrdenCompra.query.filter_by(
         proveedor_id=id
     ).order_by(
@@ -103,7 +104,7 @@ def detalle(id):
 @login_required
 def editar(id):
     """Editar proveedor."""
-    proveedor = Proveedor.query.get_or_404(id)
+    proveedor = Proveedor.get_o_404(id)
     form = ProveedorForm(obj=proveedor)
 
     if form.validate_on_submit():
@@ -134,7 +135,7 @@ def editar(id):
 @login_required
 def toggle_activo(id):
     """Activar/desactivar proveedor."""
-    proveedor = Proveedor.query.get_or_404(id)
+    proveedor = Proveedor.get_o_404(id)
     proveedor.activo = not proveedor.activo
     db.session.commit()
 

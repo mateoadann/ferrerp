@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, jsonify
-from flask_login import login_required
+from flask_login import current_user, login_required
 from sqlalchemy import func, and_
 
 from ..extensions import db
@@ -20,10 +20,13 @@ def index():
     inicio_dia = datetime.combine(hoy, datetime.min.time())
     fin_dia = datetime.combine(hoy, datetime.max.time())
 
+    empresa_id = current_user.empresa_id
+
     # Ventas del día
     ventas_hoy = db.session.query(
         func.coalesce(func.sum(Venta.total), 0)
     ).filter(
+        Venta.empresa_id == empresa_id,
         Venta.fecha >= inicio_dia,
         Venta.fecha <= fin_dia,
         Venta.estado == 'completada'
@@ -31,6 +34,7 @@ def index():
 
     # Cantidad de operaciones hoy
     operaciones_hoy = Venta.query.filter(
+        Venta.empresa_id == empresa_id,
         Venta.fecha >= inicio_dia,
         Venta.fecha <= fin_dia,
         Venta.estado == 'completada'
@@ -44,6 +48,7 @@ def index():
     ventas_ayer = db.session.query(
         func.coalesce(func.sum(Venta.total), 0)
     ).filter(
+        Venta.empresa_id == empresa_id,
         Venta.fecha >= inicio_ayer,
         Venta.fecha <= fin_ayer,
         Venta.estado == 'completada'
@@ -51,6 +56,7 @@ def index():
 
     # Productos con stock bajo
     productos_bajo_stock = Producto.query.filter(
+        Producto.empresa_id == empresa_id,
         Producto.activo == True,
         Producto.stock_actual < Producto.stock_minimo
     ).count()
@@ -59,11 +65,13 @@ def index():
     cuentas_por_cobrar = db.session.query(
         func.coalesce(func.sum(Cliente.saldo_cuenta_corriente), 0)
     ).filter(
+        Cliente.empresa_id == empresa_id,
         Cliente.saldo_cuenta_corriente > 0,
         Cliente.activo == True
     ).scalar()
 
     clientes_con_deuda = Cliente.query.filter(
+        Cliente.empresa_id == empresa_id,
         Cliente.saldo_cuenta_corriente > 0,
         Cliente.activo == True
     ).count()
@@ -75,6 +83,7 @@ def index():
 
     # Alertas recientes (productos con stock bajo)
     alertas = Producto.query.filter(
+        Producto.empresa_id == empresa_id,
         Producto.activo == True,
         Producto.stock_actual < Producto.stock_minimo
     ).order_by(Producto.stock_actual).limit(5).all()
@@ -89,6 +98,7 @@ def index():
         total = db.session.query(
             func.coalesce(func.sum(Venta.total), 0)
         ).filter(
+            Venta.empresa_id == empresa_id,
             Venta.fecha >= inicio,
             Venta.fecha <= fin,
             Venta.estado == 'completada'
@@ -122,15 +132,19 @@ def api_stats():
     inicio_dia = datetime.combine(hoy, datetime.min.time())
     fin_dia = datetime.combine(hoy, datetime.max.time())
 
+    empresa_id = current_user.empresa_id
+
     ventas_hoy = db.session.query(
         func.coalesce(func.sum(Venta.total), 0)
     ).filter(
+        Venta.empresa_id == empresa_id,
         Venta.fecha >= inicio_dia,
         Venta.fecha <= fin_dia,
         Venta.estado == 'completada'
     ).scalar()
 
     operaciones_hoy = Venta.query.filter(
+        Venta.empresa_id == empresa_id,
         Venta.fecha >= inicio_dia,
         Venta.fecha <= fin_dia,
         Venta.estado == 'completada'
