@@ -48,40 +48,52 @@
                         </small>
                     </div>
 
-                    <!-- Modal confirmación IVA -->
-                    <div class="modal fade" id="modalIva" tabindex="-1">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">¿Activar precios con IVA incluido?</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <p>Al activar esta opción, el sistema interpretará que los precios que cargues
-                                       en tus productos <strong>ya incluyen IVA</strong>.</p>
-                                    <div class="alert alert-info">
-                                        <strong>Ejemplo:</strong> Si cargás un producto a <strong>$1.000</strong>
-                                        con IVA 21%, el sistema entenderá que:<br>
-                                        • Precio neto: <strong>$826,45</strong><br>
-                                        • IVA 21%: <strong>$173,55</strong><br>
-                                        • Total: <strong>$1.000,00</strong>
-                                    </div>
-                                    <p>Si desactivás esta opción, los precios se consideran <strong>netos</strong>
-                                       y el IVA se <strong>suma</strong> al total.</p>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
-                                            id="btnCancelarIva">Cancelar</button>
-                                    <button type="button" class="btn btn-primary"
-                                            id="btnConfirmarIva">Sí, activar</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                     <div class="col-12"><hr>
                         <button type="submit" class="btn btn-primary"><span class="material-symbols-rounded me-2">save</span>Guardar</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal confirmación IVA -->
+<div class="modal fade" id="modalIva" tabindex="-1" aria-labelledby="modalIvaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalIvaLabel">¿Activar precios con IVA incluido?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p>Al activar esta opción, el sistema interpretará que los precios que
+                   cargues en tus productos <strong>ya incluyen IVA</strong>.</p>
+                <div class="bg-light border rounded p-3 mb-3">
+                    <p class="mb-2"><strong>Ejemplo:</strong> producto cargado a <strong>$1.000</strong> con IVA 21%</p>
+                    <table class="table table-sm table-borderless mb-0" style="max-width: 280px;">
+                        <tbody>
+                            <tr>
+                                <td class="text-muted py-0">Precio neto:</td>
+                                <td class="text-end fw-bold py-0">$826,45</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted py-0">IVA 21%:</td>
+                                <td class="text-end fw-bold py-0">$173,55</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted py-0 border-top">Total:</td>
+                                <td class="text-end fw-bold py-0 border-top">$1.000,00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="mb-0">Si desactivás esta opción, los precios se consideran <strong>netos</strong>
+                   y el IVA se <strong>suma</strong> al total.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
+                        id="btnCancelarIva">Cancelar</button>
+                <button type="button" class="btn btn-primary"
+                        id="btnConfirmarIva">Sí, activar</button>
             </div>
         </div>
     </div>
