@@ -32,8 +32,14 @@
         </a>
 
         <a href="{{ url_for('ventas.punto_de_venta') }}"
-           class="nav-item {% if request.endpoint and request.endpoint.startswith('ventas.') %}active{% endif %}">
+           class="nav-item {% if request.endpoint == 'ventas.punto_de_venta' or request.endpoint == 'ventas.buscar_producto' %}active{% endif %}">
             <span class="material-symbols-rounded">point_of_sale</span>
+            <span>POS</span>
+        </a>
+
+        <a href="{{ url_for('ventas.historial') }}"
+           class="nav-item {% if request.endpoint and request.endpoint.startswith('ventas.') and request.endpoint not in ('ventas.punto_de_venta', 'ventas.buscar_producto') %}active{% endif %}">
+            <span class="material-symbols-rounded">receipt_long</span>
             <span>Ventas</span>
         </a>
 
