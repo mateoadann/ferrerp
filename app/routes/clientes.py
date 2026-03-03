@@ -1,13 +1,15 @@
 """Rutas de clientes."""
 
 from decimal import Decimal
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
-from flask_login import login_required, current_user
+
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
+from sqlalchemy import func
 
 from ..extensions import db
-from ..models import Cliente, MovimientoCuentaCorriente, Caja, MovimientoCaja
 from ..forms.cliente_forms import ClienteForm, PagoCuentaCorrienteForm
-from ..utils.helpers import paginar_query, es_peticion_htmx
+from ..models import Caja, Cliente, MovimientoCaja, MovimientoCuentaCorriente
+from ..utils.helpers import es_peticion_htmx, paginar_query
 
 bp = Blueprint('clientes', __name__, url_prefix='/clientes')
 
@@ -20,7 +22,7 @@ def index():
     busqueda = request.args.get('q', '')
     solo_activos = request.args.get('activos', '1') == '1'
 
-    query = Cliente.query
+    query = Cliente.query_empresa()
 
     if busqueda:
         query = query.filter(
@@ -32,7 +34,7 @@ def index():
         )
 
     if solo_activos:
-        query = query.filter(Cliente.activo == True)
+        query = query.filter(Cliente.activo.is_(True))
 
     query = query.order_by(Cliente.nombre)
     clientes = paginar_query(query, page)
@@ -67,7 +69,8 @@ def nuevo():
             direccion=form.direccion.data,
             limite_credito=form.limite_credito.data or 0,
             notas=form.notas.data,
-            activo=form.activo.data
+            activo=form.activo.data,
+            empresa_id=current_user.empresa_id,
         )
 
         db.session.add(cliente)
@@ -83,7 +86,7 @@ def nuevo():
 @login_required
 def editar(id):
     """Editar cliente."""
-    cliente = Cliente.query.get_or_404(id)
+    cliente = Cliente.get_o_404(id)
     form = ClienteForm(obj=cliente)
 
     if form.validate_on_submit():
@@ -113,7 +116,7 @@ def editar(id):
 @login_required
 def cuenta_corriente(id):
     """Ver cuenta corriente del cliente."""
-    cliente = Cliente.query.get_or_404(id)
+    cliente = Cliente.get_o_404(id)
     page = request.args.get('page', 1, type=int)
 
     movimientos = MovimientoCuentaCorriente.query.filter_by(
@@ -146,7 +149,7 @@ def cuenta_corriente(id):
 @login_required
 def registrar_pago(id):
     """Registrar pago de cuenta corriente."""
-    cliente = Cliente.query.get_or_404(id)
+    cliente = Cliente.get_o_404(id)
     form = PagoCuentaCorrienteForm()
 
     if form.validate_on_submit():
@@ -158,7 +161,9 @@ def registrar_pago(id):
             return redirect(url_for('clientes.cuenta_corriente', id=id))
 
         # Verificar caja abierta
-        caja = Caja.query.filter_by(estado='abierta').first()
+        caja = Caja.query.filter_by(
+            estado='abierta', empresa_id=current_user.empresa_id
+        ).first()
         if not caja:
             flash('No hay caja abierta. Abre la caja para registrar el pago.', 'warning')
             return redirect(url_for('caja.index'))
@@ -175,10 +180,11 @@ def registrar_pago(id):
             saldo_posterior=saldo_posterior,
             referencia_tipo='pago',
             descripcion=form.descripcion.data or 'Pago de cuenta corriente',
-            usuario_id=current_user.id
+            usuario_id=current_user.id,
+            empresa_id=current_user.empresa_id,
         )
         db.session.add(movimiento_cc)
-        db.session.flush()  # Para obtener el ID del movimiento
+        db.session.flush()
 
         # Registrar ingreso en caja
         forma_pago = form.forma_pago.data or 'efectivo'
@@ -209,19 +215,19 @@ def deudores():
     """Listado de clientes con deuda."""
     page = request.args.get('page', 1, type=int)
 
-    clientes = Cliente.query.filter(
-        Cliente.activo == True,
+    clientes = Cliente.query_empresa().filter(
+        Cliente.activo.is_(True),
         Cliente.saldo_cuenta_corriente > 0
     ).order_by(
         Cliente.saldo_cuenta_corriente.desc()
     ).paginate(page=page, per_page=20)
 
     # Total de deudas
-    from sqlalchemy import func
     total_deudas = db.session.query(
         func.sum(Cliente.saldo_cuenta_corriente)
     ).filter(
-        Cliente.activo == True,
+        Cliente.empresa_id == current_user.empresa_id,
+        Cliente.activo.is_(True),
         Cliente.saldo_cuenta_corriente > 0
     ).scalar() or 0
 
@@ -242,8 +248,8 @@ def buscar():
     if len(q) < 2:
         return jsonify([])
 
-    clientes = Cliente.query.filter(
-        Cliente.activo == True,
+    clientes = Cliente.query_empresa().filter(
+        Cliente.activo.is_(True),
         db.or_(
             Cliente.nombre.ilike(f'%{q}%'),
             Cliente.dni_cuit.ilike(f'%{q}%')
@@ -257,7 +263,7 @@ def buscar():
 @login_required
 def toggle_activo(id):
     """Activar/desactivar cliente."""
-    cliente = Cliente.query.get_or_404(id)
+    cliente = Cliente.get_o_404(id)
     cliente.activo = not cliente.activo
     db.session.commit()
 

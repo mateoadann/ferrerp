@@ -37,7 +37,7 @@ def index():
     fecha_hasta = request.args.get('fecha_hasta', '')
     busqueda = request.args.get('q', '')
 
-    query = Presupuesto.query
+    query = Presupuesto.query_empresa()
 
     if estado:
         query = query.filter(Presupuesto.estado == estado)
@@ -59,11 +59,11 @@ def index():
             )
         )
         # También buscar por nombre de cliente registrado
-        clientes_ids = [c.id for c in Cliente.query.filter(
+        clientes_ids = [c.id for c in Cliente.query_empresa().filter(
             Cliente.nombre.ilike(f'%{busqueda}%')
         ).all()]
         if clientes_ids:
-            query = Presupuesto.query.filter(
+            query = Presupuesto.query_empresa().filter(
                 db.or_(
                     Presupuesto.cliente_nombre.ilike(f'%{busqueda}%'),
                     Presupuesto.numero.cast(db.String).ilike(f'%{busqueda}%'),
@@ -123,6 +123,7 @@ def nuevo():
             presupuesto = presupuesto_service.crear_presupuesto(
                 items=items,
                 usuario_id=current_user.id,
+                empresa_id=current_user.empresa_id,
                 cliente_id=cliente_id if cliente_id else None,
                 cliente_nombre=cliente_nombre or None,
                 cliente_telefono=cliente_telefono or None,
@@ -143,7 +144,7 @@ def nuevo():
             flash(f'Error al crear presupuesto: {str(e)}', 'danger')
             return redirect(url_for('presupuestos.nuevo'))
 
-    clientes = Cliente.query.filter_by(activo=True).order_by(Cliente.nombre).all()
+    clientes = Cliente.query_empresa().filter_by(activo=True).order_by(Cliente.nombre).all()
     validez_default = Configuracion.get('presupuesto_validez_dias', 15)
 
     return render_template(
@@ -160,7 +161,7 @@ def nuevo():
 @login_required
 def detalle(id):
     """Ver detalle de presupuesto."""
-    presupuesto = Presupuesto.query.get_or_404(id)
+    presupuesto = Presupuesto.get_o_404(id)
     form_convertir = ConvertirPresupuestoForm()
 
     return render_template(
@@ -176,7 +177,7 @@ def detalle(id):
 @login_required
 def editar(id):
     """Editar presupuesto pendiente."""
-    presupuesto = Presupuesto.query.get_or_404(id)
+    presupuesto = Presupuesto.get_o_404(id)
 
     if not presupuesto.puede_editar:
         flash('Este presupuesto no puede editarse.', 'warning')
@@ -217,7 +218,7 @@ def editar(id):
             flash(f'Error al actualizar: {str(e)}', 'danger')
             return redirect(url_for('presupuestos.editar', id=id))
 
-    clientes = Cliente.query.filter_by(activo=True).order_by(Cliente.nombre).all()
+    clientes = Cliente.query_empresa().filter_by(activo=True).order_by(Cliente.nombre).all()
     detalles = list(presupuesto.detalles)
 
     # Preparar items existentes como JSON para Alpine.js
@@ -253,7 +254,7 @@ def editar(id):
 @admin_required
 def eliminar(id):
     """Eliminar presupuesto (solo admin)."""
-    presupuesto = Presupuesto.query.get_or_404(id)
+    presupuesto = Presupuesto.get_o_404(id)
     numero = presupuesto.numero_completo
 
     db.session.delete(presupuesto)
@@ -269,7 +270,7 @@ def eliminar(id):
 @login_required
 def aceptar(id):
     """Marcar presupuesto como aceptado."""
-    presupuesto = Presupuesto.query.get_or_404(id)
+    presupuesto = Presupuesto.get_o_404(id)
 
     try:
         presupuesto_service.cambiar_estado(presupuesto, 'aceptado')
@@ -284,7 +285,7 @@ def aceptar(id):
 @login_required
 def rechazar(id):
     """Marcar presupuesto como rechazado."""
-    presupuesto = Presupuesto.query.get_or_404(id)
+    presupuesto = Presupuesto.get_o_404(id)
 
     try:
         presupuesto_service.cambiar_estado(presupuesto, 'rechazado')
@@ -300,18 +301,21 @@ def rechazar(id):
 @caja_abierta_required
 def convertir(id):
     """Convertir presupuesto aceptado en venta."""
-    presupuesto = Presupuesto.query.get_or_404(id)
+    presupuesto = Presupuesto.get_o_404(id)
     form = ConvertirPresupuestoForm()
 
     if form.validate_on_submit():
         try:
-            caja = Caja.query.filter_by(estado='abierta').first()
+            caja = Caja.query.filter_by(
+                estado='abierta', empresa_id=current_user.empresa_id
+            ).first()
 
             venta = presupuesto_service.convertir_a_venta(
                 presupuesto=presupuesto,
                 usuario_id=current_user.id,
                 forma_pago=form.forma_pago.data,
-                caja_id=caja.id
+                caja_id=caja.id,
+                empresa_id=current_user.empresa_id,
             )
 
             flash(
@@ -336,7 +340,7 @@ def convertir(id):
 @login_required
 def pdf(id):
     """Descargar PDF del presupuesto (autenticado)."""
-    presupuesto = Presupuesto.query.get_or_404(id)
+    presupuesto = Presupuesto.get_o_404(id)
 
     pdf_bytes = presupuesto_service.generar_pdf(presupuesto)
 
@@ -369,7 +373,7 @@ def pdf_publico(token):
 @login_required
 def whatsapp(id):
     """Redirigir a WhatsApp con mensaje y link al PDF."""
-    presupuesto = Presupuesto.query.get_or_404(id)
+    presupuesto = Presupuesto.get_o_404(id)
 
     base_url = request.host_url.rstrip('/')
     telefono = request.args.get('telefono', '')
@@ -394,7 +398,7 @@ def buscar_producto():
     if len(q) < 2:
         return render_template('presupuestos/_resultados_busqueda.html', productos=[])
 
-    productos = Producto.query.filter(
+    productos = Producto.query_empresa().filter(
         Producto.activo == True,
         db.or_(
             Producto.codigo.ilike(f'%{q}%'),
@@ -410,5 +414,5 @@ def buscar_producto():
 @login_required
 def api_producto(id):
     """API para obtener datos de producto."""
-    producto = Producto.query.get_or_404(id)
+    producto = Producto.get_o_404(id)
     return jsonify(producto.to_dict())

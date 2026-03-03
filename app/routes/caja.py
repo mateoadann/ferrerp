@@ -19,7 +19,7 @@ bp = Blueprint('caja', __name__, url_prefix='/caja')
 def index():
     """Vista principal de caja (caja del día)."""
     # Buscar caja abierta
-    caja = Caja.query.filter_by(estado='abierta').first()
+    caja = Caja.query_empresa().filter_by(estado='abierta').first()
 
     if caja:
         # Calcular totales
@@ -110,7 +110,7 @@ def index():
 def abrir():
     """Abrir caja del día."""
     # Verificar si ya hay una caja abierta
-    caja_existente = Caja.query.filter_by(estado='abierta').first()
+    caja_existente = Caja.query_empresa().filter_by(estado='abierta').first()
     if caja_existente:
         flash('Ya hay una caja abierta.', 'warning')
         return redirect(url_for('caja.index'))
@@ -122,7 +122,8 @@ def abrir():
             fecha_apertura=datetime.utcnow(),
             usuario_apertura_id=current_user.id,
             monto_inicial=form.monto_inicial.data,
-            estado='abierta'
+            estado='abierta',
+            empresa_id=current_user.empresa_id,
         )
 
         db.session.add(caja)
@@ -138,7 +139,7 @@ def abrir():
 @login_required
 def cerrar():
     """Cerrar caja del día."""
-    caja = Caja.query.filter_by(estado='abierta').first()
+    caja = Caja.query_empresa().filter_by(estado='abierta').first()
 
     if not caja:
         flash('No hay caja abierta para cerrar.', 'warning')
@@ -180,7 +181,7 @@ def cerrar():
 @login_required
 def egreso():
     """Registrar egreso de caja."""
-    caja = Caja.query.filter_by(estado='abierta').first()
+    caja = Caja.query_empresa().filter_by(estado='abierta').first()
 
     if not caja:
         flash('No hay caja abierta.', 'warning')
@@ -213,7 +214,7 @@ def historial():
     """Historial de cajas."""
     page = request.args.get('page', 1, type=int)
 
-    cajas = Caja.query.order_by(
+    cajas = Caja.query_empresa().order_by(
         Caja.fecha_apertura.desc()
     ).paginate(page=page, per_page=20)
 
@@ -224,7 +225,7 @@ def historial():
 @login_required
 def detalle(id):
     """Ver detalle de una caja."""
-    caja = Caja.query.get_or_404(id)
+    caja = Caja.get_o_404(id)
 
     movimientos_caja = caja.movimientos.order_by(MovimientoCaja.created_at.desc()).all()
     ventas_cc = Venta.query.filter_by(

@@ -13,8 +13,12 @@
         </nav>
         <h2>Venta #{{ venta.numero_completo }}</h2>
     </div>
-    <div>
-        <a href="{{ url_for('ventas.ticket', id=venta.id) }}" class="btn btn-secondary me-2">
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('ventas.pdf', id=venta.id) }}" class="btn btn-secondary" target="_blank">
+            <span class="material-symbols-rounded me-2">picture_as_pdf</span>
+            Descargar PDF
+        </a>
+        <a href="{{ url_for('ventas.ticket', id=venta.id) }}" class="btn btn-outline-secondary">
             <span class="material-symbols-rounded me-2">print</span>
             Imprimir Ticket
         </a>
@@ -71,13 +75,13 @@
                         {% set con_iva = precios_con_iva|default(true) %}
                         {% set detalles = venta.detalles %}
                         
-                        {% set iva_agrupado = {} %}
+                        {% set ns = namespace(iva_agrupado={}, neto_total=0, iva_total=0) %}
                         {% for detalle in detalles %}
                             {% set iva_pct = detalle.iva_porcentaje|default(21)|float %}
                             {% set item_subtotal = detalle.subtotal|float %}
-                            {% set proporcion = venta.subtotal|float > 0 and detalle.subtotal|float > 0 ? item_subtotal / venta.subtotal|float : 0 %}
+                            {% set proporcion = (item_subtotal / venta.subtotal|float) if (venta.subtotal|float > 0 and detalle.subtotal|float > 0) else 0 %}
                             {% set item_total = venta.total|float * proporcion %}
-                            
+
                             {% if con_iva %}
                                 {% set item_neto = item_total / (1 + iva_pct / 100) %}
                                 {% set item_iva = item_total - item_neto %}
@@ -85,26 +89,24 @@
                                 {% set item_neto = item_total %}
                                 {% set item_iva = item_total * iva_pct / 100 %}
                             {% endif %}
-                            
-                            {% if iva_pct|string in iva_agrupado %}
-                                {% set iva_agrupado = iva_agrupado|combine({iva_pct|string: {'subtotal': iva_agrupado[iva_pct|string].subtotal + item_neto, 'iva': iva_agrupado[iva_pct|string].iva + item_iva}}) %}
+
+                            {% if iva_pct|string in ns.iva_agrupado %}
+                                {% set ns.iva_agrupado = ns.iva_agrupado|combine({iva_pct|string: {'subtotal': ns.iva_agrupado[iva_pct|string].subtotal + item_neto, 'iva': ns.iva_agrupado[iva_pct|string].iva + item_iva}}) %}
                             {% else %}
-                                {% set iva_agrupado = iva_agrupado|combine({iva_pct|string: {'subtotal': item_neto, 'iva': item_iva}}) %}
+                                {% set ns.iva_agrupado = ns.iva_agrupado|combine({iva_pct|string: {'subtotal': item_neto, 'iva': item_iva}}) %}
                             {% endif %}
                         {% endfor %}
-                        
-                        {% set neto_total = 0 %}
-                        {% set iva_total = 0 %}
-                        {% for pct, datos in iva_agrupado.items() %}
-                            {% set neto_total = neto_total + datos.subtotal %}
-                            {% set iva_total = iva_total + datos.iva %}
+
+                        {% for pct, datos in ns.iva_agrupado.items() %}
+                            {% set ns.neto_total = ns.neto_total + datos.subtotal %}
+                            {% set ns.iva_total = ns.iva_total + datos.iva %}
                         {% endfor %}
-                        
+
                         <tr>
-                            <td colspan="4" class="text-end">Subtotal (sin IVA):</td>
-                            <td class="text-end">{{ neto_total|currency }}</td>
+                            <td colspan="4" class="text-end">Neto gravado:</td>
+                            <td class="text-end">{{ ns.neto_total|currency }}</td>
                         </tr>
-                        {% for pct, datos in iva_agrupado.items() %}
+                        {% for pct, datos in ns.iva_agrupado.items() %}
                         <tr>
                             <td colspan="4" class="text-end">IVA ({{ pct }}%):</td>
                             <td class="text-end">{{ datos.iva|currency }}</td>
@@ -112,7 +114,13 @@
                         {% endfor %}
                         <tr class="table-light">
                             <td colspan="4" class="text-end fw-bold">TOTAL:</td>
-                            <td class="text-end fw-bold" style="font-size: 1.2em;">{{ venta.total|currency }}</td>
+                            <td class="text-end fw-bold" style="font-size: 1.2em;">
+                                {% if con_iva %}
+                                    {{ venta.total|currency }}
+                                {% else %}
+                                    {{ (ns.neto_total + ns.iva_total)|currency }}
+                                {% endif %}
+                            </td>
                         </tr>
                         <tr>
                             <td colspan="5" class="text-end text-muted small">
