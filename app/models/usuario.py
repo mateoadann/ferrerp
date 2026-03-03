@@ -1,8 +1,10 @@
 """Modelo de Usuario."""
 
 from datetime import datetime
+
 from flask_login import UserMixin
-from ..extensions import db, bcrypt
+
+from ..extensions import bcrypt, db
 
 
 class Usuario(UserMixin, db.Model):
@@ -15,18 +17,27 @@ class Usuario(UserMixin, db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     nombre = db.Column(db.String(100), nullable=False)
     rol = db.Column(
-        db.Enum('administrador', 'vendedor', name='rol_usuario'),
+        db.Enum('owner', 'administrador', 'vendedor', name='rol_usuario'),
         nullable=False,
-        default='vendedor'
+        default='vendedor',
     )
     activo = db.Column(db.Boolean, default=True, nullable=False)
+    empresa_id = db.Column(
+        db.Integer, db.ForeignKey('empresas.id'), index=True
+    )
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     # Relaciones
     ventas = db.relationship('Venta', backref='usuario', lazy='dynamic')
-    movimientos_stock = db.relationship('MovimientoStock', backref='usuario', lazy='dynamic')
-    movimientos_caja = db.relationship('MovimientoCaja', backref='usuario', lazy='dynamic')
+    movimientos_stock = db.relationship(
+        'MovimientoStock', backref='usuario', lazy='dynamic'
+    )
+    movimientos_caja = db.relationship(
+        'MovimientoCaja', backref='usuario', lazy='dynamic'
+    )
 
     def __repr__(self):
         return f'<Usuario {self.email}>'
@@ -40,9 +51,14 @@ class Usuario(UserMixin, db.Model):
         return bcrypt.check_password_hash(self.password_hash, password)
 
     @property
+    def es_owner(self):
+        """Verifica si el usuario es owner de la empresa."""
+        return self.rol == 'owner'
+
+    @property
     def es_administrador(self):
-        """Verifica si el usuario es administrador."""
-        return self.rol == 'administrador'
+        """Verifica si el usuario es administrador (incluye owner)."""
+        return self.rol in ('administrador', 'owner')
 
     @property
     def es_admin(self):
@@ -70,5 +86,6 @@ class Usuario(UserMixin, db.Model):
             'nombre': self.nombre,
             'rol': self.rol,
             'activo': self.activo,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'empresa_id': self.empresa_id,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
         }
