@@ -17,7 +17,7 @@
                     {{ form.hidden_tag() }}
                     <div class="mb-3">
                         <label class="form-label">{{ form.producto_id.label.text }} *</label>
-                        {{ form.producto_id(class="form-select") }}
+                        {{ form.producto_id(class="form-select", id="producto_id", onchange="ajustarStepCantidad()") }}
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ form.tipo_ajuste.label.text }} *</label>
@@ -25,7 +25,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ form.cantidad.label.text }} *</label>
-                        {{ form.cantidad(class="form-control") }}
+                        {{ form.cantidad(class="form-control", id="cantidad_ajuste") }}
                     </div>
                     <div class="mb-4">
                         <label class="form-label">{{ form.motivo.label.text }} *</label>
@@ -39,4 +39,23 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function ajustarStepCantidad() {
+    const productoId = document.getElementById('producto_id').value;
+    const cantidadInput = document.getElementById('cantidad_ajuste');
+    if (!productoId || productoId === '0') return;
+
+    try {
+        const resp = await fetch(`/ventas/api/producto/${productoId}`);
+        if (resp.ok) {
+            const data = await resp.json();
+            const esEntero = (data.unidad_medida === 'unidad' || data.unidad_medida === 'par');
+            cantidadInput.step = esEntero ? '1' : '0.01';
+        }
+    } catch (e) { /* silenciar error */ }
+}
+</script>
 {% endblock %}

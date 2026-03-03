@@ -46,7 +46,6 @@
                         <th>Nº Orden</th>
                         <th>Fecha</th>
                         <th>Proveedor</th>
-                        <th class="text-end">Total</th>
                         <th class="text-center">Estado</th>
                         <th class="text-center">Acciones</th>
                     </tr>
@@ -57,7 +56,6 @@
                         <td><strong>#{{ o.numero }}</strong></td>
                         <td>{{ o.fecha|date }}</td>
                         <td>{{ o.proveedor.nombre }}</td>
-                        <td class="text-end">{{ o.total|currency }}</td>
                         <td class="text-center">
                             {% if o.estado == 'pendiente' %}<span class="badge badge-warning">Pendiente</span>
                             {% elif o.estado == 'recibida_parcial' %}<span class="badge badge-secondary">Parcial</span>
@@ -77,7 +75,7 @@
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="6" class="text-center py-4 text-muted">No hay órdenes de compra</td></tr>
+                    <tr><td colspan="5" class="text-center py-4 text-muted">No hay órdenes de compra</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
