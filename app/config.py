@@ -60,6 +60,7 @@ class ProductionConfig(Config):
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
+    PREFERRED_URL_SCHEME = 'https'
 
 
 config = {

@@ -4,11 +4,13 @@ Application Factory Pattern
 """
 
 import os
-from flask import Flask
+
 from dotenv import load_dotenv
+from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import config
-from .extensions import db, migrate, login_manager, bcrypt, csrf
+from .extensions import bcrypt, csrf, db, login_manager, migrate
 
 
 def create_app(config_name=None):
@@ -49,6 +51,10 @@ def create_app(config_name=None):
     # Registrar manejadores de errores
     register_error_handlers(app)
 
+    # ProxyFix para funcionar detrás de nginx (X-Forwarded-Proto, X-Forwarded-Host)
+    if config_name == 'production':
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
     return app
 
 
@@ -72,18 +78,18 @@ def register_blueprints(app):
     """Registra todos los blueprints de la aplicación."""
     from .routes import (
         auth_bp,
-        dashboard_bp,
-        productos_bp,
-        inventario_bp,
-        proveedores_bp,
-        compras_bp,
-        clientes_bp,
-        ventas_bp,
-        presupuestos_bp,
         caja_bp,
-        reportes_bp,
+        clientes_bp,
+        compras_bp,
         configuracion_bp,
+        dashboard_bp,
         facturacion_bp,
+        inventario_bp,
+        presupuestos_bp,
+        productos_bp,
+        proveedores_bp,
+        reportes_bp,
+        ventas_bp,
     )
 
     app.register_blueprint(auth_bp)
@@ -124,7 +130,9 @@ def register_template_context(app):
     @app.context_processor
     def inject_globals():
         from datetime import datetime
+
         from flask_login import current_user
+
         from .models.configuracion import Configuracion
 
         # Obtener configuración del negocio (filtrada por empresa)
