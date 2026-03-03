@@ -82,7 +82,8 @@ def register_blueprints(app):
         presupuestos_bp,
         caja_bp,
         reportes_bp,
-        configuracion_bp
+        configuracion_bp,
+        facturacion_bp,
     )
 
     app.register_blueprint(auth_bp)
@@ -97,6 +98,7 @@ def register_blueprints(app):
     app.register_blueprint(caja_bp)
     app.register_blueprint(reportes_bp)
     app.register_blueprint(configuracion_bp)
+    app.register_blueprint(facturacion_bp)
 
 
 def register_commands(app):

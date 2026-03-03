@@ -67,9 +67,7 @@
                         <thead>
                             <tr>
                                 <th>Producto</th>
-                                <th style="width: 120px;">Cantidad</th>
-                                <th style="width: 150px;">Precio Unit.</th>
-                                <th style="width: 150px;">Subtotal</th>
+                                <th style="width: 150px;">Cantidad</th>
                                 <th style="width: 50px;"></th>
                             </tr>
                         </thead>
@@ -77,7 +75,7 @@
                             <template x-for="(linea, index) in lineas" :key="index">
                                 <tr>
                                     <td>
-                                        <select :name="'producto_id[]'" class="form-select" x-model="linea.producto_id" @change="actualizarPrecio(index)">
+                                        <select :name="'producto_id[]'" class="form-select" x-model="linea.producto_id">
                                             <option value="">Seleccionar...</option>
                                             <template x-for="producto in productosFiltrados" :key="producto.id">
                                                 <option :value="producto.id" x-text="`${producto.codigo} - ${producto.nombre}`"></option>
@@ -86,16 +84,9 @@
                                     </td>
                                     <td>
                                         <input type="number" :name="'cantidad[]'" class="form-control"
-                                               x-model.number="linea.cantidad" @input="calcularSubtotal(index)"
+                                               x-model.number="linea.cantidad"
                                                min="0" step="0.001">
                                     </td>
-                                    <td>
-                                         <input type="text" :name="'precio[]'" class="form-control"
-                                               x-model="linea.precio_display" @input="actualizarPrecioInput(index, $event)"
-                                               data-mask="money" inputmode="decimal" x-init="initMoneyInput($el)"
-                                               min="0" step="0.01">
-                                    </td>
-                                    <td class="text-end fw-bold" x-text="formatCurrency(linea.subtotal)"></td>
                                     <td>
                                         <button type="button" class="btn btn-sm btn-outline-danger" @click="eliminarLinea(index)">
                                             <span class="material-symbols-rounded">delete</span>
@@ -104,13 +95,6 @@
                                 </tr>
                             </template>
                         </tbody>
-                        <tfoot>
-                            <tr class="table-light">
-                                <td colspan="3" class="text-end fw-bold">TOTAL:</td>
-                                <td class="text-end fw-bold" style="font-size: 1.2em;" x-text="formatCurrency(total)"></td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
                     </table>
                 </div>
             </div>
@@ -123,8 +107,6 @@
                     <dl class="mb-0">
                         <dt class="text-muted">Productos:</dt>
                         <dd x-text="lineas.filter(l => l.producto_id).length + ' items'"></dd>
-                        <dt class="text-muted">Total:</dt>
-                        <dd class="fs-4 fw-bold text-primary" x-text="formatCurrency(total)"></dd>
                     </dl>
                 </div>
                 <div class="card-footer">
@@ -179,11 +161,7 @@ function ordenCompraForm() {
     return {
         proveedorId: '',
         productos: productosData,
-        lineas: [{ producto_id: '', cantidad: 1, precio: 0, precio_display: '0,00', subtotal: 0 }],
-
-        get total() {
-            return this.lineas.reduce((sum, l) => sum + (l.subtotal || 0), 0);
-        },
+        lineas: [{ producto_id: '', cantidad: 1 }],
 
         get productosFiltrados() {
             if (!this.proveedorId) {
@@ -196,7 +174,7 @@ function ordenCompraForm() {
         },
 
         agregarLinea() {
-            this.lineas.push({ producto_id: '', cantidad: 1, precio: 0, precio_display: '0,00', subtotal: 0 });
+            this.lineas.push({ producto_id: '', cantidad: 1 });
             this.$nextTick(() => this.filtrarProductos());
         },
 
@@ -252,20 +230,6 @@ function ordenCompraForm() {
             });
         },
 
-        actualizarPrecio(index) {
-            const linea = this.lineas[index];
-            const producto = this.obtenerProducto(linea.producto_id);
-            if (producto) {
-                linea.precio = producto.precio_costo || 0;
-                linea.precio_display = formatMoneyOnBlur(String(linea.precio || 0));
-                this.calcularSubtotal(index);
-                return;
-            }
-            linea.precio = 0;
-            linea.precio_display = '0,00';
-            this.calcularSubtotal(index);
-        },
-
         filtrarProductos() {
             if (!this.proveedorId) {
                 return;
@@ -279,31 +243,8 @@ function ordenCompraForm() {
                 const productoProveedor = producto ? String(producto.proveedor_id || '') : '';
                 if (!producto || productoProveedor !== proveedorId) {
                     linea.producto_id = '';
-                    linea.precio = 0;
-                    linea.precio_display = '0,00';
-                    linea.subtotal = 0;
                 }
             });
-        },
-
-        actualizarPrecioInput(index, event) {
-            const value = event.target.value;
-            const linea = this.lineas[index];
-            linea.precio_display = value;
-            linea.precio = parseMoneyNumber(value);
-            this.calcularSubtotal(index);
-        },
-
-        calcularSubtotal(index) {
-            const linea = this.lineas[index];
-            linea.subtotal = (linea.cantidad || 0) * (linea.precio || 0);
-        },
-
-        formatCurrency(value) {
-            return new Intl.NumberFormat('es-AR', {
-                style: 'currency',
-                currency: 'ARS'
-            }).format(value || 0);
         },
 
         init() {

@@ -27,7 +27,7 @@ def index():
         form.direccion.data = Configuracion.get('direccion', default='')
         form.telefono.data = Configuracion.get('telefono', default='')
         form.cuit.data = Configuracion.get('cuit', default='')
-        form.precios_con_iva.data = Configuracion.get('precios_con_iva', default=True)
+        form.precios_con_iva.data = Configuracion.get('precios_con_iva', default=False)
 
     if form.validate_on_submit():
         Configuracion.set('nombre_negocio', form.nombre_negocio.data, 'string')

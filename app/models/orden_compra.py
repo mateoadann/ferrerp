@@ -131,8 +131,8 @@ class OrdenCompraDetalle(db.Model):
     )
     cantidad_pedida = db.Column(db.Numeric(12, 3), nullable=False)
     cantidad_recibida = db.Column(db.Numeric(12, 3), default=0)
-    precio_unitario = db.Column(db.Numeric(12, 2), nullable=False)
-    subtotal = db.Column(db.Numeric(12, 2), nullable=False)
+    precio_unitario = db.Column(db.Numeric(12, 2), nullable=True, default=0)
+    subtotal = db.Column(db.Numeric(12, 2), nullable=True, default=0)
 
     # La relacion con Producto se define via backref en Producto.detalles_orden_compra
 
@@ -151,6 +151,9 @@ class OrdenCompraDetalle(db.Model):
 
     def calcular_subtotal(self):
         """Calcula el subtotal de la línea."""
+        if not self.precio_unitario:
+            self.subtotal = Decimal('0')
+            return self.subtotal
         self.subtotal = Decimal(str(self.cantidad_pedida)) * Decimal(str(self.precio_unitario))
         return self.subtotal
 

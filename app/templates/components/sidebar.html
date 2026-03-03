@@ -43,6 +43,12 @@
             <span>Presupuestos</span>
         </a>
 
+        <a href="{{ url_for('facturacion.index') }}"
+           class="nav-item {% if request.endpoint and request.endpoint.startswith('facturacion.') %}active{% endif %}">
+            <span class="material-symbols-rounded">receipt</span>
+            <span>Facturación</span>
+        </a>
+
         <a href="{{ url_for('clientes.index') }}"
            class="nav-item {% if request.endpoint and request.endpoint.startswith('clientes.') %}active{% endif %}">
             <span class="material-symbols-rounded">group</span>

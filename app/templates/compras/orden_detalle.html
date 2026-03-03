@@ -50,8 +50,6 @@
                             <th class="text-center">Pedido</th>
                             <th class="text-center">Recibido</th>
                             <th class="text-center">Pendiente</th>
-                            <th class="text-end">P. Unit.</th>
-                            <th class="text-end">Subtotal</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -68,17 +66,9 @@
                                 <span class="badge badge-success">Completo</span>
                                 {% endif %}
                             </td>
-                            <td class="text-end">{{ detalle.precio_unitario|currency }}</td>
-                            <td class="text-end fw-bold">{{ detalle.subtotal|currency }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
-                    <tfoot>
-                        <tr class="table-light">
-                            <td colspan="6" class="text-end fw-bold">TOTAL:</td>
-                            <td class="text-end fw-bold" style="font-size: 1.2em;">{{ orden.total|currency }}</td>
-                        </tr>
-                    </tfoot>
                 </table>
             </div>
         </div>

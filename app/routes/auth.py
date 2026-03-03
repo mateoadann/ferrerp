@@ -6,7 +6,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from ..extensions import db
 from ..forms.auth_forms import LoginForm
 from ..forms.registro_forms import RegistroForm
-from ..models import Empresa, Usuario
+from ..models import Configuracion, Empresa, Usuario
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -75,6 +75,23 @@ def registro():
         db.session.add(usuario)
 
         db.session.commit()
+
+        # Propagar datos de empresa a configuración
+        Configuracion.set(
+            'nombre_negocio', empresa.nombre, 'string', empresa_id=empresa.id
+        )
+        Configuracion.set(
+            'cuit', empresa.cuit or '', 'string', empresa_id=empresa.id
+        )
+        Configuracion.set(
+            'direccion', empresa.direccion or '', 'string', empresa_id=empresa.id
+        )
+        Configuracion.set(
+            'telefono', empresa.telefono or '', 'string', empresa_id=empresa.id
+        )
+        Configuracion.set(
+            'precios_con_iva', False, 'boolean', empresa_id=empresa.id
+        )
 
         login_user(usuario)
         flash(

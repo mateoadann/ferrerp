@@ -159,42 +159,6 @@
             text-align: center;
         }
 
-        .productos-table .col-precio,
-        .productos-table .col-subtotal {
-            width: 100px;
-            text-align: right;
-        }
-
-        .productos-table .col-subtotal {
-            font-weight: bold;
-        }
-
-        .totales-section {
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 25px;
-        }
-
-        .totales-box {
-            width: 240px;
-        }
-
-        .totales-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            font-size: 11px;
-        }
-
-        .totales-row.total {
-            border-top: 2px solid #0D6E6E;
-            margin-top: 5px;
-            padding-top: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            color: #0D6E6E;
-        }
-
         .notas-section {
             background: #f8f9fa;
             border-radius: 6px;
@@ -305,8 +269,6 @@
                 <th class="col-codigo">Codigo</th>
                 <th>Descripcion</th>
                 <th class="col-cantidad">Cant.</th>
-                <th class="col-precio">P. Unitario</th>
-                <th class="col-subtotal">Subtotal</th>
             </tr>
         </thead>
         <tbody>
@@ -317,21 +279,10 @@
                 <td class="col-cantidad">
                     {{ detalle.cantidad_pedida|int if detalle.cantidad_pedida == detalle.cantidad_pedida|int else detalle.cantidad_pedida }}
                 </td>
-                <td class="col-precio">${{ '{:,.2f}'.format(detalle.precio_unitario) }}</td>
-                <td class="col-subtotal">${{ '{:,.2f}'.format(detalle.subtotal) }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-
-    <div class="totales-section">
-        <div class="totales-box">
-            <div class="totales-row total">
-                <span>TOTAL:</span>
-                <span>${{ '{:,.2f}'.format(orden.total or 0) }}</span>
-            </div>
-        </div>
-    </div>
 
     {% if orden.notas %}
     <div class="notas-section">

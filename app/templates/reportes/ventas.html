@@ -168,16 +168,15 @@ document.querySelectorAll('.js-air-date').forEach((input) => {
 
 const ventasData = {{ ventas_por_dia|tojson }};
 new Chart(document.getElementById('ventasDiaChart'), {
-    type: 'line',
+    type: 'bar',
     data: {
         labels: ventasData.map(d => d.fecha),
         datasets: [{
             label: 'Ventas',
             data: ventasData.map(d => d.total),
             borderColor: '#E07B54',
-            backgroundColor: 'rgba(224,123,84,0.1)',
-            fill: true,
-            tension: 0.3
+            backgroundColor: 'rgba(224,123,84,0.7)',
+            borderRadius: 4
         }]
     },
     options: {
