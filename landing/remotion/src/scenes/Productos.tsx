@@ -3,7 +3,7 @@ import {
     interpolate,
     useCurrentFrame,
 } from 'remotion';
-import { colores, fontFamily } from '../Demo';
+import { colores, fontFamily, iconFontFamily } from '../config';
 import { Sidebar, Header } from './Dashboard';
 
 /*
@@ -93,7 +93,8 @@ export const Productos: React.FC = () => {
                                 fontSize: 13,
                             }}
                         >
-                            🔍 Buscar por código o nombre...
+                            <span style={{ fontFamily: iconFontFamily, fontSize: 18, color: colores.foregroundMuted }}>search</span>
+                            Buscar por código o nombre...
                         </div>
 
                         {/* Select categoría */}
@@ -111,7 +112,7 @@ export const Productos: React.FC = () => {
                             }}
                         >
                             Todas las categorías
-                            <span style={{ fontSize: 10 }}>▼</span>
+                            <span style={{ fontFamily: iconFontFamily, fontSize: 16, color: colores.foregroundMuted }}>expand_more</span>
                         </div>
 
                         {/* Checkboxes */}
@@ -130,7 +131,7 @@ export const Productos: React.FC = () => {
                                         fontSize: 10,
                                     }}
                                 >
-                                    ✓
+                                    <span style={{ fontFamily: iconFontFamily, fontSize: 12 }}>check</span>
                                 </div>
                                 <span style={{ color: colores.foreground }}>Solo activos</span>
                             </div>
@@ -289,8 +290,8 @@ export const Productos: React.FC = () => {
                                                     gap: 6,
                                                 }}
                                             >
-                                                <span style={{ fontSize: 16, opacity: 0.5 }}>✏️</span>
-                                                <span style={{ fontSize: 16, opacity: 0.5 }}>👁</span>
+                                                <span style={{ fontFamily: iconFontFamily, fontSize: 18, color: colores.foregroundMuted }}>edit</span>
+                                                <span style={{ fontFamily: iconFontFamily, fontSize: 18, color: colores.foregroundMuted }}>visibility</span>
                                             </td>
                                         </tr>
                                     );

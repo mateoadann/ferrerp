@@ -5,7 +5,7 @@ import {
     useCurrentFrame,
     useVideoConfig,
 } from 'remotion';
-import { colores, sidebarItems, fontFamily } from '../Demo';
+import { colores, sidebarItems, fontFamily, iconFontFamily } from '../config';
 
 /*
  * Escena Dashboard — réplica exacta de la app real.
@@ -174,7 +174,7 @@ export const Dashboard: React.FC = () => {
                                 <span style={{ fontSize: 12, color: colores.foregroundSecondary, border: `1px solid ${colores.border}`, padding: '4px 12px', borderRadius: 6 }}>Ver todo</span>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 120, color: colores.foregroundMuted }}>
-                                <span style={{ fontSize: 36, marginBottom: 8, opacity: 0.4 }}>✓</span>
+                                <span style={{ fontFamily: iconFontFamily, fontSize: 36, marginBottom: 8, opacity: 0.4 }}>check_circle</span>
                                 <span style={{ fontSize: 13 }}>Sin alertas pendientes</span>
                             </div>
                         </div>
@@ -185,10 +185,10 @@ export const Dashboard: React.FC = () => {
                         <span style={{ fontSize: 15, fontWeight: 600, color: colores.foreground, display: 'block', marginBottom: 14 }}>Acciones rápidas</span>
                         <div style={{ display: 'flex', gap: 12 }}>
                             {[
-                                { label: '🏪 Nueva Venta', primary: true },
-                                { label: '+ Nuevo Producto', primary: false },
-                                { label: '👥 Nuevo Cliente', primary: false },
-                                { label: '⚙️ Ajustar Stock', primary: false },
+                                { icon: 'point_of_sale', label: 'Nueva Venta', primary: true },
+                                { icon: 'add', label: 'Nuevo Producto', primary: false },
+                                { icon: 'person_add', label: 'Nuevo Cliente', primary: false },
+                                { icon: 'tune', label: 'Ajustar Stock', primary: false },
                             ].map((a, i) => (
                                 <div
                                     key={i}
@@ -200,8 +200,12 @@ export const Dashboard: React.FC = () => {
                                         backgroundColor: a.primary ? colores.primary : colores.surface,
                                         color: a.primary ? colores.primaryForeground : colores.foreground,
                                         border: a.primary ? 'none' : `1px solid ${colores.border}`,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
                                     }}
                                 >
+                                    <span style={{ fontFamily: iconFontFamily, fontSize: 18 }}>{a.icon}</span>
                                     {a.label}
                                 </div>
                             ))}
@@ -251,7 +255,7 @@ export const Sidebar: React.FC<{ activeItem: string }> = ({ activeItem }) => {
                                 fontWeight: 500,
                             }}
                         >
-                            <span style={{ fontSize: 16 }}>{item.icon}</span>
+                            <span style={{ fontFamily: iconFontFamily, fontSize: 18, color: isActive ? colores.primary : colores.sidebarMuted }}>{item.icon}</span>
                             <span>{item.label}</span>
                         </div>
                     );
@@ -273,8 +277,8 @@ export const Header: React.FC<{ titulo: string }> = ({ titulo }) => {
         <div style={{ height: 56, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 24px', backgroundColor: colores.surface, borderBottom: `1px solid ${colores.border}` }}>
             <span style={{ fontSize: 16, fontWeight: 600, color: colores.foreground }}>{titulo}</span>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: colores.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🔔</div>
-                <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: colores.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>👤</div>
+                <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: colores.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: iconFontFamily, fontSize: 20, color: colores.foregroundSecondary }}>notifications</div>
+                <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: colores.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: iconFontFamily, fontSize: 20, color: colores.foregroundSecondary }}>account_circle</div>
             </div>
         </div>
     );

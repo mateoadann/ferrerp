@@ -5,7 +5,7 @@ import {
     useCurrentFrame,
     useVideoConfig,
 } from 'remotion';
-import { colores } from '../Demo';
+import { colores, fontFamily } from '../config';
 
 /* Escena de introducción: logo animado + nombre FerrERP */
 export const Intro: React.FC = () => {
@@ -36,7 +36,7 @@ export const Intro: React.FC = () => {
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontFamily: 'Inter, sans-serif',
+                fontFamily,
             }}
         >
             {/* Logo */}

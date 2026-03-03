@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { AbsoluteFill, Sequence } from 'remotion';
+import { colores, fontFamily, loadFonts } from './config';
 import { Intro } from './scenes/Intro';
 import { Dashboard } from './scenes/Dashboard';
 import { Productos } from './scenes/Productos';
@@ -6,92 +8,45 @@ import { Reportes } from './scenes/Reportes';
 
 /*
  * Composición principal del video demo de FerrERP.
+ * Duración total: 38 segundos.
  *
  * Escenas:
- * 1. Intro (0-4s)          → Logo animado + nombre
- * 2. Dashboard (4-20s)     → Métricas, gráfico de ventas, alertas
- * 3. Productos (20-40s)    → Tabla de productos con filtros
- * 4. Reportes (40-58s)     → Reporte de ventas con gráficos
- * 5. Outro (58-65s)        → CTA final
- *
- * Colores de la app:
- * --primary: #E07B54
- * --sidebar: #1F2937
- * --background: #FAFAFA
- * --foreground: #1A1A1A
+ * 1. Intro (0-3s)          → Logo animado + nombre
+ * 2. Dashboard (3-13s)     → Métricas, gráfico de ventas, alertas
+ * 3. Productos (13-23s)    → Tabla de productos con filtros
+ * 4. Reportes (23-33s)     → Reporte de ventas con gráficos
+ * 5. Outro (33-38s)        → CTA final
  */
 
 const FPS = 30;
 
-/* Colores compartidos — idénticos a la app real */
-export const colores = {
-    primary: '#E07B54',
-    primaryHover: '#D06A43',
-    primaryForeground: '#FFFFFF',
-    secondary: '#0D6E6E',
-    sidebar: '#1F2937',
-    sidebarForeground: '#F9FAFB',
-    sidebarMuted: '#9CA3AF',
-    sidebarHover: '#374151',
-    background: '#FAFAFA',
-    surface: '#FFFFFF',
-    foreground: '#1A1A1A',
-    foregroundSecondary: '#666666',
-    foregroundMuted: '#888888',
-    border: '#E5E5E5',
-    borderMuted: '#F0F0F0',
-    muted: '#F5F5F5',
-    success: '#16A34A',
-    successBg: '#DCFCE7',
-    warning: '#F59E0B',
-    warningBg: '#FEF3C7',
-    error: '#DC2626',
-    errorBg: '#FEE2E2',
-};
-
-/* Sidebar compartido — replica exacta de la app */
-export const sidebarItems = [
-    { icon: '📊', label: 'Dashboard' },
-    { icon: '📦', label: 'Productos' },
-    { icon: '🏭', label: 'Inventario' },
-    { icon: '🛒', label: 'Compras' },
-    { icon: '🏪', label: 'POS' },
-    { icon: '🧾', label: 'Ventas' },
-    { icon: '📄', label: 'Presupuestos' },
-    { icon: '🧾', label: 'Facturación' },
-    { icon: '👥', label: 'Clientes' },
-    { icon: '💰', label: 'Caja' },
-    { icon: '📈', label: 'Reportes' },
-    { icon: '⚙️', label: 'Configuración' },
-];
-
-export const fontFamily = 'Inter, -apple-system, BlinkMacSystemFont, sans-serif';
-
 export const Demo: React.FC = () => {
+    useEffect(() => { loadFonts(); }, []);
+
     return (
         <AbsoluteFill style={{ backgroundColor: colores.background }}>
-            {/* Intro: 0-4s */}
-            <Sequence from={0} durationInFrames={FPS * 4}>
+            {/* Intro: 0-3s */}
+            <Sequence from={0} durationInFrames={FPS * 3}>
                 <Intro />
             </Sequence>
 
-            {/* Dashboard: 4-20s */}
-            <Sequence from={FPS * 4} durationInFrames={FPS * 16}>
+            {/* Dashboard: 3-13s */}
+            <Sequence from={FPS * 3} durationInFrames={FPS * 10}>
                 <Dashboard />
             </Sequence>
 
-            {/* Productos: 20-40s */}
-            <Sequence from={FPS * 20} durationInFrames={FPS * 20}>
+            {/* Productos: 13-23s */}
+            <Sequence from={FPS * 13} durationInFrames={FPS * 10}>
                 <Productos />
             </Sequence>
 
-            {/* Reportes: 40-58s */}
-            <Sequence from={FPS * 40} durationInFrames={FPS * 18}>
+            {/* Reportes: 23-33s */}
+            <Sequence from={FPS * 23} durationInFrames={FPS * 10}>
                 <Reportes />
             </Sequence>
 
-            {/* Outro: 58-65s */}
-            <Sequence from={FPS * 58} durationInFrames={FPS * 7}>
+            {/* Outro: 33-38s */}
+            <Sequence from={FPS * 33} durationInFrames={FPS * 5}>
                 <Outro />
             </Sequence>
         </AbsoluteFill>

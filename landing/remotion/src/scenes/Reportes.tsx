@@ -5,7 +5,7 @@ import {
     useCurrentFrame,
     useVideoConfig,
 } from 'remotion';
-import { colores, fontFamily } from '../Demo';
+import { colores, fontFamily, iconFontFamily } from '../config';
 import { Sidebar, Header } from './Dashboard';
 
 /*
@@ -74,7 +74,7 @@ export const Reportes: React.FC = () => {
                                 gap: 8,
                             }}
                         >
-                            ⬇ Exportar Excel
+                            <span style={{ fontFamily: iconFontFamily, fontSize: 18 }}>download</span> Exportar Excel
                         </div>
                     </div>
 
