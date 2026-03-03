@@ -63,6 +63,10 @@ Thumbs.db
 # Uploads (si se agregan en el futuro)
 uploads/
 
+# Node / Remotion
+node_modules/
+landing/remotion/out/
+
 # Others
 features.txt
 Implementación funcional del IVA.md
