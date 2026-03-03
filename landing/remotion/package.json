@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Video demo de FerrERP generado con Remotion",
   "scripts": {
-    "dev": "remotion studio",
-    "render": "remotion render Demo out/demo.mp4 --codec h264",
-    "render:webm": "remotion render Demo out/demo.webm --codec vp8"
+    "dev": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts Demo out/demo.mp4 --codec h264",
+    "render:webm": "remotion render src/index.ts Demo out/demo.webm --codec vp8"
   },
   "dependencies": {
     "react": "^18.3.0",
