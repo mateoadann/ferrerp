@@ -65,7 +65,7 @@ def init_extensions(app):
 
     @login_manager.user_loader
     def load_user(user_id):
-        return Usuario.query.get(int(user_id))
+        return db.session.get(Usuario, int(user_id))
 
 
 def register_blueprints(app):
@@ -122,21 +122,36 @@ def register_template_context(app):
     @app.context_processor
     def inject_globals():
         from datetime import datetime
+        from flask_login import current_user
         from .models.configuracion import Configuracion
 
         # Obtener configuración del negocio
         def get_config(clave, default=None):
+            if not current_user.is_authenticated:
+                return default
             config_item = Configuracion.query.filter_by(clave=clave).first()
             return config_item.get_valor() if config_item else default
+
+        empresa_actual = None
+        if current_user.is_authenticated and current_user.empresa:
+            empresa_actual = current_user.empresa
 
         return {
             'app_name': app.config.get('APP_NAME', 'FerrERP'),
             'current_year': datetime.now().year,
             'get_config': get_config,
             'precios_con_iva': get_config('precios_con_iva', True),
+            'empresa_actual': empresa_actual,
         }
 
     # Filtros personalizados para Jinja2
+    @app.template_filter('combine')
+    def combine_filter(d, other):
+        """Combina dos diccionarios (equivalente a {**d, **other})."""
+        result = dict(d)
+        result.update(other)
+        return result
+
     @app.template_filter('currency')
     def currency_filter(value):
         """Formatea un número como moneda."""
