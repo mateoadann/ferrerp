@@ -2,16 +2,26 @@
 
 from datetime import datetime
 from decimal import Decimal
+
+from sqlalchemy import UniqueConstraint
+
 from ..extensions import db
+from .mixins import EmpresaMixin
 
 
-class OrdenCompra(db.Model):
+class OrdenCompra(EmpresaMixin, db.Model):
     """Modelo de orden de compra a proveedor."""
 
     __tablename__ = 'ordenes_compra'
+    __table_args__ = (
+        UniqueConstraint(
+            'empresa_id', 'numero',
+            name='uq_ordenes_compra_empresa_numero',
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
-    numero = db.Column(db.Integer, unique=True, nullable=False, index=True)
+    numero = db.Column(db.Integer, nullable=False, index=True)
     fecha = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     proveedor_id = db.Column(
         db.Integer,

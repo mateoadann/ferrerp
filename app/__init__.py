@@ -125,11 +125,13 @@ def register_template_context(app):
         from flask_login import current_user
         from .models.configuracion import Configuracion
 
-        # Obtener configuración del negocio
+        # Obtener configuración del negocio (filtrada por empresa)
         def get_config(clave, default=None):
             if not current_user.is_authenticated:
                 return default
-            config_item = Configuracion.query.filter_by(clave=clave).first()
+            config_item = Configuracion.query.filter_by(
+                clave=clave, empresa_id=current_user.empresa_id
+            ).first()
             return config_item.get_valor() if config_item else default
 
         empresa_actual = None

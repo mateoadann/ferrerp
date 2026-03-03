@@ -1,28 +1,34 @@
 from decimal import Decimal
 
 from app.extensions import db
-from app.models import Caja, MovimientoCaja, Usuario
+from app.models import Caja, Empresa, MovimientoCaja, Usuario
 
 
 def _crear_usuario():
+    empresa = Empresa(nombre='Empresa Test', activa=True)
+    db.session.add(empresa)
+    db.session.flush()
+
     usuario = Usuario(
         email='caja@ferrerp.test',
         nombre='Usuario Caja',
         rol='administrador',
         activo=True,
+        empresa_id=empresa.id,
     )
     usuario.set_password('clave')
-    return usuario
+    return usuario, empresa
 
 
 def test_caja_totales_y_cierre(app):
-    usuario = _crear_usuario()
+    usuario, empresa = _crear_usuario()
     db.session.add(usuario)
     db.session.commit()
 
     caja = Caja(
         usuario_apertura_id=usuario.id,
         monto_inicial=Decimal('100.00'),
+        empresa_id=empresa.id,
     )
     db.session.add(caja)
     db.session.commit()
