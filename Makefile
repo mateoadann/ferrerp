@@ -1,7 +1,7 @@
 # FerrERP - Makefile
 # Comandos para facilitar el uso de Docker
 
-.PHONY: help build up down logs shell db-shell seed migrate clean test test-dev test-dev-run install-hooks
+.PHONY: help build up down logs shell db-shell seed migrate clean test test-dev test-dev-run install-hooks up-prod logs-nginx reload-nginx
 
 # Mostrar ayuda
 help:
@@ -24,6 +24,9 @@ help:
 	@echo "  make restart    - Reiniciar aplicacion"
 	@echo "  make status     - Ver estado de contenedores"
 	@echo "  make restart-web - Reiniciar solo el contenedor web"
+	@echo "  make up-prod    - Iniciar stack completo de produccion (nginx + SSL)"
+	@echo "  make logs-nginx - Ver logs de nginx"
+	@echo "  make reload-nginx - Recargar configuracion de nginx"
 	@echo ""
 
 # Construir imagenes
@@ -117,3 +120,20 @@ restart-web:
 # Ver estado de contenedores
 status:
 	docker-compose ps
+
+# Iniciar stack completo de produccion (nginx + SSL)
+up-prod:
+	docker-compose up -d
+	@echo ""
+	@echo "FerrERP produccion iniciado"
+	@echo "  Landing: https://ferrerp.com"
+	@echo "  App:     https://app.ferrerp.com"
+
+# Ver logs de nginx
+logs-nginx:
+	docker-compose logs -f nginx
+
+# Recargar configuracion de nginx
+reload-nginx:
+	docker-compose exec nginx nginx -s reload
+	@echo "Configuracion de nginx recargada"
