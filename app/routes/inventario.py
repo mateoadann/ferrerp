@@ -175,7 +175,7 @@ def movimientos_producto(producto_id):
     producto = Producto.get_o_404(producto_id)
     page = request.args.get('page', 1, type=int)
 
-    movimientos = MovimientoStock.query.filter_by(
+    movimientos = MovimientoStock.query_empresa().filter_by(
         producto_id=producto_id
     ).order_by(
         MovimientoStock.created_at.desc()

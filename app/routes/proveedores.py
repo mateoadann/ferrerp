@@ -86,8 +86,7 @@ def detalle(id):
     """Ver detalle de proveedor con historial de compras."""
     proveedor = Proveedor.get_o_404(id)
 
-    # Últimas órdenes de compra (OrdenCompra aún no tiene empresa_id, se agrega en PR3)
-    ordenes = OrdenCompra.query.filter_by(
+    ordenes = OrdenCompra.query_empresa().filter_by(
         proveedor_id=id
     ).order_by(
         OrdenCompra.fecha.desc()

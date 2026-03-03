@@ -119,7 +119,7 @@ def cuenta_corriente(id):
     cliente = Cliente.get_o_404(id)
     page = request.args.get('page', 1, type=int)
 
-    movimientos = MovimientoCuentaCorriente.query.filter_by(
+    movimientos = MovimientoCuentaCorriente.query_empresa().filter_by(
         cliente_id=id
     ).order_by(
         MovimientoCuentaCorriente.created_at.desc()
