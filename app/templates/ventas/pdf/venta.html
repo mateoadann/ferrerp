@@ -59,22 +59,36 @@
             line-height: 1.6;
         }
 
-        .presupuesto-titulo {
+        .venta-titulo {
             font-size: 22px;
             font-weight: bold;
             color: #333;
             margin-bottom: 8px;
         }
 
-        .presupuesto-numero {
+        .venta-numero {
             font-size: 14px;
             color: #555;
             margin-bottom: 3px;
         }
 
-        .presupuesto-fecha {
+        .venta-fecha {
             font-size: 10px;
             color: #888;
+        }
+
+        /* Aviso no válido como factura */
+        .aviso-no-factura {
+            border: 2px solid #333;
+            border-radius: 6px;
+            padding: 10px 15px;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         /* Info boxes */
@@ -109,13 +123,6 @@
 
         .info-box .nombre {
             font-size: 12px;
-            font-weight: bold;
-            color: #333;
-        }
-
-        /* Validity badge */
-        .validity-box .fecha-vencimiento {
-            font-size: 13px;
             font-weight: bold;
             color: #333;
         }
@@ -197,28 +204,6 @@
             color: #333;
         }
 
-        /* Notas */
-        .notas-section {
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            padding: 12px 15px;
-            margin-bottom: 20px;
-        }
-
-        .notas-section .label {
-            font-size: 9px;
-            font-weight: bold;
-            text-transform: uppercase;
-            color: #555;
-            margin-bottom: 5px;
-        }
-
-        .notas-section p {
-            font-size: 10px;
-            color: #555;
-            white-space: pre-wrap;
-        }
-
         /* Footer */
         .footer {
             margin-top: 30px;
@@ -234,6 +219,13 @@
             color: #333;
             font-weight: bold;
             margin-bottom: 5px;
+        }
+
+        .footer .aviso-pie {
+            font-size: 10px;
+            color: #333;
+            font-weight: bold;
+            margin-top: 8px;
         }
 
         /* Estado badge */
@@ -263,53 +255,57 @@
             </div>
         </div>
         <div class="header-right">
-            <div class="presupuesto-titulo">PRESUPUESTO</div>
-            <div class="presupuesto-numero">#{{ presupuesto.numero_completo }}</div>
-            <div class="presupuesto-fecha">
-                Fecha: {{ presupuesto.fecha.strftime('%d/%m/%Y %H:%M') }}
+            <div class="venta-titulo">COMPROBANTE DE VENTA</div>
+            <div class="venta-numero">#{{ venta.numero_completo }}</div>
+            <div class="venta-fecha">
+                Fecha: {{ venta.fecha.strftime('%d/%m/%Y %H:%M') }}
             </div>
             <div style="margin-top: 6px;">
-                <span class="estado-badge estado-{{ presupuesto.estado }}">
-                    {{ presupuesto.estado_display }}
+                <span class="estado-badge estado-{{ venta.estado }}">
+                    {{ venta.estado_display }}
                 </span>
             </div>
         </div>
+    </div>
+
+    <!-- Aviso -->
+    <div class="aviso-no-factura">
+        Documento no válido como factura
     </div>
 
     <!-- Info Section -->
     <div class="info-section">
         <div class="info-box">
             <div class="info-box-label">Cliente</div>
-            {% if presupuesto.cliente %}
-                <p class="nombre">{{ presupuesto.cliente.nombre }}</p>
-                {% if presupuesto.cliente.dni_cuit %}
-                <p>DNI/CUIT: {{ presupuesto.cliente.dni_cuit }}</p>
+            {% if venta.cliente %}
+                <p class="nombre">{{ venta.cliente.nombre }}</p>
+                {% if venta.cliente.dni_cuit %}
+                <p>DNI/CUIT: {{ venta.cliente.dni_cuit }}</p>
                 {% endif %}
-                {% if presupuesto.cliente.telefono %}
-                <p>Tel: {{ presupuesto.cliente.telefono }}</p>
+                {% if venta.cliente.telefono %}
+                <p>Tel: {{ venta.cliente.telefono }}</p>
                 {% endif %}
-                {% if presupuesto.cliente.email %}
-                <p>{{ presupuesto.cliente.email }}</p>
+                {% if venta.cliente.email %}
+                <p>{{ venta.cliente.email }}</p>
                 {% endif %}
-                {% if presupuesto.cliente.direccion %}
-                <p>{{ presupuesto.cliente.direccion }}</p>
-                {% endif %}
-            {% elif presupuesto.cliente_nombre %}
-                <p class="nombre">{{ presupuesto.cliente_nombre }}</p>
-                {% if presupuesto.cliente_telefono %}
-                <p>Tel: {{ presupuesto.cliente_telefono }}</p>
+                {% if venta.cliente.direccion %}
+                <p>{{ venta.cliente.direccion }}</p>
                 {% endif %}
             {% else %}
                 <p class="nombre">Consumidor Final</p>
             {% endif %}
         </div>
 
-        <div class="info-box validity-box">
-            <div class="info-box-label">Validez del presupuesto</div>
-            <p class="fecha-vencimiento">
-                Válido hasta: {{ presupuesto.fecha_vencimiento.strftime('%d/%m/%Y') }}
+        <div class="info-box">
+            <div class="info-box-label">Datos de la venta</div>
+            <p><strong>Vendedor:</strong> {{ venta.usuario.nombre }}</p>
+            <p><strong>Forma de pago:</strong> {{ venta.forma_pago_display }}</p>
+            {% if venta.estado == 'anulada' %}
+            <p style="font-weight: bold; margin-top: 4px; text-transform: uppercase;">
+                VENTA ANULADA
+                {% if venta.motivo_anulacion %} — {{ venta.motivo_anulacion }}{% endif %}
             </p>
-            <p style="margin-top: 4px;">Vendedor: {{ presupuesto.usuario.nombre }}</p>
+            {% endif %}
         </div>
     </div>
 
@@ -341,14 +337,14 @@
     <div class="totales-section">
         <div class="totales-box">
             {% set con_iva = config_negocio.precios_con_iva|default(true) %}
-            {% set detalles = presupuesto.detalles %}
-            
+            {% set detalles = venta.detalles %}
+
             {% set ns = namespace(iva_agrupado={}, neto_total=0, iva_total=0) %}
             {% for detalle in detalles %}
                 {% set iva_pct = detalle.iva_porcentaje|default(21)|float %}
                 {% set item_subtotal = detalle.subtotal|float %}
-                {% set proporcion = (item_subtotal / presupuesto.subtotal|float) if presupuesto.subtotal|float > 0 else 0 %}
-                {% set item_total = presupuesto.total|float * proporcion %}
+                {% set proporcion = (item_subtotal / venta.subtotal|float) if venta.subtotal|float > 0 else 0 %}
+                {% set item_total = venta.total|float * proporcion %}
 
                 {% if con_iva %}
                     {% set item_neto = item_total / (1 + iva_pct / 100) %}
@@ -369,15 +365,15 @@
                 {% set ns.neto_total = ns.neto_total + datos.subtotal %}
                 {% set ns.iva_total = ns.iva_total + datos.iva %}
             {% endfor %}
-            
+
             <div class="totales-row">
                 <span>Subtotal:</span>
-                <span>${{ '{:,.2f}'.format(presupuesto.subtotal) }}</span>
+                <span>${{ '{:,.2f}'.format(venta.subtotal) }}</span>
             </div>
-            {% if presupuesto.descuento_monto and presupuesto.descuento_monto > 0 %}
+            {% if venta.descuento_monto and venta.descuento_monto > 0 %}
             <div class="totales-row descuento">
-                <span>Descuento ({{ presupuesto.descuento_porcentaje }}%):</span>
-                <span>-${{ '{:,.2f}'.format(presupuesto.descuento_monto) }}</span>
+                <span>Descuento ({{ venta.descuento_porcentaje }}%):</span>
+                <span>-${{ '{:,.2f}'.format(venta.descuento_monto) }}</span>
             </div>
             {% endif %}
             <div class="totales-row">
@@ -394,7 +390,7 @@
                 <span>TOTAL:</span>
                 <span>
                     {% if con_iva %}
-                        ${{ '{:,.2f}'.format(presupuesto.total) }}
+                        ${{ '{:,.2f}'.format(venta.total) }}
                     {% else %}
                         ${{ '{:,.2f}'.format(ns.neto_total + ns.iva_total) }}
                     {% endif %}
@@ -406,25 +402,11 @@
         </div>
     </div>
 
-    <!-- Notas -->
-    {% if presupuesto.notas %}
-    <div class="notas-section">
-        <div class="label">Observaciones</div>
-        <p>{{ presupuesto.notas }}</p>
-    </div>
-    {% endif %}
-
-    <!-- Texto pie configurable -->
-    {% if config_negocio.texto_pie %}
-    <div class="notas-section">
-        <p>{{ config_negocio.texto_pie }}</p>
-    </div>
-    {% endif %}
-
     <!-- Footer -->
     <div class="footer">
-        <div class="gracias">Gracias por su consulta</div>
+        <div class="gracias">Gracias por su compra</div>
         <p>{{ config_negocio.nombre or 'FerrERP' }}{% if config_negocio.telefono %} | Tel: {{ config_negocio.telefono }}{% endif %}{% if config_negocio.email %} | {{ config_negocio.email }}{% endif %}</p>
+        <p class="aviso-pie">Documento no válido como factura</p>
     </div>
 </body>
 </html>

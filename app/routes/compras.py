@@ -21,7 +21,7 @@ def index():
     estado = request.args.get('estado', '')
     proveedor_id = request.args.get('proveedor', 0, type=int)
 
-    query = OrdenCompra.query
+    query = OrdenCompra.query_empresa()
 
     if estado:
         query = query.filter(OrdenCompra.estado == estado)
@@ -32,7 +32,7 @@ def index():
     query = query.order_by(OrdenCompra.fecha.desc())
     ordenes = paginar_query(query, page)
 
-    proveedores = Proveedor.query.filter_by(activo=True).order_by(Proveedor.nombre).all()
+    proveedores = Proveedor.query_empresa().filter_by(activo=True).order_by(Proveedor.nombre).all()
 
     return render_template(
         'compras/index.html',
@@ -82,12 +82,13 @@ def nueva():
 
         # Crear orden
         orden = OrdenCompra(
-            numero=generar_numero_orden_compra(),
+            numero=generar_numero_orden_compra(current_user.empresa_id),
             fecha=fecha_orden,
             proveedor_id=proveedor_id,
             usuario_id=current_user.id,
             estado='pendiente',
-            notas=notas
+            notas=notas,
+            empresa_id=current_user.empresa_id,
         )
         db.session.add(orden)
         db.session.flush()
@@ -123,8 +124,8 @@ def nueva():
         return redirect(url_for('compras.detalle', id=orden.id))
 
     # GET - Mostrar formulario
-    proveedores = Proveedor.query.filter_by(activo=True).order_by(Proveedor.nombre).all()
-    productos = Producto.query.filter_by(activo=True).order_by(Producto.nombre).all()
+    proveedores = Proveedor.query_empresa().filter_by(activo=True).order_by(Proveedor.nombre).all()
+    productos = Producto.query_empresa().filter_by(activo=True).order_by(Producto.nombre).all()
     productos_data = [
         {
             'id': producto.id,
@@ -148,7 +149,7 @@ def nueva():
 @login_required
 def detalle(id):
     """Ver detalle de orden de compra."""
-    orden = OrdenCompra.query.get_or_404(id)
+    orden = OrdenCompra.get_o_404(id)
     return render_template('compras/orden_detalle.html', orden=orden)
 
 
@@ -156,7 +157,7 @@ def detalle(id):
 @login_required
 def pdf(id):
     """Descargar PDF de la orden de compra."""
-    orden = OrdenCompra.query.get_or_404(id)
+    orden = OrdenCompra.get_o_404(id)
 
     pdf_bytes = orden_compra_service.generar_pdf(orden)
 
@@ -172,7 +173,7 @@ def pdf(id):
 @login_required
 def recibir(id):
     """Recibir mercadería de una orden."""
-    orden = OrdenCompra.query.get_or_404(id)
+    orden = OrdenCompra.get_o_404(id)
 
     if not orden.puede_recibir:
         flash('Esta orden no puede recibir más mercadería.', 'warning')
@@ -233,7 +234,8 @@ def recibir(id):
                     referencia_tipo='orden_compra',
                     referencia_id=orden.id,
                     motivo=motivo,
-                    usuario_id=current_user.id
+                    usuario_id=current_user.id,
+                    empresa_id=current_user.empresa_id,
                 )
                 db.session.add(movimiento)
 
@@ -255,7 +257,7 @@ def recibir(id):
 @login_required
 def cancelar(id):
     """Cancelar orden de compra."""
-    orden = OrdenCompra.query.get_or_404(id)
+    orden = OrdenCompra.get_o_404(id)
 
     if not orden.puede_cancelar:
         flash('Esta orden no puede ser cancelada.', 'warning')
@@ -273,7 +275,7 @@ def cancelar(id):
 def sugerencia():
     """Sugerencia de compra basada en stock mínimo."""
     # Productos bajo stock mínimo
-    productos_bajo_stock = Producto.query.filter(
+    productos_bajo_stock = Producto.query_empresa().filter(
         Producto.activo == True,
         Producto.stock_actual < Producto.stock_minimo,
         Producto.proveedor_id.isnot(None)
@@ -309,12 +311,13 @@ def generar_orden_sugerencia():
 
     # Crear orden
     orden = OrdenCompra(
-        numero=generar_numero_orden_compra(),
+        numero=generar_numero_orden_compra(current_user.empresa_id),
         fecha=datetime.utcnow(),
         proveedor_id=proveedor_id,
         usuario_id=current_user.id,
         estado='pendiente',
-        notas='Generada desde sugerencia de compra'
+        notas='Generada desde sugerencia de compra',
+        empresa_id=current_user.empresa_id,
     )
     db.session.add(orden)
     db.session.flush()
@@ -325,7 +328,7 @@ def generar_orden_sugerencia():
         if not prod_id:
             continue
 
-        producto = Producto.query.get(int(prod_id))
+        producto = Producto.get_o_404(int(prod_id))
         if not producto:
             continue
 

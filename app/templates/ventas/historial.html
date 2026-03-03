@@ -104,6 +104,9 @@
                             <a href="{{ url_for('ventas.detalle', id=venta.id) }}" class="action-icon" title="Ver detalle">
                                 <span class="material-symbols-rounded">visibility</span>
                             </a>
+                            <a href="{{ url_for('ventas.pdf', id=venta.id) }}" class="action-icon" title="Descargar PDF" target="_blank">
+                                <span class="material-symbols-rounded">picture_as_pdf</span>
+                            </a>
                             <a href="{{ url_for('ventas.ticket', id=venta.id) }}" class="action-icon" title="Ver ticket">
                                 <span class="material-symbols-rounded">receipt</span>
                             </a>
@@ -132,6 +135,7 @@
 
 <!-- Paginacion -->
 {% if ventas.pages > 1 %}
+{% set pagination = ventas %}
 {% include 'components/pagination.html' %}
 {% endif %}
 {% endblock %}

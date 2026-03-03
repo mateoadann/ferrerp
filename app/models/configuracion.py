@@ -73,9 +73,12 @@ class Configuracion(EmpresaMixin, db.Model):
             El valor de la configuración o el default
         """
         if empresa_id is None:
-            if not current_user.is_authenticated:
+            try:
+                if not current_user.is_authenticated:
+                    return default
+                empresa_id = current_user.empresa_id
+            except AttributeError:
                 return default
-            empresa_id = current_user.empresa_id
         config = cls.query.filter_by(clave=clave, empresa_id=empresa_id).first()
         return config.get_valor() if config else default
 
@@ -91,9 +94,12 @@ class Configuracion(EmpresaMixin, db.Model):
             empresa_id: ID de la empresa (si no se pasa, usa la del usuario actual)
         """
         if empresa_id is None:
-            if not current_user.is_authenticated:
+            try:
+                if not current_user.is_authenticated:
+                    raise ValueError('Se requiere empresa_id o usuario autenticado')
+                empresa_id = current_user.empresa_id
+            except AttributeError:
                 raise ValueError('Se requiere empresa_id o usuario autenticado')
-            empresa_id = current_user.empresa_id
         config = cls.query.filter_by(clave=clave, empresa_id=empresa_id).first()
         if not config:
             config = cls(clave=clave, tipo=tipo, empresa_id=empresa_id)
