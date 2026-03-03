@@ -121,7 +121,7 @@ const Outro: React.FC = () => {
                     marginTop: 16,
                 }}
             >
-                ferrerp.com
+                ferrerp.app
             </p>
         </AbsoluteFill>
     );

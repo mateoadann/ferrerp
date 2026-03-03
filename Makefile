@@ -126,8 +126,8 @@ up-prod:
 	docker-compose up -d
 	@echo ""
 	@echo "FerrERP produccion iniciado"
-	@echo "  Landing: https://ferrerp.com"
-	@echo "  App:     https://app.ferrerp.com"
+	@echo "  Landing: https://ferrerp.app"
+	@echo "  App:     https://panel.ferrerp.app"
 
 # Ver logs de nginx
 logs-nginx:
