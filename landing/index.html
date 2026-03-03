@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FerrERP - Sistema de gestión para ferreterías</title>
+    <meta name="description" content="FerrERP es un sistema ERP diseñado para ferreterías. Punto de venta, inventario, compras, cuentas corrientes y reportes en un solo lugar.">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="FerrERP - Gestión integral para ferreterías">
+    <meta property="og:description" content="Sistema ERP pensado para ferreterías. Control de inventario, punto de venta, compras y reportes.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://ferrerp.com">
+    <meta property="og:image" content="https://ferrerp.com/assets/img/og-image.png">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+
+    <!-- Estilos -->
+    <link rel="stylesheet" href="css/landing.css">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://ferrerp.com">
+
+    <!-- Schema.org -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "FerrERP",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "description": "Sistema ERP para ferreterías argentinas. Punto de venta, inventario, compras y reportes.",
+        "url": "https://ferrerp.com",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "ARS",
+            "description": "Consultá por planes disponibles"
+        }
+    }
+    </script>
+</head>
+<body>
+
+    <!-- ====== NAVBAR ====== -->
+    <nav class="landing-nav">
+        <a href="#" class="nav-logo">
+            <div class="nav-logo-icon">F</div>
+            <span class="nav-logo-text">FerrERP</span>
+        </a>
+
+        <ul class="nav-links">
+            <li><a href="#caracteristicas">Características</a></li>
+            <li><a href="#como-funciona">Cómo funciona</a></li>
+            <li><a href="#demo">Demo</a></li>
+            <li><a href="#contacto">Contacto</a></li>
+        </ul>
+
+        <div class="nav-actions">
+            <a href="https://app.ferrerp.com/auth/login" class="btn btn-outline">Iniciar sesión</a>
+            <a href="https://app.ferrerp.com/auth/registro" class="btn btn-primary">Crear cuenta gratis</a>
+        </div>
+
+        <button class="nav-hamburger" aria-label="Abrir menú">
+            <span class="material-symbols-rounded">menu</span>
+        </button>
+    </nav>
+
+    <!-- Menu mobile -->
+    <div class="mobile-menu">
+        <ul class="mobile-menu-links">
+            <li><a href="#caracteristicas">Características</a></li>
+            <li><a href="#como-funciona">Cómo funciona</a></li>
+            <li><a href="#demo">Demo</a></li>
+            <li><a href="#contacto">Contacto</a></li>
+        </ul>
+        <div class="mobile-menu-actions">
+            <a href="https://app.ferrerp.com/auth/login" class="btn btn-outline">Iniciar sesión</a>
+            <a href="https://app.ferrerp.com/auth/registro" class="btn btn-primary">Crear cuenta gratis</a>
+        </div>
+    </div>
+
+    <!-- ====== HERO ====== -->
+    <section class="hero">
+        <div class="hero-container">
+            <div class="hero-content">
+                <div class="hero-eyebrow">
+                    <span class="material-symbols-rounded" style="font-size: 16px;">storefront</span>
+                    ERP para ferreterías
+                </div>
+
+                <h1 class="hero-title">Gestioná tu ferretería sin complicaciones</h1>
+
+                <p class="hero-subtitle">
+                    Todo lo que necesitás para administrar tu ferretería: punto de venta ágil,
+                    control de stock en tiempo real, compras inteligentes y reportes claros.
+                </p>
+
+                <div class="hero-actions">
+                    <a href="https://app.ferrerp.com/auth/registro" class="btn btn-primary btn-lg">
+                        Comenzar gratis
+                        <span class="material-symbols-rounded" style="font-size: 20px;">arrow_forward</span>
+                    </a>
+                    <a href="#demo" class="btn btn-ghost btn-lg">
+                        <span class="material-symbols-rounded" style="font-size: 20px;">play_circle</span>
+                        Ver demo
+                    </a>
+                </div>
+
+                <div class="hero-badges">
+                    <div class="hero-badge">
+                        <span class="material-symbols-rounded">check_circle</span>
+                        Todo en un solo lugar
+                    </div>
+                    <div class="hero-badge">
+                        <span class="material-symbols-rounded">check_circle</span>
+                        Gestioná desde cualquier dispositivo
+                    </div>
+                </div>
+            </div>
+
+            <div class="hero-mockup fade-up">
+                <div class="browser-frame">
+                    <div class="browser-bar">
+                        <div class="browser-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <div class="browser-url">app.ferrerp.com</div>
+                    </div>
+                    <div class="browser-content">
+                        <img src="assets/img/hero-dashboard.png" alt="Dashboard de FerrERP" style="width: 100%; height: auto; display: block;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== CARACTERÍSTICAS ====== -->
+    <section class="features" id="caracteristicas">
+        <div class="section-container">
+            <div class="section-header fade-up">
+                <div class="section-eyebrow">
+                    <span class="material-symbols-rounded" style="font-size: 16px;">auto_awesome</span>
+                    Características
+                </div>
+                <h2 class="section-title">Todo lo que tu ferretería necesita</h2>
+                <p class="section-subtitle">
+                    Herramientas pensadas para el día a día de una ferretería,
+                    desde el mostrador hasta la gestión.
+                </p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card fade-up">
+                    <div class="feature-icon">
+                        <span class="material-symbols-rounded">point_of_sale</span>
+                    </div>
+                    <h3>Punto de Venta</h3>
+                    <p>
+                        Vendé rápido con el POS integrado. Buscá productos, agregá al carrito
+                        y cobrá con efectivo, tarjeta o cuenta corriente.
+                    </p>
+                </div>
+
+                <div class="feature-card fade-up">
+                    <div class="feature-icon">
+                        <span class="material-symbols-rounded">inventory_2</span>
+                    </div>
+                    <h3>Control de Inventario</h3>
+                    <p>
+                        Stock en tiempo real con alertas de mínimos. Registrá movimientos,
+                        ajustes y mirá el historial completo de cada producto.
+                    </p>
+                </div>
+
+                <div class="feature-card fade-up">
+                    <div class="feature-icon">
+                        <span class="material-symbols-rounded">local_shipping</span>
+                    </div>
+                    <h3>Compras y Proveedores</h3>
+                    <p>
+                        Creá órdenes de compra con sugerencias automáticas de reposición.
+                        Recibí mercadería y actualizá el stock en un solo paso.
+                    </p>
+                </div>
+
+                <div class="feature-card fade-up">
+                    <div class="feature-icon">
+                        <span class="material-symbols-rounded">account_balance_wallet</span>
+                    </div>
+                    <h3>Cuentas Corrientes</h3>
+                    <p>
+                        Otorgá crédito a tus clientes con límites configurables.
+                        Seguí los saldos y registrá cobros parciales o totales.
+                    </p>
+                </div>
+
+                <div class="feature-card fade-up">
+                    <div class="feature-icon">
+                        <span class="material-symbols-rounded">payments</span>
+                    </div>
+                    <h3>Caja y Cierre</h3>
+                    <p>
+                        Abrí y cerrá la caja con un resumen detallado por método de pago.
+                        Control total de ingresos y egresos del día.
+                    </p>
+                </div>
+
+                <div class="feature-card fade-up">
+                    <div class="feature-icon">
+                        <span class="material-symbols-rounded">bar_chart</span>
+                    </div>
+                    <h3>Reportes</h3>
+                    <p>
+                        Gráficos de ventas, productos más vendidos, rentabilidad
+                        y métricas clave para tomar mejores decisiones.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== CÓMO FUNCIONA ====== -->
+    <section class="how-it-works" id="como-funciona">
+        <div class="section-container">
+            <div class="section-header fade-up">
+                <div class="section-eyebrow">
+                    <span class="material-symbols-rounded" style="font-size: 16px;">rocket_launch</span>
+                    Cómo funciona
+                </div>
+                <h2 class="section-title">Empezá en 3 simples pasos</h2>
+                <p class="section-subtitle">
+                    No necesitás experiencia técnica. Creá tu cuenta y empezá a gestionar tu ferretería hoy.
+                </p>
+            </div>
+
+            <div class="steps-grid">
+                <div class="step fade-up">
+                    <div class="step-number">1</div>
+                    <h3>Registrá tu empresa</h3>
+                    <p>Creá tu cuenta gratis en menos de 2 minutos. Solo necesitás un email y el nombre de tu ferretería.</p>
+                </div>
+
+                <div class="step fade-up">
+                    <div class="step-number">2</div>
+                    <h3>Cargá tu catálogo</h3>
+                    <p>Agregá tus productos con precios, stock y categorías desde el panel de administración.</p>
+                </div>
+
+                <div class="step fade-up">
+                    <div class="step-number">3</div>
+                    <h3>Empezá a vender</h3>
+                    <p>Usá el punto de venta integrado para realizar tus primeras ventas desde el primer día.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== VIDEO DEMO ====== -->
+    <section class="demo" id="demo">
+        <div class="section-container">
+            <div class="section-header fade-up">
+                <div class="section-eyebrow">
+                    <span class="material-symbols-rounded" style="font-size: 16px;">play_circle</span>
+                    Demo
+                </div>
+                <h2 class="section-title">Miralo en acción</h2>
+                <p class="section-subtitle">
+                    Conocé cómo FerrERP te ayuda en el día a día de tu ferretería.
+                </p>
+            </div>
+
+            <div class="demo-container fade-up">
+                <div class="video-wrapper">
+                    <video controls preload="metadata">
+                        <source src="assets/video/demo.mp4" type="video/mp4">
+                        Tu navegador no soporta el elemento video.
+                    </video>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== CONTACTO ====== -->
+    <!-- Email configurable: cambiar contacto@ferrerp.com por el email deseado (futuro: desde .env) -->
+    <section class="contact" id="contacto">
+        <div class="section-container">
+            <div class="contact-content fade-up">
+                <div class="contact-icon">
+                    <span class="material-symbols-rounded">mail</span>
+                </div>
+                <h2>¿Querés saber más?</h2>
+                <p>
+                    Escribinos y te ayudamos a elegir la mejor solución
+                    para tu ferretería. Respondemos en menos de 24 horas.
+                </p>
+                <a href="mailto:contacto@ferrerp.com?subject=Consulta%20sobre%20FerrERP" class="btn btn-primary btn-lg">
+                    <span class="material-symbols-rounded" style="font-size: 20px;">mail</span>
+                    Escribinos
+                </a>
+                <div class="contact-email">
+                    <span class="material-symbols-rounded">alternate_email</span>
+                    contacto@ferrerp.com
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== CTA FINAL ====== -->
+    <section class="cta-final">
+        <div class="cta-final-container fade-up">
+            <h2>Empezá hoy, sin compromiso</h2>
+            <p>
+                Creá tu cuenta gratis y descubrí cómo FerrERP
+                simplifica la gestión de tu ferretería.
+            </p>
+            <a href="https://app.ferrerp.com/auth/registro" class="btn btn-primary btn-lg">
+                Crear cuenta gratis
+                <span class="material-symbols-rounded" style="font-size: 20px;">arrow_forward</span>
+            </a>
+            <div class="cta-final-note">
+                Registrate en minutos &middot; Empezá a vender desde el primer día
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== FOOTER ====== -->
+    <footer class="landing-footer">
+        <div class="footer-container">
+            <div class="footer-logo">
+                <div class="footer-logo-icon">F</div>
+                <span class="footer-logo-text">FerrERP</span>
+            </div>
+
+            <ul class="footer-links">
+                <li><a href="#caracteristicas">Características</a></li>
+                <li><a href="#contacto">Contacto</a></li>
+                <li><a href="https://app.ferrerp.com/auth/login">Iniciar sesión</a></li>
+                <li><a href="https://app.ferrerp.com/auth/registro">Registrarse</a></li>
+            </ul>
+
+            <div class="footer-copy">
+                &copy; 2025 FerrERP. Todos los derechos reservados.
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="js/landing.js"></script>
+</body>
+</html>

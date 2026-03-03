@@ -21,7 +21,7 @@ def index():
     estado = request.args.get('estado', '')
     proveedor_id = request.args.get('proveedor', 0, type=int)
 
-    query = OrdenCompra.query
+    query = OrdenCompra.query_empresa()
 
     if estado:
         query = query.filter(OrdenCompra.estado == estado)
@@ -32,7 +32,7 @@ def index():
     query = query.order_by(OrdenCompra.fecha.desc())
     ordenes = paginar_query(query, page)
 
-    proveedores = Proveedor.query.filter_by(activo=True).order_by(Proveedor.nombre).all()
+    proveedores = Proveedor.query_empresa().filter_by(activo=True).order_by(Proveedor.nombre).all()
 
     return render_template(
         'compras/index.html',
@@ -59,7 +59,6 @@ def nueva():
         # Obtener items del formulario
         productos_ids = request.form.getlist('producto_id[]')
         cantidades = request.form.getlist('cantidad[]')
-        precios = request.form.getlist('precio[]')
 
         if not productos_ids or not any(productos_ids):
             flash('Agrega al menos un producto a la orden.', 'danger')
@@ -82,56 +81,49 @@ def nueva():
 
         # Crear orden
         orden = OrdenCompra(
-            numero=generar_numero_orden_compra(),
+            numero=generar_numero_orden_compra(current_user.empresa_id),
             fecha=fecha_orden,
             proveedor_id=proveedor_id,
             usuario_id=current_user.id,
             estado='pendiente',
-            notas=notas
+            notas=notas,
+            empresa_id=current_user.empresa_id,
         )
         db.session.add(orden)
         db.session.flush()
 
         # Agregar detalles
-        total = Decimal('0')
         for i, prod_id in enumerate(productos_ids):
             if not prod_id:
                 continue
 
             cantidad = Decimal(cantidades[i]) if cantidades[i] else Decimal('0')
-            precio = Decimal(precios[i]) if precios[i] else Decimal('0')
 
             if cantidad <= 0:
                 continue
-
-            subtotal = cantidad * precio
-            total += subtotal
 
             detalle = OrdenCompraDetalle(
                 orden_compra_id=orden.id,
                 producto_id=int(prod_id),
                 cantidad_pedida=cantidad,
-                precio_unitario=precio,
-                subtotal=subtotal
             )
             db.session.add(detalle)
 
-        orden.total = total
+        orden.total = Decimal('0')
         db.session.commit()
 
         flash(f'Orden de compra #{orden.numero} creada correctamente.', 'success')
         return redirect(url_for('compras.detalle', id=orden.id))
 
     # GET - Mostrar formulario
-    proveedores = Proveedor.query.filter_by(activo=True).order_by(Proveedor.nombre).all()
-    productos = Producto.query.filter_by(activo=True).order_by(Producto.nombre).all()
+    proveedores = Proveedor.query_empresa().filter_by(activo=True).order_by(Proveedor.nombre).all()
+    productos = Producto.query_empresa().filter_by(activo=True).order_by(Producto.nombre).all()
     productos_data = [
         {
             'id': producto.id,
             'codigo': producto.codigo,
             'nombre': producto.nombre,
             'proveedor_id': producto.proveedor_id,
-            'precio_costo': float(producto.precio_costo or 0),
         }
         for producto in productos
     ]
@@ -148,7 +140,7 @@ def nueva():
 @login_required
 def detalle(id):
     """Ver detalle de orden de compra."""
-    orden = OrdenCompra.query.get_or_404(id)
+    orden = OrdenCompra.get_o_404(id)
     return render_template('compras/orden_detalle.html', orden=orden)
 
 
@@ -156,7 +148,7 @@ def detalle(id):
 @login_required
 def pdf(id):
     """Descargar PDF de la orden de compra."""
-    orden = OrdenCompra.query.get_or_404(id)
+    orden = OrdenCompra.get_o_404(id)
 
     pdf_bytes = orden_compra_service.generar_pdf(orden)
 
@@ -172,15 +164,13 @@ def pdf(id):
 @login_required
 def recibir(id):
     """Recibir mercadería de una orden."""
-    orden = OrdenCompra.query.get_or_404(id)
+    orden = OrdenCompra.get_o_404(id)
 
     if not orden.puede_recibir:
         flash('Esta orden no puede recibir más mercadería.', 'warning')
         return redirect(url_for('compras.detalle', id=id))
 
     if request.method == 'POST':
-        actualizar_precios = request.form.get('actualizar_precios') == '1'
-
         errores_exceso = []
         for detalle in orden.detalles:
             cantidad_recibida = request.form.get(f'cantidad_{detalle.id}', type=float)
@@ -233,13 +223,10 @@ def recibir(id):
                     referencia_tipo='orden_compra',
                     referencia_id=orden.id,
                     motivo=motivo,
-                    usuario_id=current_user.id
+                    usuario_id=current_user.id,
+                    empresa_id=current_user.empresa_id,
                 )
                 db.session.add(movimiento)
-
-                # Opcionalmente actualizar precio de costo
-                if actualizar_precios:
-                    producto.precio_costo = detalle.precio_unitario
 
         # Actualizar estado de la orden
         orden.actualizar_estado()
@@ -255,7 +242,7 @@ def recibir(id):
 @login_required
 def cancelar(id):
     """Cancelar orden de compra."""
-    orden = OrdenCompra.query.get_or_404(id)
+    orden = OrdenCompra.get_o_404(id)
 
     if not orden.puede_cancelar:
         flash('Esta orden no puede ser cancelada.', 'warning')
@@ -273,7 +260,7 @@ def cancelar(id):
 def sugerencia():
     """Sugerencia de compra basada en stock mínimo."""
     # Productos bajo stock mínimo
-    productos_bajo_stock = Producto.query.filter(
+    productos_bajo_stock = Producto.query_empresa().filter(
         Producto.activo == True,
         Producto.stock_actual < Producto.stock_minimo,
         Producto.proveedor_id.isnot(None)
@@ -309,23 +296,23 @@ def generar_orden_sugerencia():
 
     # Crear orden
     orden = OrdenCompra(
-        numero=generar_numero_orden_compra(),
+        numero=generar_numero_orden_compra(current_user.empresa_id),
         fecha=datetime.utcnow(),
         proveedor_id=proveedor_id,
         usuario_id=current_user.id,
         estado='pendiente',
-        notas='Generada desde sugerencia de compra'
+        notas='Generada desde sugerencia de compra',
+        empresa_id=current_user.empresa_id,
     )
     db.session.add(orden)
     db.session.flush()
 
-    total = Decimal('0')
     items_agregados = 0
     for i, prod_id in enumerate(productos_ids):
         if not prod_id:
             continue
 
-        producto = Producto.query.get(int(prod_id))
+        producto = Producto.get_o_404(int(prod_id))
         if not producto:
             continue
 
@@ -333,17 +320,12 @@ def generar_orden_sugerencia():
         if cantidad <= 0:
             continue
 
-        subtotal = cantidad * producto.precio_costo
-
         detalle = OrdenCompraDetalle(
             orden_compra_id=orden.id,
             producto_id=producto.id,
             cantidad_pedida=cantidad,
-            precio_unitario=producto.precio_costo,
-            subtotal=subtotal
         )
         db.session.add(detalle)
-        total += subtotal
         items_agregados += 1
 
     if items_agregados == 0:
@@ -351,7 +333,7 @@ def generar_orden_sugerencia():
         flash('No se seleccionó ningún producto válido.', 'danger')
         return redirect(url_for('compras.sugerencia'))
 
-    orden.total = total
+    orden.total = Decimal('0')
     db.session.commit()
 
     flash(f'Orden #{orden.numero} creada desde sugerencia con {items_agregados} producto(s).', 'success')

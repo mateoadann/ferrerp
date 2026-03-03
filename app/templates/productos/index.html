@@ -32,8 +32,17 @@
                     hx-target="#tabla-productos"
                     hx-include="[name='q'], [name='activos'], [name='bajo_stock']">
                 <option value="">Todas las categorías</option>
-                {% for cat in categorias %}
-                <option value="{{ cat.id }}" {% if categoria_id == cat.id %}selected{% endif %}>{{ cat.nombre }}</option>
+                {% for categoria_padre in categorias_padre %}
+                <optgroup label="{{ categoria_padre.nombre }}">
+                    <option value="{{ categoria_padre.id }}" {% if categoria_id == categoria_padre.id %}selected{% endif %}>
+                        {{ categoria_padre.nombre }} (todas)
+                    </option>
+                    {% for subcategoria in categoria_padre.subcategorias|sort(attribute='nombre') %}
+                    <option value="{{ subcategoria.id }}" {% if categoria_id == subcategoria.id %}selected{% endif %}>
+                        &nbsp;&nbsp;{{ subcategoria.nombre }}
+                    </option>
+                    {% endfor %}
+                </optgroup>
                 {% endfor %}
             </select>
 

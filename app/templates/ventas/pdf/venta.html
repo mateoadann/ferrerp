@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm 1.5cm;
+            @bottom-center {
+                content: "Página " counter(page) " de " counter(pages);
+                font-size: 9px;
+                color: #999;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 11px;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #333;
+        }
+
+        .header-left {
+            width: 55%;
+        }
+
+        .header-right {
+            width: 40%;
+            text-align: right;
+        }
+
+        .logo-text {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+            letter-spacing: 1px;
+        }
+
+        .negocio-info {
+            font-size: 10px;
+            color: #666;
+            margin-top: 5px;
+            line-height: 1.6;
+        }
+
+        .venta-titulo {
+            font-size: 22px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .venta-numero {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 3px;
+        }
+
+        .venta-fecha {
+            font-size: 10px;
+            color: #888;
+        }
+
+        /* Aviso no válido como factura */
+        .aviso-no-factura {
+            border: 2px solid #333;
+            border-radius: 6px;
+            padding: 10px 15px;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Info boxes */
+        .info-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            gap: 20px;
+        }
+
+        .info-box {
+            width: 48%;
+            border-radius: 6px;
+            padding: 12px 15px;
+            border-left: 3px solid #999;
+        }
+
+        .info-box-label {
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #555;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .info-box p {
+            margin: 2px 0;
+            font-size: 10px;
+            color: #555;
+        }
+
+        .info-box .nombre {
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* Tabla de productos */
+        .productos-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .productos-table thead th {
+            padding: 8px 10px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            text-align: left;
+            color: #333;
+            border-bottom: 2px solid #333;
+        }
+
+        .productos-table tbody td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #ddd;
+            font-size: 10px;
+        }
+
+        .productos-table .col-codigo {
+            width: 80px;
+            font-family: monospace;
+            font-size: 9px;
+            color: #666;
+        }
+
+        .productos-table .col-cantidad {
+            width: 70px;
+            text-align: center;
+        }
+
+        .productos-table .col-precio,
+        .productos-table .col-subtotal {
+            width: 100px;
+            text-align: right;
+        }
+
+        .productos-table .col-subtotal {
+            font-weight: bold;
+        }
+
+        /* Totales */
+        .totales-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 25px;
+        }
+
+        .totales-box {
+            width: 280px;
+        }
+
+        .totales-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 11px;
+        }
+
+        .totales-row.descuento {
+            color: #333;
+        }
+
+        .totales-row.total {
+            border-top: 2px solid #333;
+            margin-top: 5px;
+            padding-top: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            font-size: 9px;
+            color: #999;
+        }
+
+        .footer .gracias {
+            font-size: 12px;
+            color: #333;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .footer .aviso-pie {
+            font-size: 10px;
+            color: #333;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        /* Estado badge */
+        .estado-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 1px solid #666;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <div class="logo-text">{{ config_negocio.nombre or 'FerrERP' }}</div>
+            <div class="negocio-info">
+                {% if config_negocio.cuit %}CUIT: {{ config_negocio.cuit }}<br>{% endif %}
+                {% if config_negocio.direccion %}{{ config_negocio.direccion }}<br>{% endif %}
+                {% if config_negocio.telefono %}Tel: {{ config_negocio.telefono }}{% endif %}
+                {% if config_negocio.email %} | {{ config_negocio.email }}{% endif %}
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="venta-titulo">COMPROBANTE DE VENTA</div>
+            <div class="venta-numero">#{{ venta.numero_completo }}</div>
+            <div class="venta-fecha">
+                Fecha: {{ venta.fecha.strftime('%d/%m/%Y %H:%M') }}
+            </div>
+            <div style="margin-top: 6px;">
+                <span class="estado-badge estado-{{ venta.estado }}">
+                    {{ venta.estado_display }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aviso -->
+    <div class="aviso-no-factura">
+        Documento no válido como factura
+    </div>
+
+    <!-- Info Section -->
+    <div class="info-section">
+        <div class="info-box">
+            <div class="info-box-label">Cliente</div>
+            {% if venta.cliente %}
+                <p class="nombre">{{ venta.cliente.nombre }}</p>
+                {% if venta.cliente.dni_cuit %}
+                <p>DNI/CUIT: {{ venta.cliente.dni_cuit }}</p>
+                {% endif %}
+                {% if venta.cliente.telefono %}
+                <p>Tel: {{ venta.cliente.telefono }}</p>
+                {% endif %}
+                {% if venta.cliente.email %}
+                <p>{{ venta.cliente.email }}</p>
+                {% endif %}
+                {% if venta.cliente.direccion %}
+                <p>{{ venta.cliente.direccion }}</p>
+                {% endif %}
+            {% else %}
+                <p class="nombre">Consumidor Final</p>
+            {% endif %}
+        </div>
+
+        <div class="info-box">
+            <div class="info-box-label">Datos de la venta</div>
+            <p><strong>Vendedor:</strong> {{ venta.usuario.nombre }}</p>
+            <p><strong>Forma de pago:</strong> {{ venta.forma_pago_display }}</p>
+            {% if venta.estado == 'anulada' %}
+            <p style="font-weight: bold; margin-top: 4px; text-transform: uppercase;">
+                VENTA ANULADA
+                {% if venta.motivo_anulacion %} — {{ venta.motivo_anulacion }}{% endif %}
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Tabla de productos -->
+    <table class="productos-table">
+        <thead>
+            <tr>
+                <th class="col-codigo">Código</th>
+                <th>Descripción</th>
+                <th class="col-cantidad">Cant.</th>
+                <th class="col-precio">P. Unitario</th>
+                <th class="col-subtotal">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for detalle in detalles %}
+            <tr>
+                <td class="col-codigo">{{ detalle.producto.codigo }}</td>
+                <td>{{ detalle.producto.nombre }}</td>
+                <td class="col-cantidad">{{ detalle.cantidad|int if detalle.cantidad == detalle.cantidad|int else detalle.cantidad }}</td>
+                <td class="col-precio">${{ '{:,.2f}'.format(detalle.precio_unitario) }}</td>
+                <td class="col-subtotal">${{ '{:,.2f}'.format(detalle.subtotal) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Totales -->
+    <div class="totales-section">
+        <div class="totales-box">
+            {% set con_iva = config_negocio.precios_con_iva|default(true) %}
+            {% set detalles = venta.detalles %}
+
+            {% set ns = namespace(iva_agrupado={}, neto_total=0, iva_total=0) %}
+            {% for detalle in detalles %}
+                {% set iva_pct = detalle.iva_porcentaje|default(21)|float %}
+                {% set item_subtotal = detalle.subtotal|float %}
+                {% set proporcion = (item_subtotal / venta.subtotal|float) if venta.subtotal|float > 0 else 0 %}
+                {% set item_total = venta.total|float * proporcion %}
+
+                {% if con_iva %}
+                    {% set item_neto = item_total / (1 + iva_pct / 100) %}
+                    {% set item_iva = item_total - item_neto %}
+                {% else %}
+                    {% set item_neto = item_total %}
+                    {% set item_iva = item_total * iva_pct / 100 %}
+                {% endif %}
+
+                {% if iva_pct|string in ns.iva_agrupado %}
+                    {% set ns.iva_agrupado = ns.iva_agrupado|combine({iva_pct|string: {'subtotal': ns.iva_agrupado[iva_pct|string].subtotal + item_neto, 'iva': ns.iva_agrupado[iva_pct|string].iva + item_iva}}) %}
+                {% else %}
+                    {% set ns.iva_agrupado = ns.iva_agrupado|combine({iva_pct|string: {'subtotal': item_neto, 'iva': item_iva}}) %}
+                {% endif %}
+            {% endfor %}
+
+            {% for pct, datos in ns.iva_agrupado.items() %}
+                {% set ns.neto_total = ns.neto_total + datos.subtotal %}
+                {% set ns.iva_total = ns.iva_total + datos.iva %}
+            {% endfor %}
+
+            <div class="totales-row">
+                <span>Subtotal:</span>
+                <span>${{ '{:,.2f}'.format(venta.subtotal) }}</span>
+            </div>
+            {% if venta.descuento_monto and venta.descuento_monto > 0 %}
+            <div class="totales-row descuento">
+                <span>Descuento ({{ venta.descuento_porcentaje }}%):</span>
+                <span>-${{ '{:,.2f}'.format(venta.descuento_monto) }}</span>
+            </div>
+            {% endif %}
+            <div class="totales-row">
+                <span>Neto gravado:</span>
+                <span>${{ '{:,.2f}'.format(ns.neto_total) }}</span>
+            </div>
+            {% for pct, datos in ns.iva_agrupado.items() %}
+            <div class="totales-row">
+                <span>IVA ({{ pct }}%):</span>
+                <span>${{ '{:,.2f}'.format(datos.iva) }}</span>
+            </div>
+            {% endfor %}
+            <div class="totales-row total">
+                <span>TOTAL:</span>
+                <span>
+                    {% if con_iva %}
+                        ${{ '{:,.2f}'.format(venta.total) }}
+                    {% else %}
+                        ${{ '{:,.2f}'.format(ns.neto_total + ns.iva_total) }}
+                    {% endif %}
+                </span>
+            </div>
+            <div style="font-size: 9px; color: #999; text-align: right; margin-top: 4px;">
+                {% if con_iva %}Los precios incluyen IVA{% else %}Los precios no incluyen IVA{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="gracias">Gracias por su compra</div>
+        <p>{{ config_negocio.nombre or 'FerrERP' }}{% if config_negocio.telefono %} | Tel: {{ config_negocio.telefono }}{% endif %}{% if config_negocio.email %} | {{ config_negocio.email }}{% endif %}</p>
+        <p class="aviso-pie">Documento no válido como factura</p>
+    </div>
+</body>
+</html>

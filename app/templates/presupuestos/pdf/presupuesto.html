@@ -33,7 +33,7 @@
             align-items: flex-start;
             margin-bottom: 20px;
             padding-bottom: 15px;
-            border-bottom: 3px solid #E07B54;
+            border-bottom: 2px solid #333;
         }
 
         .header-left {
@@ -48,7 +48,7 @@
         .logo-text {
             font-size: 28px;
             font-weight: bold;
-            color: #E07B54;
+            color: #333;
             letter-spacing: 1px;
         }
 
@@ -62,7 +62,7 @@
         .presupuesto-titulo {
             font-size: 22px;
             font-weight: bold;
-            color: #0D6E6E;
+            color: #333;
             margin-bottom: 8px;
         }
 
@@ -87,17 +87,16 @@
 
         .info-box {
             width: 48%;
-            background: #f8f9fa;
             border-radius: 6px;
             padding: 12px 15px;
-            border-left: 4px solid #0D6E6E;
+            border-left: 3px solid #999;
         }
 
         .info-box-label {
             font-size: 9px;
             font-weight: bold;
             text-transform: uppercase;
-            color: #0D6E6E;
+            color: #555;
             letter-spacing: 0.5px;
             margin-bottom: 6px;
         }
@@ -115,15 +114,10 @@
         }
 
         /* Validity badge */
-        .validity-box {
-            background: #fff3cd;
-            border-left-color: #ffc107;
-        }
-
         .validity-box .fecha-vencimiento {
             font-size: 13px;
             font-weight: bold;
-            color: #856404;
+            color: #333;
         }
 
         /* Tabla de productos */
@@ -134,32 +128,20 @@
         }
 
         .productos-table thead th {
-            background: #0D6E6E;
-            color: white;
             padding: 8px 10px;
             font-size: 10px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.3px;
             text-align: left;
-        }
-
-        .productos-table thead th:first-child {
-            border-radius: 4px 0 0 0;
-        }
-
-        .productos-table thead th:last-child {
-            border-radius: 0 4px 0 0;
+            color: #333;
+            border-bottom: 2px solid #333;
         }
 
         .productos-table tbody td {
             padding: 8px 10px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid #ddd;
             font-size: 10px;
-        }
-
-        .productos-table tbody tr:nth-child(even) {
-            background: #fafafa;
         }
 
         .productos-table .col-codigo {
@@ -203,21 +185,21 @@
         }
 
         .totales-row.descuento {
-            color: #dc3545;
+            color: #333;
         }
 
         .totales-row.total {
-            border-top: 2px solid #0D6E6E;
+            border-top: 2px solid #333;
             margin-top: 5px;
             padding-top: 8px;
             font-size: 16px;
             font-weight: bold;
-            color: #0D6E6E;
+            color: #333;
         }
 
         /* Notas */
         .notas-section {
-            background: #f8f9fa;
+            border: 1px solid #ddd;
             border-radius: 6px;
             padding: 12px 15px;
             margin-bottom: 20px;
@@ -227,7 +209,7 @@
             font-size: 9px;
             font-weight: bold;
             text-transform: uppercase;
-            color: #0D6E6E;
+            color: #555;
             margin-bottom: 5px;
         }
 
@@ -249,7 +231,7 @@
 
         .footer .gracias {
             font-size: 12px;
-            color: #0D6E6E;
+            color: #333;
             font-weight: bold;
             margin-bottom: 5px;
         }
@@ -263,13 +245,9 @@
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            border: 1px solid #666;
+            color: #333;
         }
-
-        .estado-pendiente { background: #fff3cd; color: #856404; }
-        .estado-aceptado { background: #d4edda; color: #155724; }
-        .estado-rechazado { background: #f8d7da; color: #721c24; }
-        .estado-vencido { background: #e2e3e5; color: #383d41; }
-        .estado-convertido { background: #cce5ff; color: #004085; }
     </style>
 </head>
 <body>
@@ -362,18 +340,36 @@
     <!-- Totales -->
     <div class="totales-section">
         <div class="totales-box">
-            {% set iva_pct = config_negocio.iva_porcentaje|default(21)|float %}
             {% set con_iva = config_negocio.precios_con_iva|default(true) %}
-            {% set total_num = presupuesto.total|float %}
-            {% if con_iva %}
-                {% set neto = total_num / (1 + iva_pct / 100) %}
-                {% set iva_monto = total_num - neto %}
-                {% set total_final = total_num %}
-            {% else %}
-                {% set neto = total_num %}
-                {% set iva_monto = total_num * iva_pct / 100 %}
-                {% set total_final = total_num + iva_monto %}
-            {% endif %}
+            {% set detalles = presupuesto.detalles %}
+            
+            {% set ns = namespace(iva_agrupado={}, neto_total=0, iva_total=0) %}
+            {% for detalle in detalles %}
+                {% set iva_pct = detalle.iva_porcentaje|default(21)|float %}
+                {% set item_subtotal = detalle.subtotal|float %}
+                {% set proporcion = (item_subtotal / presupuesto.subtotal|float) if presupuesto.subtotal|float > 0 else 0 %}
+                {% set item_total = presupuesto.total|float * proporcion %}
+
+                {% if con_iva %}
+                    {% set item_neto = item_total / (1 + iva_pct / 100) %}
+                    {% set item_iva = item_total - item_neto %}
+                {% else %}
+                    {% set item_neto = item_total %}
+                    {% set item_iva = item_total * iva_pct / 100 %}
+                {% endif %}
+
+                {% if iva_pct|string in ns.iva_agrupado %}
+                    {% set ns.iva_agrupado = ns.iva_agrupado|combine({iva_pct|string: {'subtotal': ns.iva_agrupado[iva_pct|string].subtotal + item_neto, 'iva': ns.iva_agrupado[iva_pct|string].iva + item_iva}}) %}
+                {% else %}
+                    {% set ns.iva_agrupado = ns.iva_agrupado|combine({iva_pct|string: {'subtotal': item_neto, 'iva': item_iva}}) %}
+                {% endif %}
+            {% endfor %}
+
+            {% for pct, datos in ns.iva_agrupado.items() %}
+                {% set ns.neto_total = ns.neto_total + datos.subtotal %}
+                {% set ns.iva_total = ns.iva_total + datos.iva %}
+            {% endfor %}
+            
             <div class="totales-row">
                 <span>Subtotal:</span>
                 <span>${{ '{:,.2f}'.format(presupuesto.subtotal) }}</span>
@@ -386,15 +382,23 @@
             {% endif %}
             <div class="totales-row">
                 <span>Neto gravado:</span>
-                <span>${{ '{:,.2f}'.format(neto) }}</span>
+                <span>${{ '{:,.2f}'.format(ns.neto_total) }}</span>
             </div>
+            {% for pct, datos in ns.iva_agrupado.items() %}
             <div class="totales-row">
-                <span>IVA ({{ '{:g}'.format(iva_pct) }}%):</span>
-                <span>${{ '{:,.2f}'.format(iva_monto) }}</span>
+                <span>IVA ({{ pct }}%):</span>
+                <span>${{ '{:,.2f}'.format(datos.iva) }}</span>
             </div>
+            {% endfor %}
             <div class="totales-row total">
                 <span>TOTAL:</span>
-                <span>${{ '{:,.2f}'.format(total_final) }}</span>
+                <span>
+                    {% if con_iva %}
+                        ${{ '{:,.2f}'.format(presupuesto.total) }}
+                    {% else %}
+                        ${{ '{:,.2f}'.format(ns.neto_total + ns.iva_total) }}
+                    {% endif %}
+                </span>
             </div>
             <div style="font-size: 9px; color: #999; text-align: right; margin-top: 4px;">
                 {% if con_iva %}Los precios incluyen IVA{% else %}Los precios no incluyen IVA{% endif %}

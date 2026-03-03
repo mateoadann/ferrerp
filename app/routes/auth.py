@@ -1,10 +1,12 @@
 """Rutas de autenticación."""
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request
-from flask_login import login_user, logout_user, login_required, current_user
+from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask_login import current_user, login_required, login_user, logout_user
 
+from ..extensions import db
 from ..forms.auth_forms import LoginForm
-from ..models import Usuario
+from ..forms.registro_forms import RegistroForm
+from ..models import Configuracion, Empresa, Usuario
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -40,6 +42,66 @@ def login():
             flash('Email o contraseña incorrectos.', 'danger')
 
     return render_template('auth/login.html', form=form)
+
+
+@bp.route('/registro', methods=['GET', 'POST'])
+def registro():
+    """Registro de nueva empresa y usuario owner."""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard.index'))
+
+    form = RegistroForm()
+
+    if form.validate_on_submit():
+        # Crear empresa
+        empresa = Empresa(
+            nombre=form.empresa_nombre.data,
+            cuit=form.empresa_cuit.data or None,
+            direccion=form.empresa_direccion.data or None,
+            telefono=form.empresa_telefono.data or None,
+        )
+        db.session.add(empresa)
+        db.session.flush()
+
+        # Crear usuario owner
+        usuario = Usuario(
+            email=form.email.data.lower(),
+            nombre=form.nombre.data,
+            rol='owner',
+            activo=True,
+            empresa_id=empresa.id,
+        )
+        usuario.set_password(form.password.data)
+        db.session.add(usuario)
+
+        db.session.commit()
+
+        # Propagar datos de empresa a configuración
+        Configuracion.set(
+            'nombre_negocio', empresa.nombre, 'string', empresa_id=empresa.id
+        )
+        Configuracion.set(
+            'cuit', empresa.cuit or '', 'string', empresa_id=empresa.id
+        )
+        Configuracion.set(
+            'direccion', empresa.direccion or '', 'string', empresa_id=empresa.id
+        )
+        Configuracion.set(
+            'telefono', empresa.telefono or '', 'string', empresa_id=empresa.id
+        )
+        Configuracion.set(
+            'precios_con_iva', False, 'boolean', empresa_id=empresa.id
+        )
+
+        login_user(usuario)
+        flash(
+            f'¡Bienvenido a FerrERP! Tu empresa "{empresa.nombre}" '
+            'fue creada exitosamente.',
+            'success',
+        )
+        return redirect(url_for('dashboard.index'))
+
+    return render_template('auth/registro.html', form=form)
 
 
 @bp.route('/logout')

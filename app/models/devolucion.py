@@ -1,10 +1,12 @@
 """Modelo de Devolución."""
 
 from datetime import datetime
+
 from ..extensions import db
+from .mixins import EmpresaMixin
 
 
-class Devolucion(db.Model):
+class Devolucion(EmpresaMixin, db.Model):
     """Modelo de devolución de venta."""
 
     __tablename__ = 'devoluciones'

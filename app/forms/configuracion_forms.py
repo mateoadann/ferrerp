@@ -44,17 +44,6 @@ class ConfiguracionForm(FlaskForm):
         render_kw={'placeholder': 'XX-XXXXXXXX-X'}
     )
 
-    iva_porcentaje = DecimalField(
-        'IVA (%)',
-        validators=[
-            Optional(),
-            NumberRange(min=0, max=100, message='El IVA debe estar entre 0 y 100')
-        ],
-        places=2,
-        default=21,
-        render_kw={'placeholder': '21', 'step': '0.01'}
-    )
-
-    precios_con_iva = BooleanField('Precios incluyen IVA', default=True)
+    precios_con_iva = BooleanField('Precios incluyen IVA', default=False)
 
     submit = SubmitField('Guardar Configuración')

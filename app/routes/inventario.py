@@ -1,13 +1,14 @@
 """Rutas de inventario."""
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request
-from flask_login import login_required, current_user
 from decimal import Decimal
 
+from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
+
 from ..extensions import db
-from ..models import Producto, MovimientoStock
 from ..forms.producto_forms import AjusteStockForm
-from ..utils.helpers import paginar_query, es_peticion_htmx
+from ..models import MovimientoStock, Producto
+from ..utils.helpers import es_peticion_htmx, paginar_query
 
 bp = Blueprint('inventario', __name__, url_prefix='/inventario')
 
@@ -20,7 +21,7 @@ def index():
     busqueda = request.args.get('q', '')
     solo_bajo_minimo = request.args.get('bajo_minimo', '0') == '1'
 
-    query = Producto.query.filter(Producto.activo == True)
+    query = Producto.query_empresa().filter(Producto.activo.is_(True))
 
     if busqueda:
         query = query.filter(
@@ -37,9 +38,9 @@ def index():
     productos = paginar_query(query, page)
 
     # Estadísticas
-    total_productos = Producto.query.filter_by(activo=True).count()
-    productos_bajo_minimo = Producto.query.filter(
-        Producto.activo == True,
+    total_productos = Producto.query_empresa().filter_by(activo=True).count()
+    productos_bajo_minimo = Producto.query_empresa().filter(
+        Producto.activo.is_(True),
         Producto.stock_actual < Producto.stock_minimo
     ).count()
 
@@ -66,8 +67,8 @@ def bajo_minimo():
     """Productos con stock bajo el mínimo."""
     page = request.args.get('page', 1, type=int)
 
-    productos = Producto.query.filter(
-        Producto.activo == True,
+    productos = Producto.query_empresa().filter(
+        Producto.activo.is_(True),
         Producto.stock_actual < Producto.stock_minimo
     ).order_by(Producto.stock_actual).paginate(page=page, per_page=20)
 
@@ -93,7 +94,7 @@ def ajuste():
             flash('Selecciona un producto.', 'danger')
             return render_template('inventario/ajuste.html', form=form)
 
-        producto = Producto.query.get_or_404(form.producto_id.data)
+        producto = Producto.get_o_404(form.producto_id.data)
 
         tipo = form.tipo_ajuste.data
         cantidad = Decimal(str(form.cantidad.data))
@@ -119,7 +120,8 @@ def ajuste():
             stock_posterior=stock_posterior,
             referencia_tipo='ajuste',
             motivo=form.motivo.data,
-            usuario_id=current_user.id
+            usuario_id=current_user.id,
+            empresa_id=current_user.empresa_id,
         )
 
         db.session.add(movimiento)
@@ -142,7 +144,7 @@ def movimientos():
     producto_id = request.args.get('producto_id', type=int)
     tipo = request.args.get('tipo', '')
 
-    query = MovimientoStock.query
+    query = MovimientoStock.query_empresa()
 
     if producto_id:
         query = query.filter(MovimientoStock.producto_id == producto_id)
@@ -156,7 +158,7 @@ def movimientos():
     # Obtener producto si se filtró
     producto = None
     if producto_id:
-        producto = Producto.query.get(producto_id)
+        producto = Producto.get_o_404(producto_id)
 
     return render_template(
         'inventario/movimientos.html',
@@ -170,10 +172,10 @@ def movimientos():
 @login_required
 def movimientos_producto(producto_id):
     """Movimientos de un producto específico."""
-    producto = Producto.query.get_or_404(producto_id)
+    producto = Producto.get_o_404(producto_id)
     page = request.args.get('page', 1, type=int)
 
-    movimientos = MovimientoStock.query.filter_by(
+    movimientos = MovimientoStock.query_empresa().filter_by(
         producto_id=producto_id
     ).order_by(
         MovimientoStock.created_at.desc()

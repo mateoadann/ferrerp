@@ -1,15 +1,20 @@
 from decimal import Decimal
 
 from app.extensions import db
-from app.models import MovimientoStock, Producto, Usuario
+from app.models import Empresa, MovimientoStock, Producto, Usuario
 
 
 def test_movimiento_stock_props(app):
+    empresa = Empresa(nombre='Empresa Test', activa=True)
+    db.session.add(empresa)
+    db.session.flush()
+
     usuario = Usuario(
         email='stock@ferrerp.test',
         nombre='Usuario Stock',
         rol='administrador',
         activo=True,
+        empresa_id=empresa.id,
     )
     usuario.set_password('clave')
     producto = Producto(
@@ -21,6 +26,7 @@ def test_movimiento_stock_props(app):
         stock_actual=Decimal('5.000'),
         stock_minimo=Decimal('1.000'),
         activo=True,
+        empresa_id=empresa.id,
     )
     db.session.add_all([usuario, producto])
     db.session.commit()
@@ -32,6 +38,7 @@ def test_movimiento_stock_props(app):
         stock_anterior=Decimal('5.000'),
         stock_posterior=Decimal('8.000'),
         usuario_id=usuario.id,
+        empresa_id=empresa.id,
     )
     db.session.add(movimiento)
     db.session.commit()

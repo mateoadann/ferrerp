@@ -2,16 +2,26 @@
 
 from datetime import datetime
 from decimal import Decimal
+
+from sqlalchemy import UniqueConstraint
+
 from ..extensions import db
+from .mixins import EmpresaMixin
 
 
-class OrdenCompra(db.Model):
+class OrdenCompra(EmpresaMixin, db.Model):
     """Modelo de orden de compra a proveedor."""
 
     __tablename__ = 'ordenes_compra'
+    __table_args__ = (
+        UniqueConstraint(
+            'empresa_id', 'numero',
+            name='uq_ordenes_compra_empresa_numero',
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
-    numero = db.Column(db.Integer, unique=True, nullable=False, index=True)
+    numero = db.Column(db.Integer, nullable=False, index=True)
     fecha = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     proveedor_id = db.Column(
         db.Integer,
@@ -121,8 +131,8 @@ class OrdenCompraDetalle(db.Model):
     )
     cantidad_pedida = db.Column(db.Numeric(12, 3), nullable=False)
     cantidad_recibida = db.Column(db.Numeric(12, 3), default=0)
-    precio_unitario = db.Column(db.Numeric(12, 2), nullable=False)
-    subtotal = db.Column(db.Numeric(12, 2), nullable=False)
+    precio_unitario = db.Column(db.Numeric(12, 2), nullable=True, default=0)
+    subtotal = db.Column(db.Numeric(12, 2), nullable=True, default=0)
 
     # La relacion con Producto se define via backref en Producto.detalles_orden_compra
 
@@ -141,6 +151,9 @@ class OrdenCompraDetalle(db.Model):
 
     def calcular_subtotal(self):
         """Calcula el subtotal de la línea."""
+        if not self.precio_unitario:
+            self.subtotal = Decimal('0')
+            return self.subtotal
         self.subtotal = Decimal(str(self.cantidad_pedida)) * Decimal(str(self.precio_unitario))
         return self.subtotal
 

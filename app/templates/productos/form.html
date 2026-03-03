@@ -13,7 +13,7 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="POST" class="row g-3">
+        <form method="POST" class="row g-3" x-data="categoriaProductoForm()" x-init="init()">
             {{ form.hidden_tag() }}
 
             <div class="col-md-4">
@@ -31,7 +31,7 @@
 
             <div class="col-md-4">
                 <label class="form-label">{{ form.unidad_medida.label.text }}</label>
-                {{ form.unidad_medida(class="form-select") }}
+                {{ form.unidad_medida(class="form-select", **{'@change': 'actualizarStepStock()'}) }}
             </div>
 
             <div class="col-md-8">
@@ -43,8 +43,13 @@
             </div>
 
             <div class="col-md-4">
-                <label class="form-label">{{ form.categoria_id.label.text }}</label>
-                {{ form.categoria_id(class="form-select") }}
+                <label class="form-label">{{ form.categoria_padre_id.label.text }}</label>
+                {{ form.categoria_padre_id(class="form-select", **{'x-model.number': 'padreId', '@change': 'cambiarPadre()'}) }}
+            </div>
+
+            <div class="col-md-4" x-show="mostrarSubcategorias" x-cloak>
+                <label class="form-label">{{ form.subcategoria_id.label.text }}</label>
+                {{ form.subcategoria_id(class="form-select", **{'x-model.number': 'subcategoriaId'}) }}
             </div>
 
             <div class="col-12">
@@ -75,8 +80,13 @@
             </div>
 
             <div class="col-md-3">
+                <label class="form-label">{{ form.iva_porcentaje.label.text }}</label>
+                {{ form.iva_porcentaje(class="form-select") }}
+            </div>
+
+            <div class="col-md-3">
                 <label class="form-label">{{ form.stock_actual.label.text }}</label>
-                {{ form.stock_actual(class="form-control", readonly=producto is defined) }}
+                {{ form.stock_actual(class="form-control", id="stock_actual", readonly=producto is defined) }}
                 {% if producto is defined %}
                 <small class="text-muted">Usa ajustes de inventario para modificar</small>
                 {% endif %}
@@ -84,7 +94,7 @@
 
             <div class="col-md-3">
                 <label class="form-label">{{ form.stock_minimo.label.text }}</label>
-                {{ form.stock_minimo(class="form-control") }}
+                {{ form.stock_minimo(class="form-control", id="stock_minimo") }}
             </div>
 
             <div class="col-md-6">
@@ -115,4 +125,101 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const categoriaPadreInicial = Number({{ (form.categoria_padre_id.data or 0)|tojson }});
+const subcategoriaInicial = Number({{ (form.subcategoria_id.data or 0)|tojson }});
+
+function categoriaProductoForm() {
+    return {
+        padreId: categoriaPadreInicial,
+        subcategoriaId: subcategoriaInicial,
+        subcategoriasDisponibles: [],
+
+        get mostrarSubcategorias() {
+            return this.subcategoriasDisponibles.length > 0;
+        },
+
+        async cargarSubcategorias() {
+            if (!this.padreId || this.padreId <= 0) {
+                this.subcategoriasDisponibles = [];
+                this.subcategoriaId = 0;
+                this.aplicarOpcionesSubcategoria();
+                return;
+            }
+
+            const response = await fetch(`/configuracion/api/subcategorias/${this.padreId}`);
+            if (!response.ok) {
+                this.subcategoriasDisponibles = [];
+                this.subcategoriaId = 0;
+                this.aplicarOpcionesSubcategoria();
+                return;
+            }
+
+            this.subcategoriasDisponibles = await response.json();
+            this.aplicarOpcionesSubcategoria();
+
+            const existeSubcategoria = this.subcategoriasDisponibles.some(
+                (subcategoria) => Number(subcategoria.id) === Number(this.subcategoriaId)
+            );
+            if (!existeSubcategoria) {
+                this.subcategoriaId = 0;
+            }
+        },
+
+        aplicarOpcionesSubcategoria() {
+            const selectSubcategoria = this.$root.querySelector('[name="subcategoria_id"]');
+            if (!selectSubcategoria) {
+                return;
+            }
+
+            selectSubcategoria.innerHTML = '';
+
+            const opcionVacia = document.createElement('option');
+            opcionVacia.value = '0';
+            opcionVacia.textContent = 'Sin subcategoría';
+            selectSubcategoria.appendChild(opcionVacia);
+
+            this.subcategoriasDisponibles.forEach((subcategoria) => {
+                const option = document.createElement('option');
+                option.value = subcategoria.id;
+                option.textContent = subcategoria.nombre;
+                selectSubcategoria.appendChild(option);
+            });
+
+            selectSubcategoria.value = String(this.subcategoriaId || 0);
+        },
+
+        async cambiarPadre() {
+            this.subcategoriaId = 0;
+            await this.cargarSubcategorias();
+        },
+
+        actualizarStepStock() {
+            const unidad = document.getElementById('unidad_medida').value;
+            const esEntero = (unidad === 'unidad' || unidad === 'par');
+            const step = esEntero ? '1' : '0.01';
+            const campos = ['stock_actual', 'stock_minimo'];
+            campos.forEach(id => {
+                const input = document.getElementById(id);
+                if (input) {
+                    input.step = step;
+                    if (esEntero) {
+                        input.value = Math.round(parseFloat(input.value) || 0);
+                    }
+                }
+            });
+        },
+
+        init() {
+            this.$nextTick(async () => {
+                await this.cargarSubcategorias();
+                this.actualizarStepStock();
+            });
+        }
+    }
+}
+</script>
 {% endblock %}

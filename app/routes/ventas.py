@@ -3,17 +3,35 @@
 import json
 from datetime import datetime
 from decimal import Decimal
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, session
-from flask_login import login_required, current_user
+
+from flask import (
+    Blueprint,
+    flash,
+    jsonify,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+from flask_login import current_user, login_required
 
 from ..extensions import db
+from ..forms.venta_forms import AnulacionVentaForm, VentaForm
 from ..models import (
-    Venta, VentaDetalle, Producto, Cliente, Caja, MovimientoCaja,
-    MovimientoStock, MovimientoCuentaCorriente
+    Caja,
+    Cliente,
+    MovimientoCaja,
+    MovimientoCuentaCorriente,
+    MovimientoStock,
+    Producto,
+    Venta,
+    VentaDetalle,
 )
-from ..forms.venta_forms import VentaForm, AnulacionVentaForm
-from ..utils.helpers import paginar_query, generar_numero_venta, es_peticion_htmx
+from ..services import venta_service
 from ..utils.decorators import admin_required, caja_abierta_required
+from ..utils.helpers import generar_numero_venta, paginar_query
 
 bp = Blueprint('ventas', __name__, url_prefix='/ventas')
 
@@ -45,31 +63,34 @@ def punto_de_venta():
                     flash('Debes seleccionar un cliente para pagar a cuenta corriente.', 'danger')
                     return redirect(url_for('ventas.punto_de_venta'))
 
-                cliente = Cliente.query.get(cliente_id)
+                cliente = Cliente.get_o_404(cliente_id)
                 if not cliente:
                     flash('Cliente no encontrado.', 'danger')
                     return redirect(url_for('ventas.punto_de_venta'))
 
             # Obtener caja abierta
-            caja = Caja.query.filter_by(estado='abierta').first()
+            caja = Caja.query.filter_by(
+                estado='abierta', empresa_id=current_user.empresa_id
+            ).first()
 
             # Crear venta
             venta = Venta(
-                numero=generar_numero_venta(),
+                numero=generar_numero_venta(current_user.empresa_id),
                 fecha=datetime.utcnow(),
                 cliente_id=cliente_id if cliente_id else None,
                 usuario_id=current_user.id,
                 descuento_porcentaje=descuento_porcentaje,
                 forma_pago=forma_pago,
                 estado='completada',
-                caja_id=caja.id
+                caja_id=caja.id,
+                empresa_id=current_user.empresa_id,
             )
 
             subtotal = Decimal('0')
 
             # Procesar items
             for item in items:
-                producto = Producto.query.get(item['producto_id'])
+                producto = Producto.get_o_404(item['producto_id'])
                 if not producto:
                     flash(f'Producto no encontrado: {item["producto_id"]}', 'danger')
                     return redirect(url_for('ventas.punto_de_venta'))
@@ -94,6 +115,7 @@ def punto_de_venta():
                     producto_id=producto.id,
                     cantidad=cantidad,
                     precio_unitario=precio,
+                    iva_porcentaje=producto.iva_porcentaje,
                     subtotal=item_subtotal
                 )
                 venta.detalles.append(detalle)
@@ -109,7 +131,8 @@ def punto_de_venta():
                     stock_anterior=stock_anterior,
                     stock_posterior=stock_posterior,
                     referencia_tipo='venta',
-                    usuario_id=current_user.id
+                    usuario_id=current_user.id,
+                    empresa_id=current_user.empresa_id,
                 )
                 db.session.add(movimiento_stock)
 
@@ -157,7 +180,8 @@ def punto_de_venta():
                     referencia_tipo='venta',
                     referencia_id=venta.id,
                     descripcion=f'Venta #{venta.numero_completo}',
-                    usuario_id=current_user.id
+                    usuario_id=current_user.id,
+                    empresa_id=current_user.empresa_id,
                 )
                 db.session.add(movimiento_cc)
             else:
@@ -192,7 +216,7 @@ def punto_de_venta():
             return redirect(url_for('ventas.punto_de_venta'))
 
     # GET - Mostrar pantalla de POS
-    clientes = Cliente.query.filter_by(activo=True).order_by(Cliente.nombre).all()
+    clientes = Cliente.query_empresa().filter_by(activo=True).order_by(Cliente.nombre).all()
 
     limpiar_carrito = session.pop('limpiar_carrito', False)
 
@@ -214,7 +238,7 @@ def historial():
     estado = request.args.get('estado', '')
     cliente_id = request.args.get('cliente', 0, type=int)
 
-    query = Venta.query
+    query = Venta.query_empresa()
 
     if fecha_desde:
         fecha_desde = datetime.strptime(fecha_desde, '%Y-%m-%d')
@@ -235,7 +259,7 @@ def historial():
     ventas = paginar_query(query, page)
 
     # Obtener clientes para el filtro
-    clientes = Cliente.query.filter_by(activo=True).order_by(Cliente.nombre).all()
+    clientes = Cliente.query_empresa().filter_by(activo=True).order_by(Cliente.nombre).all()
 
     return render_template(
         'ventas/historial.html',
@@ -252,7 +276,7 @@ def historial():
 @login_required
 def detalle(id):
     """Ver detalle de venta."""
-    venta = Venta.query.get_or_404(id)
+    venta = Venta.get_o_404(id)
     return render_template('ventas/detalle.html', venta=venta)
 
 
@@ -261,7 +285,7 @@ def detalle(id):
 @admin_required
 def anular(id):
     """Anular venta (solo administradores)."""
-    venta = Venta.query.get_or_404(id)
+    venta = Venta.get_o_404(id)
 
     if not venta.es_anulable:
         flash('Esta venta no puede ser anulada.', 'warning')
@@ -287,7 +311,8 @@ def anular(id):
                 referencia_tipo='anulacion_venta',
                 referencia_id=venta.id,
                 motivo=f'Anulación de venta #{venta.numero_completo}',
-                usuario_id=current_user.id
+                usuario_id=current_user.id,
+                empresa_id=current_user.empresa_id,
             )
             db.session.add(movimiento)
 
@@ -304,7 +329,8 @@ def anular(id):
                 referencia_tipo='anulacion_venta',
                 referencia_id=venta.id,
                 descripcion=f'Anulación de venta #{venta.numero_completo}',
-                usuario_id=current_user.id
+                usuario_id=current_user.id,
+                empresa_id=current_user.empresa_id,
             )
             db.session.add(movimiento_cc)
 
@@ -324,8 +350,24 @@ def anular(id):
 @login_required
 def ticket(id):
     """Ver/imprimir ticket de venta."""
-    venta = Venta.query.get_or_404(id)
+    venta = Venta.get_o_404(id)
     return render_template('ventas/ticket.html', venta=venta)
+
+
+@bp.route('/<int:id>/pdf')
+@login_required
+def pdf(id):
+    """Descargar PDF de comprobante de venta."""
+    venta = Venta.get_o_404(id)
+
+    pdf_bytes = venta_service.generar_pdf(venta)
+
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = (
+        f'inline; filename=venta_{venta.numero_completo}.pdf'
+    )
+    return response
 
 
 @bp.route('/buscar-producto')
@@ -337,7 +379,7 @@ def buscar_producto():
     if len(q) < 2:
         return render_template('ventas/_resultados_busqueda.html', productos=[])
 
-    productos = Producto.query.filter(
+    productos = Producto.query_empresa().filter(
         Producto.activo == True,
         Producto.stock_actual > 0,
         db.or_(
@@ -354,5 +396,5 @@ def buscar_producto():
 @login_required
 def api_producto(id):
     """API para obtener datos de producto (para el POS)."""
-    producto = Producto.query.get_or_404(id)
+    producto = Producto.get_o_404(id)
     return jsonify(producto.to_dict())

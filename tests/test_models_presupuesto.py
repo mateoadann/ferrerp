@@ -2,21 +2,29 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from app.extensions import db
-from app.models import Presupuesto, PresupuestoDetalle, Producto, Usuario
+from app.models import Empresa, Presupuesto, PresupuestoDetalle, Producto, Usuario
 
 
-def _crear_usuario():
+def _crear_empresa():
+    empresa = Empresa(nombre='Empresa Test', activa=True)
+    db.session.add(empresa)
+    db.session.flush()
+    return empresa
+
+
+def _crear_usuario(empresa_id):
     usuario = Usuario(
         email='presupuesto@ferrerp.test',
         nombre='Usuario Presupuesto',
         rol='vendedor',
         activo=True,
+        empresa_id=empresa_id,
     )
     usuario.set_password('clave')
     return usuario
 
 
-def _crear_producto():
+def _crear_producto(empresa_id):
     return Producto(
         codigo='PRD-PRE',
         nombre='Producto Presupuesto',
@@ -26,12 +34,14 @@ def _crear_producto():
         stock_actual=Decimal('20.000'),
         stock_minimo=Decimal('1.000'),
         activo=True,
+        empresa_id=empresa_id,
     )
 
 
 def test_presupuesto_totales_y_estado(app):
-    usuario = _crear_usuario()
-    producto = _crear_producto()
+    empresa = _crear_empresa()
+    usuario = _crear_usuario(empresa.id)
+    producto = _crear_producto(empresa.id)
     db.session.add_all([usuario, producto])
     db.session.commit()
 
@@ -43,6 +53,7 @@ def test_presupuesto_totales_y_estado(app):
         usuario_id=usuario.id,
         cliente_nombre='Cliente Presupuesto',
         descuento_porcentaje=Decimal('10.00'),
+        empresa_id=empresa.id,
     )
 
     detalle = PresupuestoDetalle(

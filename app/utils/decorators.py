@@ -1,7 +1,8 @@
 """Decoradores personalizados para la aplicación."""
 
 from functools import wraps
-from flask import flash, redirect, url_for, request
+
+from flask import flash, redirect, request, url_for
 from flask_login import current_user
 
 
@@ -33,11 +34,38 @@ def caja_abierta_required(f):
     def decorated_function(*args, **kwargs):
         from ..models import Caja
 
-        caja_abierta = Caja.query.filter_by(estado='abierta').first()
+        caja_abierta = Caja.query.filter_by(
+            estado='abierta', empresa_id=current_user.empresa_id
+        ).first()
 
         if not caja_abierta:
             flash('No hay caja abierta. Debes abrir la caja para realizar esta operación.', 'warning')
             return redirect(url_for('caja.index'))
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def owner_required(f):
+    """
+    Decorador que requiere que el usuario sea owner de la empresa.
+    Debe usarse después de @login_required.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash(
+                'Por favor, inicia sesión para acceder a esta página.',
+                'warning',
+            )
+            return redirect(url_for('auth.login', next=request.url))
+
+        if not current_user.es_owner:
+            flash(
+                'Solo el propietario puede realizar esta acción.',
+                'danger',
+            )
+            return redirect(url_for('dashboard.index'))
 
         return f(*args, **kwargs)
     return decorated_function

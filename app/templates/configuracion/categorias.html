@@ -13,14 +13,23 @@
             <a href="{{ url_for('configuracion.categorias') }}" class="list-group-item list-group-item-action active">Categorías</a>
         </div>
     </div>
+
     <div class="col-lg-9">
         <div class="row g-4">
-            <div class="col-md-5">
+            <!-- Formulario nueva categoría -->
+            <div class="col-lg-4">
                 <div class="card">
                     <div class="card-header">Nueva Categoría</div>
                     <div class="card-body">
                         <form method="POST">
                             {{ form.hidden_tag() }}
+                            <div class="mb-3">
+                                <label class="form-label">{{ form.padre_id.label.text }}</label>
+                                {{ form.padre_id(class="form-select") }}
+                                <small class="form-text text-muted">
+                                    Seleccionar padre para crear subcategoría
+                                </small>
+                            </div>
                             <div class="mb-3">
                                 <label class="form-label">{{ form.nombre.label.text }} *</label>
                                 {{ form.nombre(class="form-control") }}
@@ -36,35 +45,75 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-7">
+
+            <!-- Listado jerárquico -->
+            <div class="col-lg-8">
+                {% for cat_padre in categorias_padre %}
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center
+                                {% if not cat_padre.activa %}bg-light text-muted{% endif %}">
+                        <div>
+                            <strong>{{ cat_padre.nombre }}</strong>
+                            {% if cat_padre.descripcion %}
+                            <small class="text-muted ms-2">{{ cat_padre.descripcion }}</small>
+                            {% endif %}
+                            <span class="badge badge-secondary ms-2">
+                                {{ cat_padre.cantidad_productos_total }} prod.
+                            </span>
+                        </div>
+                        <form method="POST"
+                              action="{{ url_for('configuracion.toggle_categoria', id=cat_padre.id) }}"
+                              class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit"
+                                    class="btn btn-sm {% if cat_padre.activa %}btn-outline-secondary{% else %}btn-outline-success{% endif %}">
+                                {% if cat_padre.activa %}Desactivar{% else %}Activar{% endif %}
+                            </button>
+                        </form>
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        {% for sub in cat_padre.subcategorias|sort(attribute='nombre') %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center
+                                   {% if not sub.activa %}bg-light text-muted{% endif %}">
+                            <div>
+                                <span class="material-symbols-rounded text-muted me-1"
+                                      style="font-size: 18px; vertical-align: middle;">
+                                    subdirectory_arrow_right
+                                </span>
+                                <strong>{{ sub.nombre }}</strong>
+                                {% if sub.descripcion %}
+                                <small class="text-muted ms-1">— {{ sub.descripcion }}</small>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge {% if sub.activa %}badge-success{% else %}badge-secondary{% endif %}">
+                                    {{ sub.cantidad_productos }} prod.
+                                </span>
+                                <form method="POST"
+                                      action="{{ url_for('configuracion.toggle_categoria', id=sub.id) }}"
+                                      class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit"
+                                            class="btn btn-sm {% if sub.activa %}btn-outline-secondary{% else %}btn-outline-success{% endif %}">
+                                        {% if sub.activa %}Desactivar{% else %}Activar{% endif %}
+                                    </button>
+                                </form>
+                            </div>
+                        </li>
+                        {% else %}
+                        <li class="list-group-item text-muted small fst-italic">
+                            Sin subcategorías
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% else %}
                 <div class="card">
-                    <div class="card-header">Categorías Existentes</div>
-                    <div class="card-body p-0">
-                        <ul class="list-group list-group-flush">
-                            {% for c in categorias %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong>{{ c.nombre }}</strong>
-                                    {% if c.descripcion %}<br><small class="text-muted">{{ c.descripcion }}</small>{% endif %}
-                                </div>
-                                <div>
-                                    <span class="badge {% if c.activa %}badge-success{% else %}badge-secondary{% endif %} me-2">
-                                        {{ c.cantidad_productos }} productos
-                                    </span>
-                                    <form method="POST" action="{{ url_for('configuracion.toggle_categoria', id=c.id) }}" class="d-inline">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <button type="submit" class="btn btn-sm {% if c.activa %}btn-outline-secondary{% else %}btn-outline-success{% endif %}">
-                                            {% if c.activa %}Desactivar{% else %}Activar{% endif %}
-                                        </button>
-                                    </form>
-                                </div>
-                            </li>
-                            {% else %}
-                            <li class="list-group-item text-center text-muted py-4">No hay categorías</li>
-                            {% endfor %}
-                        </ul>
+                    <div class="card-body text-center text-muted py-4">
+                        No hay categorías padre cargadas.
                     </div>
                 </div>
+                {% endfor %}
             </div>
         </div>
     </div>

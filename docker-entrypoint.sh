@@ -7,9 +7,9 @@ while ! pg_isready -h db -p 5432 -U ferrerp > /dev/null 2>&1; do
 done
 echo "PostgreSQL listo!"
 
-# Inicializar base de datos si es necesario
-echo "Inicializando base de datos..."
-flask db upgrade 2>/dev/null || flask init-db
+# Aplicar migraciones pendientes
+echo "Aplicando migraciones..."
+flask db upgrade
 
 # Cargar datos de prueba si la base esta vacia (opcional)
 if [ "$LOAD_SEED_DATA" = "true" ]; then

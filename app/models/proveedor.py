@@ -1,10 +1,12 @@
 """Modelo de Proveedor."""
 
 from datetime import datetime
+
 from ..extensions import db
+from .mixins import EmpresaMixin
 
 
-class Proveedor(db.Model):
+class Proveedor(EmpresaMixin, db.Model):
     """Modelo de proveedor."""
 
     __tablename__ = 'proveedores'

@@ -4,11 +4,13 @@ Application Factory Pattern
 """
 
 import os
-from flask import Flask
+
 from dotenv import load_dotenv
+from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import config
-from .extensions import db, migrate, login_manager, bcrypt, csrf
+from .extensions import bcrypt, csrf, db, login_manager, migrate
 
 
 def create_app(config_name=None):
@@ -49,6 +51,10 @@ def create_app(config_name=None):
     # Registrar manejadores de errores
     register_error_handlers(app)
 
+    # ProxyFix para funcionar detrás de nginx (X-Forwarded-Proto, X-Forwarded-Host)
+    if config_name == 'production':
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
     return app
 
 
@@ -65,24 +71,25 @@ def init_extensions(app):
 
     @login_manager.user_loader
     def load_user(user_id):
-        return Usuario.query.get(int(user_id))
+        return db.session.get(Usuario, int(user_id))
 
 
 def register_blueprints(app):
     """Registra todos los blueprints de la aplicación."""
     from .routes import (
         auth_bp,
-        dashboard_bp,
-        productos_bp,
-        inventario_bp,
-        proveedores_bp,
-        compras_bp,
-        clientes_bp,
-        ventas_bp,
-        presupuestos_bp,
         caja_bp,
+        clientes_bp,
+        compras_bp,
+        configuracion_bp,
+        dashboard_bp,
+        facturacion_bp,
+        inventario_bp,
+        presupuestos_bp,
+        productos_bp,
+        proveedores_bp,
         reportes_bp,
-        configuracion_bp
+        ventas_bp,
     )
 
     app.register_blueprint(auth_bp)
@@ -97,6 +104,7 @@ def register_blueprints(app):
     app.register_blueprint(caja_bp)
     app.register_blueprint(reportes_bp)
     app.register_blueprint(configuracion_bp)
+    app.register_blueprint(facturacion_bp)
 
 
 def register_commands(app):
@@ -122,22 +130,40 @@ def register_template_context(app):
     @app.context_processor
     def inject_globals():
         from datetime import datetime
+
+        from flask_login import current_user
+
         from .models.configuracion import Configuracion
 
-        # Obtener configuración del negocio
+        # Obtener configuración del negocio (filtrada por empresa)
         def get_config(clave, default=None):
-            config_item = Configuracion.query.filter_by(clave=clave).first()
+            if not current_user.is_authenticated:
+                return default
+            config_item = Configuracion.query.filter_by(
+                clave=clave, empresa_id=current_user.empresa_id
+            ).first()
             return config_item.get_valor() if config_item else default
+
+        empresa_actual = None
+        if current_user.is_authenticated and current_user.empresa:
+            empresa_actual = current_user.empresa
 
         return {
             'app_name': app.config.get('APP_NAME', 'FerrERP'),
             'current_year': datetime.now().year,
             'get_config': get_config,
-            'iva_porcentaje': get_config('iva_porcentaje', 21),
             'precios_con_iva': get_config('precios_con_iva', True),
+            'empresa_actual': empresa_actual,
         }
 
     # Filtros personalizados para Jinja2
+    @app.template_filter('combine')
+    def combine_filter(d, other):
+        """Combina dos diccionarios (equivalente a {**d, **other})."""
+        result = dict(d)
+        result.update(other)
+        return result
+
     @app.template_filter('currency')
     def currency_filter(value):
         """Formatea un número como moneda."""

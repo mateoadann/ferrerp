@@ -17,34 +17,42 @@ def flash_errors(form):
             flash(f'{field_label}: {error}', 'danger')
 
 
-def generar_numero_venta():
+def generar_numero_venta(empresa_id=None):
     """
-    Genera el siguiente número de venta para el año actual.
+    Genera el siguiente número de venta para el año actual y empresa.
+
+    Args:
+        empresa_id: ID de la empresa (requerido para multi-tenancy)
 
     Returns:
         int: Siguiente número de venta
     """
     from ..models import Venta
-    from ..extensions import db
 
     anio_actual = datetime.utcnow().year
     inicio_anio = datetime(anio_actual, 1, 1)
     fin_anio = datetime(anio_actual, 12, 31, 23, 59, 59)
 
-    # Obtener el último número de venta del año
-    ultima_venta = Venta.query.filter(
+    query = Venta.query.filter(
         Venta.fecha >= inicio_anio,
-        Venta.fecha <= fin_anio
-    ).order_by(Venta.numero.desc()).first()
+        Venta.fecha <= fin_anio,
+    )
+    if empresa_id is not None and hasattr(Venta, 'empresa_id'):
+        query = query.filter(Venta.empresa_id == empresa_id)
+
+    ultima_venta = query.order_by(Venta.numero.desc()).first()
 
     if ultima_venta:
         return ultima_venta.numero + 1
     return 1
 
 
-def generar_numero_presupuesto():
+def generar_numero_presupuesto(empresa_id=None):
     """
-    Genera el siguiente número de presupuesto para el año actual.
+    Genera el siguiente número de presupuesto para el año actual y empresa.
+
+    Args:
+        empresa_id: ID de la empresa (requerido para multi-tenancy)
 
     Returns:
         int: Siguiente número de presupuesto
@@ -55,26 +63,37 @@ def generar_numero_presupuesto():
     inicio_anio = datetime(anio_actual, 1, 1)
     fin_anio = datetime(anio_actual, 12, 31, 23, 59, 59)
 
-    ultimo = Presupuesto.query.filter(
+    query = Presupuesto.query.filter(
         Presupuesto.fecha >= inicio_anio,
-        Presupuesto.fecha <= fin_anio
-    ).order_by(Presupuesto.numero.desc()).first()
+        Presupuesto.fecha <= fin_anio,
+    )
+    if empresa_id is not None and hasattr(Presupuesto, 'empresa_id'):
+        query = query.filter(Presupuesto.empresa_id == empresa_id)
+
+    ultimo = query.order_by(Presupuesto.numero.desc()).first()
 
     if ultimo:
         return ultimo.numero + 1
     return 1
 
 
-def generar_numero_orden_compra():
+def generar_numero_orden_compra(empresa_id=None):
     """
-    Genera el siguiente número de orden de compra.
+    Genera el siguiente número de orden de compra para la empresa.
+
+    Args:
+        empresa_id: ID de la empresa (requerido para multi-tenancy)
 
     Returns:
         int: Siguiente número de orden
     """
     from ..models import OrdenCompra
 
-    ultima_orden = OrdenCompra.query.order_by(OrdenCompra.numero.desc()).first()
+    query = OrdenCompra.query
+    if empresa_id is not None and hasattr(OrdenCompra, 'empresa_id'):
+        query = query.filter(OrdenCompra.empresa_id == empresa_id)
+
+    ultima_orden = query.order_by(OrdenCompra.numero.desc()).first()
 
     if ultima_orden:
         return ultima_orden.numero + 1

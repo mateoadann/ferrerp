@@ -31,27 +31,23 @@
                         <label class="form-label">{{ form.telefono.label.text }}</label>
                         {{ form.telefono(class="form-control") }}
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.iva_porcentaje.label.text }}</label>
-                        <div class="input-group">
-                            {{ form.iva_porcentaje(class="form-control") }}
-                            <span class="input-group-text">%</span>
-                        </div>
-                    </div>
                     <div class="col-12">
                         <label class="form-label">{{ form.direccion.label.text }}</label>
                         {{ form.direccion(class="form-control") }}
                     </div>
                     <div class="col-12">
                         <div class="form-check">
-                            {{ form.precios_con_iva(class="form-check-input") }}
-                            <label class="form-check-label">{{ form.precios_con_iva.label.text }}</label>
+                            {{ form.precios_con_iva(class="form-check-input", id="precios_con_iva") }}
+                            <label class="form-check-label" for="precios_con_iva">
+                                {{ form.precios_con_iva.label.text }}
+                            </label>
                         </div>
                         <small class="text-muted d-block mt-1 ms-4">
                             Si está activado, los precios cargados en productos ya incluyen IVA y se desglosa al facturar.
                             Si está desactivado, los precios son netos y el IVA se suma al total.
                         </small>
                     </div>
+
                     <div class="col-12"><hr>
                         <button type="submit" class="btn btn-primary"><span class="material-symbols-rounded me-2">save</span>Guardar</button>
                     </div>
@@ -60,4 +56,139 @@
         </div>
     </div>
 </div>
+<!-- Modal confirmación IVA -->
+<div class="modal fade" id="modalIva" tabindex="-1" aria-labelledby="modalIvaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalIvaLabel">¿Activar precios con IVA incluido?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Ejemplo: cargás un producto con <strong>precio de venta $1.000</strong>
+                   y <strong>costo $600</strong> (IVA 21%).</p>
+
+                <div class="row g-3 mb-3">
+                    <!-- Columna: IVA incluido (activado) -->
+                    <div class="col-md-6">
+                        <div class="border rounded overflow-hidden h-100">
+                            <div class="px-3 py-2 fw-semibold text-white" style="background-color: var(--accent-color, #E07B54);">
+                                <span class="material-symbols-rounded me-1" style="font-size: 18px; vertical-align: text-bottom;">check_circle</span>
+                                Activado — IVA incluido
+                            </div>
+                            <div class="p-3">
+                                <p class="small text-muted mb-2">El precio que cargás <strong>ya tiene IVA adentro</strong>. Al facturar se desglosa:</p>
+                                <table class="table table-sm table-borderless mb-0">
+                                    <tbody>
+                                        <tr>
+                                            <td class="text-muted py-1 ps-0">Cargás como costo:</td>
+                                            <td class="text-end fw-semibold py-1 pe-0">$600,00</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted py-1 ps-0">Cargás como venta:</td>
+                                            <td class="text-end fw-semibold py-1 pe-0">$1.000,00</td>
+                                        </tr>
+                                        <tr class="border-top">
+                                            <td class="text-muted py-1 ps-0">Neto (en factura):</td>
+                                            <td class="text-end py-1 pe-0">$826,45</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted py-1 ps-0">IVA 21% (en factura):</td>
+                                            <td class="text-end py-1 pe-0">$173,55</td>
+                                        </tr>
+                                        <tr class="border-top">
+                                            <td class="text-muted py-1 ps-0">El cliente paga:</td>
+                                            <td class="text-end fw-bold py-1 pe-0">$1.000,00</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted py-1 ps-0">Margen:</td>
+                                            <td class="text-end py-1 pe-0">66,7%</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Columna: IVA no incluido (desactivado) -->
+                    <div class="col-md-6">
+                        <div class="border rounded overflow-hidden h-100">
+                            <div class="bg-secondary px-3 py-2 fw-semibold text-white">
+                                <span class="material-symbols-rounded me-1" style="font-size: 18px; vertical-align: text-bottom;">cancel</span>
+                                Desactivado — IVA se suma
+                            </div>
+                            <div class="p-3">
+                                <p class="small text-muted mb-2">El precio que cargás es <strong>neto</strong>. Al facturar el IVA se suma:</p>
+                                <table class="table table-sm table-borderless mb-0">
+                                    <tbody>
+                                        <tr>
+                                            <td class="text-muted py-1 ps-0">Cargás como costo:</td>
+                                            <td class="text-end fw-semibold py-1 pe-0">$600,00</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted py-1 ps-0">Cargás como venta:</td>
+                                            <td class="text-end fw-semibold py-1 pe-0">$1.000,00</td>
+                                        </tr>
+                                        <tr class="border-top">
+                                            <td class="text-muted py-1 ps-0">Neto (en factura):</td>
+                                            <td class="text-end py-1 pe-0">$1.000,00</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted py-1 ps-0">IVA 21% (en factura):</td>
+                                            <td class="text-end py-1 pe-0">$210,00</td>
+                                        </tr>
+                                        <tr class="border-top">
+                                            <td class="text-muted py-1 ps-0">El cliente paga:</td>
+                                            <td class="text-end fw-bold py-1 pe-0">$1.210,00</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted py-1 ps-0">Margen:</td>
+                                            <td class="text-end py-1 pe-0">66,7%</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-start gap-2 small text-muted">
+                    <span class="material-symbols-rounded" style="font-size: 18px; flex-shrink: 0;">info</span>
+                    <span>En ambos casos cargás los mismos valores. La diferencia es cómo el sistema los interpreta al facturar y desglosar el IVA en comprobantes.</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
+                        id="btnCancelarIva">Cancelar</button>
+                <button type="button" class="btn btn-primary"
+                        id="btnConfirmarIva">Sí, activar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkbox = document.getElementById('precios_con_iva');
+    const modal = new bootstrap.Modal(document.getElementById('modalIva'));
+
+    checkbox.addEventListener('change', function() {
+        if (this.checked) {
+            this.checked = false;
+            modal.show();
+        }
+    });
+
+    document.getElementById('btnConfirmarIva').addEventListener('click', function() {
+        checkbox.checked = true;
+        modal.hide();
+    });
+
+    document.getElementById('btnCancelarIva').addEventListener('click', function() {
+        checkbox.checked = false;
+    });
+});
+</script>
 {% endblock %}

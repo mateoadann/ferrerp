@@ -20,7 +20,7 @@
                     {{ producto.nombre }}
                 </a>
             </td>
-            <td>{{ producto.categoria.nombre if producto.categoria else '-' }}</td>
+            <td>{{ producto.categoria.nombre_completo if producto.categoria else '-' }}</td>
             <td class="text-center">
                 {% if producto.stock_actual < producto.stock_minimo %}
                 <span class="badge badge-danger">{{ producto.stock_actual|int }}</span>

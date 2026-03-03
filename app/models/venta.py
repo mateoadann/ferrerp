@@ -2,10 +2,12 @@
 
 from datetime import datetime
 from decimal import Decimal
+
 from ..extensions import db
+from .mixins import EmpresaMixin
 
 
-class Venta(db.Model):
+class Venta(EmpresaMixin, db.Model):
     """Modelo de venta."""
 
     __tablename__ = 'ventas'

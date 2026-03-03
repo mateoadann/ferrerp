@@ -3,22 +3,38 @@ from decimal import Decimal
 import pytest
 
 from app.extensions import db
-from app.models import Caja, Cliente, MovimientoCaja, MovimientoStock, Producto, Usuario
-from app.services.presupuesto_service import crear_presupuesto, convertir_a_venta
+from app.models import (
+    Caja,
+    Cliente,
+    Empresa,
+    MovimientoCaja,
+    MovimientoStock,
+    Producto,
+    Usuario,
+)
+from app.services.presupuesto_service import convertir_a_venta, crear_presupuesto
 
 
-def _crear_usuario(email='usuario@ferrerp.test', rol='vendedor'):
+def _crear_empresa():
+    empresa = Empresa(nombre='Empresa Test', activa=True)
+    db.session.add(empresa)
+    db.session.flush()
+    return empresa
+
+
+def _crear_usuario(empresa_id, email='usuario@ferrerp.test', rol='vendedor'):
     usuario = Usuario(
         email=email,
         nombre='Usuario Test',
         rol=rol,
         activo=True,
+        empresa_id=empresa_id,
     )
     usuario.set_password('clave')
     return usuario
 
 
-def _crear_producto(codigo, stock_actual='10.000', precio='10.00'):
+def _crear_producto(codigo, empresa_id, stock_actual='10.000', precio='10.00'):
     return Producto(
         codigo=codigo,
         nombre=f'Producto {codigo}',
@@ -28,29 +44,33 @@ def _crear_producto(codigo, stock_actual='10.000', precio='10.00'):
         stock_actual=Decimal(str(stock_actual)),
         stock_minimo=Decimal('1.000'),
         activo=True,
+        empresa_id=empresa_id,
     )
 
 
-def _crear_caja(usuario_id):
+def _crear_caja(usuario_id, empresa_id):
     return Caja(
         usuario_apertura_id=usuario_id,
         monto_inicial=Decimal('100.00'),
+        empresa_id=empresa_id,
     )
 
 
-def _crear_cliente(limite_credito='100.00', saldo='0.00'):
+def _crear_cliente(empresa_id, limite_credito='100.00', saldo='0.00'):
     return Cliente(
         nombre='Cliente Test',
         limite_credito=Decimal(str(limite_credito)),
         saldo_cuenta_corriente=Decimal(str(saldo)),
         activo=True,
+        empresa_id=empresa_id,
     )
 
 
 def test_crear_presupuesto_calcula_totales(app):
-    usuario = _crear_usuario()
-    producto_a = _crear_producto('PRD-A', precio='10.00')
-    producto_b = _crear_producto('PRD-B', precio='20.00')
+    empresa = _crear_empresa()
+    usuario = _crear_usuario(empresa.id)
+    producto_a = _crear_producto('PRD-A', empresa.id, precio='10.00')
+    producto_b = _crear_producto('PRD-B', empresa.id, precio='20.00')
     db.session.add_all([usuario, producto_a, producto_b])
     db.session.commit()
 
@@ -62,6 +82,7 @@ def test_crear_presupuesto_calcula_totales(app):
     presupuesto = crear_presupuesto(
         items,
         usuario_id=usuario.id,
+        empresa_id=empresa.id,
         descuento_porcentaje=Decimal('10.00'),
         cliente_nombre='Cliente Presupuesto',
     )
@@ -74,7 +95,8 @@ def test_crear_presupuesto_calcula_totales(app):
 
 
 def test_crear_presupuesto_producto_inexistente(app):
-    usuario = _crear_usuario()
+    empresa = _crear_empresa()
+    usuario = _crear_usuario(empresa.id)
     db.session.add(usuario)
     db.session.commit()
 
@@ -83,23 +105,24 @@ def test_crear_presupuesto_producto_inexistente(app):
     ]
 
     with pytest.raises(ValueError, match='Producto no encontrado: 9999'):
-        crear_presupuesto(items, usuario_id=usuario.id)
+        crear_presupuesto(items, usuario_id=usuario.id, empresa_id=empresa.id)
 
 
 def test_convertir_a_venta_crea_movimientos(app):
-    usuario = _crear_usuario()
-    producto = _crear_producto('PRD-VENTA', stock_actual='5.000', precio='10.00')
+    empresa = _crear_empresa()
+    usuario = _crear_usuario(empresa.id)
+    producto = _crear_producto('PRD-VENTA', empresa.id, stock_actual='5.000', precio='10.00')
     db.session.add_all([usuario, producto])
     db.session.commit()
 
-    caja = _crear_caja(usuario.id)
+    caja = _crear_caja(usuario.id, empresa.id)
     db.session.add(caja)
     db.session.commit()
 
     items = [
         {'producto_id': producto.id, 'cantidad': Decimal('2.000'), 'precio_unitario': Decimal('10.00')},
     ]
-    presupuesto = crear_presupuesto(items, usuario_id=usuario.id)
+    presupuesto = crear_presupuesto(items, usuario_id=usuario.id, empresa_id=empresa.id)
     presupuesto.estado = 'aceptado'
     db.session.commit()
 
@@ -108,6 +131,7 @@ def test_convertir_a_venta_crea_movimientos(app):
         usuario_id=usuario.id,
         forma_pago='efectivo',
         caja_id=caja.id,
+        empresa_id=empresa.id,
     )
 
     db.session.refresh(producto)
@@ -134,15 +158,16 @@ def test_convertir_a_venta_crea_movimientos(app):
 
 
 def test_convertir_a_venta_sin_caja_abierta(app):
-    usuario = _crear_usuario()
-    producto = _crear_producto('PRD-SIN-CAJA')
+    empresa = _crear_empresa()
+    usuario = _crear_usuario(empresa.id)
+    producto = _crear_producto('PRD-SIN-CAJA', empresa.id)
     db.session.add_all([usuario, producto])
     db.session.commit()
 
     items = [
         {'producto_id': producto.id, 'cantidad': Decimal('1.000'), 'precio_unitario': Decimal('10.00')},
     ]
-    presupuesto = crear_presupuesto(items, usuario_id=usuario.id)
+    presupuesto = crear_presupuesto(items, usuario_id=usuario.id, empresa_id=empresa.id)
     presupuesto.estado = 'aceptado'
     db.session.commit()
 
@@ -152,23 +177,25 @@ def test_convertir_a_venta_sin_caja_abierta(app):
             usuario_id=usuario.id,
             forma_pago='efectivo',
             caja_id=9999,
+            empresa_id=empresa.id,
         )
 
 
 def test_convertir_a_venta_stock_insuficiente(app):
-    usuario = _crear_usuario()
-    producto = _crear_producto('PRD-LOW', stock_actual='1.000')
+    empresa = _crear_empresa()
+    usuario = _crear_usuario(empresa.id)
+    producto = _crear_producto('PRD-LOW', empresa.id, stock_actual='1.000')
     db.session.add_all([usuario, producto])
     db.session.commit()
 
-    caja = _crear_caja(usuario.id)
+    caja = _crear_caja(usuario.id, empresa.id)
     db.session.add(caja)
     db.session.commit()
 
     items = [
         {'producto_id': producto.id, 'cantidad': Decimal('2.000'), 'precio_unitario': Decimal('10.00')},
     ]
-    presupuesto = crear_presupuesto(items, usuario_id=usuario.id)
+    presupuesto = crear_presupuesto(items, usuario_id=usuario.id, empresa_id=empresa.id)
     presupuesto.estado = 'aceptado'
     db.session.commit()
 
@@ -178,23 +205,25 @@ def test_convertir_a_venta_stock_insuficiente(app):
             usuario_id=usuario.id,
             forma_pago='efectivo',
             caja_id=caja.id,
+            empresa_id=empresa.id,
         )
 
 
 def test_convertir_a_venta_cuenta_corriente_sin_cliente(app):
-    usuario = _crear_usuario()
-    producto = _crear_producto('PRD-CC')
+    empresa = _crear_empresa()
+    usuario = _crear_usuario(empresa.id)
+    producto = _crear_producto('PRD-CC', empresa.id)
     db.session.add_all([usuario, producto])
     db.session.commit()
 
-    caja = _crear_caja(usuario.id)
+    caja = _crear_caja(usuario.id, empresa.id)
     db.session.add(caja)
     db.session.commit()
 
     items = [
         {'producto_id': producto.id, 'cantidad': Decimal('1.000'), 'precio_unitario': Decimal('10.00')},
     ]
-    presupuesto = crear_presupuesto(items, usuario_id=usuario.id)
+    presupuesto = crear_presupuesto(items, usuario_id=usuario.id, empresa_id=empresa.id)
     presupuesto.estado = 'aceptado'
     db.session.commit()
 
@@ -204,17 +233,19 @@ def test_convertir_a_venta_cuenta_corriente_sin_cliente(app):
             usuario_id=usuario.id,
             forma_pago='cuenta_corriente',
             caja_id=caja.id,
+            empresa_id=empresa.id,
         )
 
 
 def test_convertir_a_venta_credito_insuficiente(app):
-    usuario = _crear_usuario()
-    cliente = _crear_cliente(limite_credito='50.00', saldo='0.00')
-    producto = _crear_producto('PRD-CC2', precio='40.00')
+    empresa = _crear_empresa()
+    usuario = _crear_usuario(empresa.id)
+    cliente = _crear_cliente(empresa.id, limite_credito='50.00', saldo='0.00')
+    producto = _crear_producto('PRD-CC2', empresa.id, precio='40.00')
     db.session.add_all([usuario, cliente, producto])
     db.session.commit()
 
-    caja = _crear_caja(usuario.id)
+    caja = _crear_caja(usuario.id, empresa.id)
     db.session.add(caja)
     db.session.commit()
 
@@ -224,6 +255,7 @@ def test_convertir_a_venta_credito_insuficiente(app):
     presupuesto = crear_presupuesto(
         items,
         usuario_id=usuario.id,
+        empresa_id=empresa.id,
         cliente_id=cliente.id,
     )
     presupuesto.estado = 'aceptado'
@@ -235,4 +267,5 @@ def test_convertir_a_venta_credito_insuficiente(app):
             usuario_id=usuario.id,
             forma_pago='cuenta_corriente',
             caja_id=caja.id,
+            empresa_id=empresa.id,
         )
