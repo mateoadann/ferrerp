@@ -214,13 +214,16 @@ def editar_categoria(id):
 
     nombre = request.form.get('nombre')
     descripcion = request.form.get('descripcion')
-    padre_id = request.form.get('padre_id', 0, type=int) or None
 
     if nombre:
         # Verificar nombre único por nivel dentro de la empresa
         existente = (
             Categoria.query_empresa()
-            .filter(Categoria.nombre == nombre, Categoria.padre_id == padre_id, Categoria.id != id)
+            .filter(
+                Categoria.nombre == nombre,
+                Categoria.padre_id == categoria.padre_id,
+                Categoria.id != id,
+            )
             .first()
         )
         if existente:
@@ -228,7 +231,6 @@ def editar_categoria(id):
         else:
             categoria.nombre = nombre
             categoria.descripcion = descripcion
-            categoria.padre_id = padre_id
             db.session.commit()
             flash(f'Categoría "{categoria.nombre}" actualizada.', 'success')
 

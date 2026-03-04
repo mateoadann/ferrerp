@@ -1,8 +1,13 @@
 {% extends 'base.html' %}
 {% block title %}Categorías - {{ app_name }}{% endblock %}
+{% block alerts %}{% endblock %}
 {% block content %}
 <div class="page-header">
     <h2>Categorías</h2>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal"
+            data-bs-target="#modalNuevaCategoria">
+        <span class="material-symbols-rounded me-2">add</span>Nueva Categoría
+    </button>
 </div>
 
 <div class="row">
@@ -17,142 +22,198 @@
     </div>
 
     <div class="col-lg-9">
-        <div class="row g-4">
-            <!-- Formulario nueva categoría -->
-            <div class="col-lg-4">
-                <div class="card">
-                    <div class="card-header">Nueva Categoría</div>
-                    <div class="card-body">
-                        <form method="POST">
-                            {{ form.hidden_tag() }}
-                            <div class="mb-3">
-                                <label class="form-label">{{ form.padre_id.label.text }}</label>
-                                {{ form.padre_id(class="form-select") }}
-                                <small class="form-text text-muted">
-                                    Seleccionar padre para crear subcategoría
-                                </small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">{{ form.nombre.label.text }} *</label>
-                                {{ form.nombre(class="form-control") }}
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">{{ form.descripcion.label.text }}</label>
-                                {{ form.descripcion(class="form-control") }}
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">
-                                <span class="material-symbols-rounded me-2">add</span>Crear
-                            </button>
-                        </form>
-                    </div>
+        {% include 'components/alerts.html' %}
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Descripción</th>
+                                <th class="text-center">Productos</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cat_padre in categorias_padre %}
+                            {# --- Fila categoría padre --- #}
+                            <tr class="cat-padre{% if not cat_padre.activa %} text-muted{% endif %}"
+                                {% if cat_padre.subcategorias %}
+                                role="button"
+                                data-padre-id="{{ cat_padre.id }}"
+                                onclick="toggleSubs(this, {{ cat_padre.id }})"
+                                aria-expanded="false"
+                                {% endif %}>
+                                <td>
+                                    {% if cat_padre.subcategorias %}
+                                    <span class="material-symbols-rounded cat-chevron me-1"
+                                          style="font-size: 18px; vertical-align: middle;">
+                                        chevron_right
+                                    </span>
+                                    {% endif %}
+                                    <span class="material-symbols-rounded me-1 text-muted"
+                                          style="font-size: 18px; vertical-align: middle;">
+                                        folder
+                                    </span>
+                                    <strong>{{ cat_padre.nombre }}</strong>
+                                </td>
+                                <td>
+                                    {% if cat_padre.descripcion %}
+                                    <small class="text-muted">{{ cat_padre.descripcion }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge badge-secondary">
+                                        {{ cat_padre.cantidad_productos_total }}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    {% if cat_padre.activa %}
+                                    <span class="badge badge-success">Activa</span>
+                                    {% else %}
+                                    <span class="badge badge-secondary">Inactiva</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="action-icons">
+                                        <a href="javascript:void(0)" class="action-icon"
+                                           onclick="event.stopPropagation(); abrirModalEditar({{ cat_padre.id }}, '{{ cat_padre.nombre|e }}', '{{ cat_padre.descripcion|default('', true)|e }}')"
+                                           title="Editar">
+                                            <span class="material-symbols-rounded">edit</span>
+                                        </a>
+                                        {% if cat_padre.puede_eliminarse %}
+                                        <a href="javascript:void(0)" class="action-icon text-danger"
+                                           onclick="event.stopPropagation(); confirmarEliminar({{ cat_padre.id }}, '{{ cat_padre.nombre|e }}')"
+                                           title="Eliminar">
+                                            <span class="material-symbols-rounded">delete</span>
+                                        </a>
+                                        {% endif %}
+                                        <form method="POST"
+                                              action="{{ url_for('configuracion.toggle_categoria', id=cat_padre.id) }}"
+                                              class="d-inline"
+                                              onclick="event.stopPropagation()">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit"
+                                                    class="action-icon btn btn-link p-0 border-0"
+                                                    title="{% if cat_padre.activa %}Desactivar{% else %}Activar{% endif %}">
+                                                <span class="material-symbols-rounded {% if cat_padre.activa %}text-secondary{% else %}text-success{% endif %}">
+                                                    {% if cat_padre.activa %}toggle_on{% else %}toggle_off{% endif %}
+                                                </span>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {# --- Filas subcategorías (colapsables) --- #}
+                            {% for sub in cat_padre.subcategorias|sort(attribute='nombre') %}
+                            <tr class="cat-sub d-none subs-{{ cat_padre.id }}{% if not sub.activa %} text-muted{% endif %}">
+                                <td class="ps-5">
+                                    <span class="material-symbols-rounded text-muted me-1"
+                                          style="font-size: 18px; vertical-align: middle;">
+                                        subdirectory_arrow_right
+                                    </span>
+                                    {{ sub.nombre }}
+                                </td>
+                                <td>
+                                    {% if sub.descripcion %}
+                                    <small class="text-muted">{{ sub.descripcion }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge {% if sub.activa %}badge-success{% else %}badge-secondary{% endif %}">
+                                        {{ sub.cantidad_productos }}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    {% if sub.activa %}
+                                    <span class="badge badge-success">Activa</span>
+                                    {% else %}
+                                    <span class="badge badge-secondary">Inactiva</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="action-icons">
+                                        <a href="javascript:void(0)" class="action-icon"
+                                           onclick="abrirModalEditar({{ sub.id }}, '{{ sub.nombre|e }}', '{{ sub.descripcion|default('', true)|e }}')"
+                                           title="Editar">
+                                            <span class="material-symbols-rounded">edit</span>
+                                        </a>
+                                        {% if sub.puede_eliminarse %}
+                                        <a href="javascript:void(0)" class="action-icon text-danger"
+                                           onclick="confirmarEliminar({{ sub.id }}, '{{ sub.nombre|e }}')"
+                                           title="Eliminar">
+                                            <span class="material-symbols-rounded">delete</span>
+                                        </a>
+                                        {% endif %}
+                                        <form method="POST"
+                                              action="{{ url_for('configuracion.toggle_categoria', id=sub.id) }}"
+                                              class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit"
+                                                    class="action-icon btn btn-link p-0 border-0"
+                                                    title="{% if sub.activa %}Desactivar{% else %}Activar{% endif %}">
+                                                <span class="material-symbols-rounded {% if sub.activa %}text-secondary{% else %}text-success{% endif %}">
+                                                    {% if sub.activa %}toggle_on{% else %}toggle_off{% endif %}
+                                                </span>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    No hay categorías cargadas.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
 
-            <!-- Listado jerárquico -->
-            <div class="col-lg-8">
-                {% for cat_padre in categorias_padre %}
-                <div class="card mb-3">
-                    <div class="card-header d-flex justify-content-between align-items-center
-                                {% if not cat_padre.activa %}bg-light text-muted{% endif %}">
-                        <div>
-                            <strong>{{ cat_padre.nombre }}</strong>
-                            {% if cat_padre.descripcion %}
-                            <small class="text-muted ms-2">{{ cat_padre.descripcion }}</small>
-                            {% endif %}
-                            <span class="badge badge-secondary ms-2">
-                                {{ cat_padre.cantidad_productos_total }} prod.
-                            </span>
-                        </div>
-                        <div class="d-flex gap-1">
-                            <button type="button"
-                                    class="btn btn-sm btn-outline-primary"
-                                    onclick="abrirModalEditar({{ cat_padre.id }}, '{{ cat_padre.nombre|e }}', '{{ cat_padre.descripcion|default('', true)|e }}')"
-                                    title="Editar">
-                                <span class="material-symbols-rounded" style="font-size: 18px;">edit</span>
-                            </button>
-                            {% if cat_padre.puede_eliminarse %}
-                            <form method="POST"
-                                  action="{{ url_for('configuracion.eliminar_categoria', id=cat_padre.id) }}"
-                                  class="d-inline"
-                                  onsubmit="return confirm('¿Estás seguro de eliminar la categoría «{{ cat_padre.nombre }}»? Esta acción no se puede deshacer.')">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
-                                    <span class="material-symbols-rounded" style="font-size: 18px;">delete</span>
-                                </button>
-                            </form>
-                            {% endif %}
-                            <form method="POST"
-                                  action="{{ url_for('configuracion.toggle_categoria', id=cat_padre.id) }}"
-                                  class="d-inline">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit"
-                                        class="btn btn-sm {% if cat_padre.activa %}btn-outline-secondary{% else %}btn-outline-success{% endif %}">
-                                    {% if cat_padre.activa %}Desactivar{% else %}Activar{% endif %}
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                    <ul class="list-group list-group-flush">
-                        {% for sub in cat_padre.subcategorias|sort(attribute='nombre') %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center
-                                   {% if not sub.activa %}bg-light text-muted{% endif %}">
-                            <div>
-                                <span class="material-symbols-rounded text-muted me-1"
-                                      style="font-size: 18px; vertical-align: middle;">
-                                    subdirectory_arrow_right
-                                </span>
-                                <strong>{{ sub.nombre }}</strong>
-                                {% if sub.descripcion %}
-                                <small class="text-muted ms-1">— {{ sub.descripcion }}</small>
-                                {% endif %}
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="badge {% if sub.activa %}badge-success{% else %}badge-secondary{% endif %}">
-                                    {{ sub.cantidad_productos }} prod.
-                                </span>
-                                <button type="button"
-                                        class="btn btn-sm btn-outline-primary"
-                                        onclick="abrirModalEditar({{ sub.id }}, '{{ sub.nombre|e }}', '{{ sub.descripcion|default('', true)|e }}')"
-                                        title="Editar">
-                                    <span class="material-symbols-rounded" style="font-size: 18px;">edit</span>
-                                </button>
-                                {% if sub.puede_eliminarse %}
-                                <form method="POST"
-                                      action="{{ url_for('configuracion.eliminar_categoria', id=sub.id) }}"
-                                      class="d-inline"
-                                      onsubmit="return confirm('¿Estás seguro de eliminar la subcategoría «{{ sub.nombre }}»? Esta acción no se puede deshacer.')">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
-                                        <span class="material-symbols-rounded" style="font-size: 18px;">delete</span>
-                                    </button>
-                                </form>
-                                {% endif %}
-                                <form method="POST"
-                                      action="{{ url_for('configuracion.toggle_categoria', id=sub.id) }}"
-                                      class="d-inline">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit"
-                                            class="btn btn-sm {% if sub.activa %}btn-outline-secondary{% else %}btn-outline-success{% endif %}">
-                                        {% if sub.activa %}Desactivar{% else %}Activar{% endif %}
-                                    </button>
-                                </form>
-                            </div>
-                        </li>
-                        {% else %}
-                        <li class="list-group-item text-muted small fst-italic">
-                            Sin subcategorías
-                        </li>
-                        {% endfor %}
-                    </ul>
+<!-- Modal nueva categoría -->
+<div class="modal fade" id="modalNuevaCategoria" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('configuracion.categorias') }}">
+                {{ form.hidden_tag() }}
+                <div class="modal-header">
+                    <h5 class="modal-title">Nueva Categoría</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            aria-label="Cerrar"></button>
                 </div>
-                {% else %}
-                <div class="card">
-                    <div class="card-body text-center text-muted py-4">
-                        No hay categorías padre cargadas.
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.padre_id.label.text }}</label>
+                        {{ form.padre_id(class="form-select") }}
+                        <small class="form-text text-muted">
+                            Seleccionar padre para crear subcategoría
+                        </small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.nombre.label.text }} *</label>
+                        {{ form.nombre(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.descripcion.label.text }}</label>
+                        {{ form.descripcion(class="form-control") }}
                     </div>
                 </div>
-                {% endfor %}
-            </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary"
+                            data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <span class="material-symbols-rounded me-2">add</span>Crear
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -165,7 +226,8 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-header">
                     <h5 class="modal-title">Editar Categoría</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
@@ -175,18 +237,21 @@
                     </div>
                     <div class="mb-3">
                         <label for="editar_descripcion" class="form-label">Descripción</label>
-                        <input type="text" class="form-control" id="editar_descripcion" name="descripcion"
-                               maxlength="200" placeholder="Descripción breve">
+                        <input type="text" class="form-control" id="editar_descripcion"
+                               name="descripcion" maxlength="200"
+                               placeholder="Descripción breve">
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-secondary"
+                            data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary">Guardar cambios</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -199,5 +264,52 @@ function abrirModalEditar(categoriaId, nombre, descripcion) {
     const modal = new bootstrap.Modal(document.getElementById('modalEditarCategoria'));
     modal.show();
 }
+
+function confirmarEliminar(categoriaId, nombre) {
+    document.getElementById('confirmModalIcon').textContent = 'delete';
+    document.getElementById('confirmModalLabel').textContent = 'Eliminar categoría';
+    document.getElementById('confirmModalMessage').textContent =
+        `¿Estás seguro de eliminar la categoría «${nombre}»? Esta acción no se puede deshacer.`;
+    document.getElementById('confirmModalSubmit').textContent = 'Eliminar';
+    document.getElementById('confirmModalForm').action =
+        `/configuracion/categorias/${categoriaId}/eliminar`;
+    var modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    modal.show();
+}
+
+function toggleSubs(fila, padreId) {
+    const expandido = fila.getAttribute('aria-expanded') === 'true';
+    fila.setAttribute('aria-expanded', !expandido);
+    document.querySelectorAll(`.subs-${padreId}`).forEach(function(sub) {
+        sub.classList.toggle('d-none');
+    });
+    guardarEstado();
+}
+
+/* Persistir estado de collapse en localStorage */
+var STORAGE_KEY = 'categorias_expandidas';
+
+function guardarEstado() {
+    var expandidos = [];
+    document.querySelectorAll('.cat-padre[aria-expanded="true"]').forEach(function(fila) {
+        var id = fila.getAttribute('data-padre-id');
+        if (id) expandidos.push(id);
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(expandidos));
+}
+
+function restaurarEstado() {
+    var expandidos = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    expandidos.forEach(function(padreId) {
+        var padre = document.querySelector('.cat-padre[data-padre-id="' + padreId + '"]');
+        if (!padre) return;
+        padre.setAttribute('aria-expanded', 'true');
+        document.querySelectorAll('.subs-' + padreId).forEach(function(sub) {
+            sub.classList.remove('d-none');
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', restaurarEstado);
 </script>
 {% endblock %}

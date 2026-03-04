@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Configuración - {{ app_name }}{% endblock %}
+{% block alerts %}{% endblock %}
 {% block content %}
 <div class="page-header">
     <h2>Configuración</h2>
@@ -16,6 +17,7 @@
         </div>
     </div>
     <div class="col-lg-9">
+        {% include 'components/alerts.html' %}
         <div class="card">
             <div class="card-header">Datos del Negocio</div>
             <div class="card-body">
