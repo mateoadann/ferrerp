@@ -145,6 +145,10 @@
                         <span class="material-symbols-rounded">account_balance</span>
                         <div>Transferencia</div>
                     </div>
+                    <div class="payment-method" data-value="qr">
+                        <span class="material-symbols-rounded">qr_code_2</span>
+                        <div>QR</div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -176,7 +180,8 @@ document.addEventListener('DOMContentLoaded', () => {
         efectivo: 'Efectivo',
         tarjeta_debito: 'Tarjeta Débito',
         tarjeta_credito: 'Tarjeta Crédito',
-        transferencia: 'Transferencia'
+        transferencia: 'Transferencia',
+        qr: 'QR'
     };
 
     function setActive(value) {
