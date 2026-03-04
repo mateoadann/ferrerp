@@ -16,9 +16,10 @@ bp = Blueprint('configuracion', __name__, url_prefix='/configuracion')
 
 @bp.route('/', methods=['GET', 'POST'])
 @login_required
-@admin_required
 def index():
-    """Configuración general del sistema."""
+    """Configuración general del sistema (solo administradores)."""
+    if not current_user.es_administrador:
+        return redirect(url_for('configuracion.categorias'))
     form = ConfiguracionForm()
 
     if request.method == 'GET':
@@ -169,7 +170,6 @@ def toggle_usuario(id):
 
 @bp.route('/categorias', methods=['GET', 'POST'])
 @login_required
-@admin_required
 def categorias():
     """Gestión de categorías."""
     form = CategoriaForm()
@@ -211,7 +211,6 @@ def categorias():
 
 @bp.route('/categorias/<int:id>/editar', methods=['POST'])
 @login_required
-@admin_required
 def editar_categoria(id):
     """Editar categoría (HTMX)."""
     categoria = Categoria.get_o_404(id)
@@ -239,7 +238,6 @@ def editar_categoria(id):
 
 @bp.route('/categorias/<int:id>/toggle', methods=['POST'])
 @login_required
-@admin_required
 def toggle_categoria(id):
     """Activar/desactivar categoría."""
     categoria = Categoria.get_o_404(id)
