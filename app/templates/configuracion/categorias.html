@@ -63,15 +63,34 @@
                                 {{ cat_padre.cantidad_productos_total }} prod.
                             </span>
                         </div>
-                        <form method="POST"
-                              action="{{ url_for('configuracion.toggle_categoria', id=cat_padre.id) }}"
-                              class="d-inline">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit"
-                                    class="btn btn-sm {% if cat_padre.activa %}btn-outline-secondary{% else %}btn-outline-success{% endif %}">
-                                {% if cat_padre.activa %}Desactivar{% else %}Activar{% endif %}
+                        <div class="d-flex gap-1">
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary"
+                                    onclick="abrirModalEditar({{ cat_padre.id }}, '{{ cat_padre.nombre|e }}', '{{ cat_padre.descripcion|default('', true)|e }}')"
+                                    title="Editar">
+                                <span class="material-symbols-rounded" style="font-size: 18px;">edit</span>
                             </button>
-                        </form>
+                            {% if cat_padre.puede_eliminarse %}
+                            <form method="POST"
+                                  action="{{ url_for('configuracion.eliminar_categoria', id=cat_padre.id) }}"
+                                  class="d-inline"
+                                  onsubmit="return confirm('¿Estás seguro de eliminar la categoría «{{ cat_padre.nombre }}»? Esta acción no se puede deshacer.')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                    <span class="material-symbols-rounded" style="font-size: 18px;">delete</span>
+                                </button>
+                            </form>
+                            {% endif %}
+                            <form method="POST"
+                                  action="{{ url_for('configuracion.toggle_categoria', id=cat_padre.id) }}"
+                                  class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit"
+                                        class="btn btn-sm {% if cat_padre.activa %}btn-outline-secondary{% else %}btn-outline-success{% endif %}">
+                                    {% if cat_padre.activa %}Desactivar{% else %}Activar{% endif %}
+                                </button>
+                            </form>
+                        </div>
                     </div>
                     <ul class="list-group list-group-flush">
                         {% for sub in cat_padre.subcategorias|sort(attribute='nombre') %}
@@ -91,6 +110,23 @@
                                 <span class="badge {% if sub.activa %}badge-success{% else %}badge-secondary{% endif %}">
                                     {{ sub.cantidad_productos }} prod.
                                 </span>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-primary"
+                                        onclick="abrirModalEditar({{ sub.id }}, '{{ sub.nombre|e }}', '{{ sub.descripcion|default('', true)|e }}')"
+                                        title="Editar">
+                                    <span class="material-symbols-rounded" style="font-size: 18px;">edit</span>
+                                </button>
+                                {% if sub.puede_eliminarse %}
+                                <form method="POST"
+                                      action="{{ url_for('configuracion.eliminar_categoria', id=sub.id) }}"
+                                      class="d-inline"
+                                      onsubmit="return confirm('¿Estás seguro de eliminar la subcategoría «{{ sub.nombre }}»? Esta acción no se puede deshacer.')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                        <span class="material-symbols-rounded" style="font-size: 18px;">delete</span>
+                                    </button>
+                                </form>
+                                {% endif %}
                                 <form method="POST"
                                       action="{{ url_for('configuracion.toggle_categoria', id=sub.id) }}"
                                       class="d-inline">
@@ -120,4 +156,48 @@
         </div>
     </div>
 </div>
+
+<!-- Modal editar categoría -->
+<div class="modal fade" id="modalEditarCategoria" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="formEditarCategoria" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Editar Categoría</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editar_nombre" class="form-label">Nombre *</label>
+                        <input type="text" class="form-control" id="editar_nombre" name="nombre"
+                               required maxlength="50" placeholder="Nombre de la categoría">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editar_descripcion" class="form-label">Descripción</label>
+                        <input type="text" class="form-control" id="editar_descripcion" name="descripcion"
+                               maxlength="200" placeholder="Descripción breve">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function abrirModalEditar(categoriaId, nombre, descripcion) {
+    const form = document.getElementById('formEditarCategoria');
+    form.action = `/configuracion/categorias/${categoriaId}/editar`;
+    document.getElementById('editar_nombre').value = nombre;
+    document.getElementById('editar_descripcion').value = descripcion;
+    const modal = new bootstrap.Modal(document.getElementById('modalEditarCategoria'));
+    modal.show();
+}
+</script>
 {% endblock %}

@@ -89,9 +89,7 @@ def nuevo_usuario():
 @admin_required
 def editar_usuario(id):
     """Editar usuario."""
-    usuario = Usuario.query.filter_by(
-        id=id, empresa_id=current_user.empresa_id
-    ).first_or_404()
+    usuario = Usuario.query.filter_by(id=id, empresa_id=current_user.empresa_id).first_or_404()
     form = UsuarioEditForm(original_email=usuario.email, obj=usuario)
 
     if form.validate_on_submit():
@@ -133,9 +131,7 @@ def editar_usuario(id):
 @admin_required
 def toggle_usuario(id):
     """Activar/desactivar usuario."""
-    usuario = Usuario.query.filter_by(
-        id=id, empresa_id=current_user.empresa_id
-    ).first_or_404()
+    usuario = Usuario.query.filter_by(id=id, empresa_id=current_user.empresa_id).first_or_404()
 
     if usuario.id == current_user.id:
         flash('No puedes desactivar tu propio usuario.', 'danger')
@@ -178,10 +174,14 @@ def categorias():
         padre_id = form.padre_id.data or None
 
         # Verificar nombre único por nivel dentro de la empresa
-        existente = Categoria.query_empresa().filter_by(
-            nombre=form.nombre.data,
-            padre_id=padre_id,
-        ).first()
+        existente = (
+            Categoria.query_empresa()
+            .filter_by(
+                nombre=form.nombre.data,
+                padre_id=padre_id,
+            )
+            .first()
+        )
         if existente:
             flash('Ya existe una categoría con ese nombre en ese nivel.', 'danger')
         else:
@@ -198,10 +198,7 @@ def categorias():
             return redirect(url_for('configuracion.categorias'))
 
     categorias_padre = (
-        Categoria.query_empresa()
-        .filter_by(padre_id=None)
-        .order_by(Categoria.nombre)
-        .all()
+        Categoria.query_empresa().filter_by(padre_id=None).order_by(Categoria.nombre).all()
     )
 
     return render_template(
@@ -221,9 +218,11 @@ def editar_categoria(id):
 
     if nombre:
         # Verificar nombre único por nivel dentro de la empresa
-        existente = Categoria.query_empresa().filter(
-            Categoria.nombre == nombre, Categoria.padre_id == padre_id, Categoria.id != id
-        ).first()
+        existente = (
+            Categoria.query_empresa()
+            .filter(Categoria.nombre == nombre, Categoria.padre_id == padre_id, Categoria.id != id)
+            .first()
+        )
         if existente:
             flash('Ya existe una categoría con ese nombre en ese nivel.', 'danger')
         else:
@@ -255,6 +254,26 @@ def toggle_categoria(id):
     if es_peticion_htmx():
         return '', 204
 
+    return redirect(url_for('configuracion.categorias'))
+
+
+@bp.route('/categorias/<int:id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_categoria(id):
+    """Eliminar categoría (solo si no tiene productos asociados)."""
+    categoria = Categoria.get_o_404(id)
+
+    if not categoria.puede_eliminarse:
+        flash(
+            'No se puede eliminar la categoría porque tiene productos asociados.',
+            'danger',
+        )
+        return redirect(url_for('configuracion.categorias'))
+
+    nombre = categoria.nombre
+    db.session.delete(categoria)
+    db.session.commit()
+    flash(f'Categoría "{nombre}" eliminada.', 'success')
     return redirect(url_for('configuracion.categorias'))
 
 

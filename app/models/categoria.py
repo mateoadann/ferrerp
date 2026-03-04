@@ -1,6 +1,5 @@
 """Modelo de Categoría."""
 
-
 from sqlalchemy import UniqueConstraint
 
 from ..extensions import db
@@ -14,7 +13,9 @@ class Categoria(EmpresaMixin, db.Model):
     __tablename__ = 'categorias'
     __table_args__ = (
         UniqueConstraint(
-            'empresa_id', 'nombre', 'padre_id',
+            'empresa_id',
+            'nombre',
+            'padre_id',
             name='uq_categorias_empresa_nombre_padre_id',
         ),
     )
@@ -55,6 +56,20 @@ class Categoria(EmpresaMixin, db.Model):
         if self.padre:
             return f'{self.padre.nombre} > {self.nombre}'
         return self.nombre
+
+    @property
+    def tiene_productos(self):
+        """Verifica si tiene algún producto asociado (activo o inactivo)."""
+        return self.productos.count() > 0
+
+    @property
+    def puede_eliminarse(self):
+        """Indica si la categoría puede eliminarse (sin productos asociados)."""
+        if self.tiene_productos:
+            return False
+        if self.es_padre:
+            return all(sub.puede_eliminarse for sub in self.subcategorias)
+        return True
 
     @property
     def cantidad_productos_total(self):
