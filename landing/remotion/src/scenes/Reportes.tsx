@@ -16,22 +16,23 @@ import { Sidebar, Header } from './Dashboard';
  */
 
 const resumen = [
-    { label: 'Total Ventas', valor: '$1,477,550.00' },
-    { label: 'Cantidad de Ventas', valor: '44' },
-    { label: 'Ticket Promedio', valor: '$33,580.68' },
+    { label: 'Total Ventas', valor: '$8,245,300.00' },
+    { label: 'Cantidad de Ventas', valor: '187' },
+    { label: 'Ticket Promedio', valor: '$44,092.51' },
 ];
 
 const formasPago = [
-    { metodo: 'Efectivo', monto: '$140,310.00' },
-    { metodo: 'Tarjeta Débito', monto: '$231,140.00' },
-    { metodo: 'Tarjeta Crédito', monto: '$842,200.00' },
-    { metodo: 'Transferencia', monto: '$263,900.00' },
+    { metodo: 'Efectivo', monto: '$2,840,310.00' },
+    { metodo: 'Tarjeta Débito', monto: '$1,531,140.00' },
+    { metodo: 'Tarjeta Crédito', monto: '$2,142,200.00' },
+    { metodo: 'Transferencia', monto: '$1,263,900.00' },
+    { metodo: 'QR', monto: '$467,750.00' },
 ];
 
 /* Datos del gráfico ventas por día (últimos 7 días visibles) */
-const diasGrafico = ['', '', '', '', '', '', 'Tue'];
-const ventasPorDia = [0, 0, 0, 0, 0, 0, 536050];
-const maxVentaDia = 600000;
+const diasGrafico = ['25/02', '26/02', '27/02', '28/02', '01/03', '02/03', '03/03'];
+const ventasPorDia = [980000, 1450000, 1180000, 750000, 1520000, 1290000, 1075300];
+const maxVentaDia = 1600000;
 
 export const Reportes: React.FC = () => {
     const frame = useCurrentFrame();
@@ -52,7 +53,7 @@ export const Reportes: React.FC = () => {
                     flexDirection: 'column',
                 }}
             >
-                <Header titulo="FerrERP (Dev)" />
+                <Header titulo="FerrERP" />
 
                 <div style={{ flex: 1, padding: 24, overflow: 'hidden' }}>
                     {/* Título + botón exportar */}
@@ -172,7 +173,7 @@ export const Reportes: React.FC = () => {
                             </span>
                             <div style={{ display: 'flex', height: 160 }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingRight: 8, paddingBottom: 24 }}>
-                                    {['$600,000', '$500,000', '$400,000', '$300,000'].map((l) => (
+                                    {['$1.600.000', '$1.200.000', '$800.000', '$400.000'].map((l) => (
                                         <span key={l} style={{ fontSize: 9, color: colores.foregroundMuted, textAlign: 'right', minWidth: 55 }}>{l}</span>
                                     ))}
                                 </div>
