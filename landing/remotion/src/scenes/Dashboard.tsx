@@ -21,41 +21,41 @@ import { colores, sidebarItems, fontFamily, iconFontFamily } from '../config';
 const metricas = [
     {
         label: 'Ventas del día',
-        valor: '$536,050.00',
-        subtitulo: 'vs ayer: $119,310.00',
-        badge: '+349%',
+        valor: '$1,284,750.00',
+        subtitulo: 'vs ayer: $876,200.00',
+        badge: '+47%',
         badgeColor: colores.success,
         badgeBg: colores.successBg,
     },
     {
         label: 'Operaciones hoy',
-        valor: '8',
+        valor: '32',
         subtitulo: 'ventas realizadas',
-        badge: '+8',
-        badgeColor: colores.foregroundSecondary,
-        badgeBg: colores.muted,
-    },
-    {
-        label: 'Stock bajo',
-        valor: '0',
-        subtitulo: 'productos bajo mínimo',
-        badge: 'OK',
+        badge: '+12',
         badgeColor: colores.success,
         badgeBg: colores.successBg,
     },
     {
+        label: 'Stock bajo',
+        valor: '5',
+        subtitulo: 'productos bajo mínimo',
+        badge: 'Atención',
+        badgeColor: colores.warning,
+        badgeBg: colores.warningBg,
+    },
+    {
         label: 'Cuentas por cobrar',
-        valor: '$0.00',
+        valor: '$348,500.00',
         subtitulo: 'deudas pendientes',
-        badge: '0 clientes',
+        badge: '4 clientes',
         badgeColor: colores.primary,
         badgeBg: '#FDE8DF',
     },
 ];
 
-const diasSemana = ['Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue'];
-const ventasDia = [80000, 210000, 150000, 50000, 130000, 95000, 536050];
-const maxVenta = 600000;
+const diasSemana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const ventasDia = [720000, 650000, 1520000, 950000, 580000, 1350000, 720000];
+const maxVenta = 1600000;
 
 export const Dashboard: React.FC = () => {
     const frame = useCurrentFrame();
@@ -76,7 +76,7 @@ export const Dashboard: React.FC = () => {
                     flexDirection: 'column',
                 }}
             >
-                <Header titulo="FerrERP (Dev)" />
+                <Header titulo="FerrERP" />
 
                 <div style={{ flex: 1, padding: 24, overflow: 'hidden' }}>
                     {/* Título + fecha */}
@@ -148,7 +148,7 @@ export const Dashboard: React.FC = () => {
                             </div>
                             <div style={{ display: 'flex', height: 170 }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingRight: 8, paddingBottom: 24 }}>
-                                    {['$600.000', '$500.000', '$400.000', '$300.000', '$200.000', '$100.000', '$0'].map((l) => (
+                                    {['$1.600.000', '$1.400.000', '$1.200.000', '$1.000.000', '$800.000', '$400.000', '$0'].map((l) => (
                                         <span key={l} style={{ fontSize: 9, color: colores.foregroundMuted, textAlign: 'right', minWidth: 55 }}>{l}</span>
                                     ))}
                                 </div>
@@ -173,9 +173,17 @@ export const Dashboard: React.FC = () => {
                                 <span style={{ fontSize: 15, fontWeight: 600, color: colores.foreground }}>Alertas recientes</span>
                                 <span style={{ fontSize: 12, color: colores.foregroundSecondary, border: `1px solid ${colores.border}`, padding: '4px 12px', borderRadius: 6 }}>Ver todo</span>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 120, color: colores.foregroundMuted }}>
-                                <span style={{ fontFamily: iconFontFamily, fontSize: 36, marginBottom: 8, opacity: 0.4 }}>check_circle</span>
-                                <span style={{ fontSize: 13 }}>Sin alertas pendientes</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {[
+                                    { icon: 'warning', color: colores.warning, texto: 'Lija al agua 220 bajo stock mínimo' },
+                                    { icon: 'warning', color: colores.warning, texto: 'Cinta papel 24mm bajo stock mínimo' },
+                                    { icon: 'schedule', color: colores.primary, texto: 'Presupuesto #2026-015 vence mañana' },
+                                ].map((a, i) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', backgroundColor: colores.muted, borderRadius: 8 }}>
+                                        <span style={{ fontFamily: iconFontFamily, fontSize: 16, color: a.color }}>{a.icon}</span>
+                                        <span style={{ fontSize: 11, color: colores.foreground }}>{a.texto}</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -265,7 +273,7 @@ export const Sidebar: React.FC<{ activeItem: string }> = ({ activeItem }) => {
                 <div style={{ width: 34, height: 34, borderRadius: '50%', backgroundColor: colores.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 14, fontWeight: 600 }}>A</div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ color: colores.sidebarForeground, fontSize: 13, fontWeight: 500 }}>Administrador</span>
-                    <span style={{ color: colores.sidebarMuted, fontSize: 11 }}>Owner</span>
+                    <span style={{ color: colores.sidebarMuted, fontSize: 11 }}>Administrador</span>
                 </div>
             </div>
         </div>
