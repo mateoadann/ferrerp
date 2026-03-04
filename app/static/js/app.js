@@ -12,8 +12,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Cerrar alertas automáticamente después de 5 segundos
-    const alerts = document.querySelectorAll('.alert:not(.alert-permanent)');
+    // Cerrar alertas de éxito e info automáticamente después de 5 segundos
+    // Los mensajes de error (danger) y advertencia (warning) permanecen visibles
+    const alerts = document.querySelectorAll(
+        '.alert-success:not(.alert-permanent), .alert-info:not(.alert-permanent)'
+    );
     alerts.forEach(function(alert) {
         setTimeout(function() {
             const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);

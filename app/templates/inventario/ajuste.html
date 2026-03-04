@@ -46,7 +46,11 @@
 async function ajustarStepCantidad() {
     const productoId = document.getElementById('producto_id').value;
     const cantidadInput = document.getElementById('cantidad_ajuste');
-    if (!productoId || productoId === '0') return;
+    if (!productoId || productoId === '0') {
+        cantidadInput.step = 'any';
+        cantidadInput.removeAttribute('min');
+        return;
+    }
 
     try {
         const resp = await fetch(`/ventas/api/producto/${productoId}`);
@@ -54,8 +58,11 @@ async function ajustarStepCantidad() {
             const data = await resp.json();
             const esEntero = (data.unidad_medida === 'unidad' || data.unidad_medida === 'par');
             cantidadInput.step = esEntero ? '1' : '0.01';
+            cantidadInput.min = esEntero ? '1' : '0.01';
         }
     } catch (e) { /* silenciar error */ }
 }
+
+document.addEventListener('DOMContentLoaded', ajustarStepCantidad);
 </script>
 {% endblock %}

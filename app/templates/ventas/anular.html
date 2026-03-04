@@ -19,15 +19,17 @@
 <div class="row">
     <div class="col-lg-8">
         <div class="alert alert-warning mb-4">
-            <span class="material-symbols-rounded me-2">warning</span>
-            <strong>Atencion:</strong> Esta accion no se puede deshacer. Al anular la venta:
-            <ul class="mb-0 mt-2">
-                <li>Se reintegrara el stock de todos los productos</li>
-                {% if venta.forma_pago == 'cuenta_corriente' %}
-                <li>Se acreditara el monto en la cuenta corriente del cliente</li>
-                {% endif %}
-                <li>La venta quedara marcada como anulada en el sistema</li>
-            </ul>
+            <span class="material-symbols-rounded me-2 align-self-start mt-1">warning</span>
+            <div>
+                <strong>Atención:</strong> Esta acción no se puede deshacer. Al anular la venta:
+                <ul class="mb-0 mt-2">
+                    <li>Se reintegrará el stock de todos los productos</li>
+                    {% if venta.forma_pago == 'cuenta_corriente' %}
+                    <li>Se acreditará el monto en la cuenta corriente del cliente</li>
+                    {% endif %}
+                    <li>La venta quedará marcada como anulada en el sistema</li>
+                </ul>
+            </div>
         </div>
 
         <div class="card mb-4">
