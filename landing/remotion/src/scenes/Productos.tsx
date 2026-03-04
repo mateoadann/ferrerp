@@ -45,7 +45,7 @@ export const Productos: React.FC = () => {
                     flexDirection: 'column',
                 }}
             >
-                <Header titulo="FerrERP (Dev)" />
+                <Header titulo="FerrERP" />
 
                 <div style={{ flex: 1, padding: 24, overflow: 'hidden' }}>
                     {/* Título + botón */}
