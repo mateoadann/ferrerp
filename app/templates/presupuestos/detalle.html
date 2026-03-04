@@ -57,7 +57,7 @@
                         <tr>
                             <td class="table-code">{{ detalle.producto.codigo }}</td>
                             <td>{{ detalle.producto.nombre }}</td>
-                            <td class="text-center">{{ detalle.cantidad|int }}</td>
+                            <td class="text-center">{{ detalle.cantidad|stock(detalle.producto.unidad_medida) }}</td>
                             <td class="text-end">{{ detalle.precio_unitario|currency }}</td>
                             <td class="text-end fw-bold">{{ detalle.subtotal|currency }}</td>
                         </tr>

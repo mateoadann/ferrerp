@@ -34,7 +34,7 @@
                                 <div class="text-end">
                                     <strong x-text="formatCurrency(product.precio_venta)"></strong>
                                     <small class="text-muted d-block">
-                                        Stock: <span x-text="product.stock_actual"></span>
+                                        Stock: <span x-text="formatStock(product.stock_actual, product.unidad_medida)"></span>
                                     </small>
                                 </div>
                             </div>
@@ -350,6 +350,14 @@ function presupuestoApp() {
                 style: 'currency',
                 currency: 'ARS'
             }).format(value || 0);
+        },
+
+        formatStock(value, unidadMedida) {
+            if (value == null) return '0';
+            if (unidadMedida === 'unidad' || unidadMedida === 'par') {
+                return String(Math.trunc(value));
+            }
+            return Number(value).toFixed(2);
         },
 
         async searchProducts() {

@@ -104,7 +104,7 @@
                             <br>
                             <small>{{ detalle.producto.nombre }}</small>
                         </div>
-                        <span class="badge bg-primary">+{{ detalle.cantidad|int }}</span>
+                        <span class="badge bg-primary">+{{ detalle.cantidad|stock(detalle.producto.unidad_medida) }}</span>
                     </li>
                     {% endfor %}
                 </ul>

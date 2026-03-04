@@ -53,7 +53,8 @@ def ventas():
         db.session.query(func.coalesce(func.sum(Venta.total), 0))
         .filter(
             Venta.empresa_id == empresa_id,
-            Venta.fecha >= inicio, Venta.fecha <= fin,
+            Venta.fecha >= inicio,
+            Venta.fecha <= fin,
             Venta.estado == 'completada',
         )
         .scalar()
@@ -62,7 +63,9 @@ def ventas():
     # Cantidad de ventas
     cantidad_ventas = Venta.query.filter(
         Venta.empresa_id == empresa_id,
-        Venta.fecha >= inicio, Venta.fecha <= fin, Venta.estado == 'completada'
+        Venta.fecha >= inicio,
+        Venta.fecha <= fin,
+        Venta.estado == 'completada',
     ).count()
 
     # Ticket promedio
@@ -77,7 +80,8 @@ def ventas():
         )
         .filter(
             Venta.empresa_id == empresa_id,
-            Venta.fecha >= inicio, Venta.fecha <= fin,
+            Venta.fecha >= inicio,
+            Venta.fecha <= fin,
             Venta.estado == 'completada',
         )
         .group_by(func.date(Venta.fecha))
@@ -104,7 +108,8 @@ def ventas():
         )
         .filter(
             Venta.empresa_id == empresa_id,
-            Venta.fecha >= inicio, Venta.fecha <= fin,
+            Venta.fecha >= inicio,
+            Venta.fecha <= fin,
             Venta.estado == 'completada',
         )
         .group_by(Venta.forma_pago)
@@ -133,6 +138,7 @@ def ventas():
     productos_mas_vendidos_query = (
         db.session.query(
             Producto.nombre,
+            Producto.unidad_medida,
             func.sum(VentaDetalle.cantidad).label('cantidad'),
             func.sum(VentaDetalle.subtotal).label('total'),
         )
@@ -154,6 +160,7 @@ def ventas():
     productos_mas_vendidos = [
         {
             'nombre': row.nombre,
+            'unidad_medida': row.unidad_medida,
             'cantidad': float(row.cantidad) if row.cantidad else 0,
             'total': float(row.total) if row.total else 0,
         }
@@ -286,9 +293,11 @@ def rentabilidad():
     fin = datetime.combine(fecha_hasta, datetime.max.time())
 
     # Obtener ventas con detalles
-    ventas = Venta.query_empresa().filter(
-        Venta.fecha >= inicio, Venta.fecha <= fin, Venta.estado == 'completada'
-    ).all()
+    ventas = (
+        Venta.query_empresa()
+        .filter(Venta.fecha >= inicio, Venta.fecha <= fin, Venta.estado == 'completada')
+        .all()
+    )
 
     # Calcular rentabilidad
     total_ingresos = Decimal('0')

@@ -92,7 +92,7 @@
                     {% for p in productos_mas_vendidos %}
                     <tr>
                         <td>{{ p.nombre }}</td>
-                        <td class="text-end">{{ p.cantidad|int }}</td>
+                        <td class="text-end">{{ p.cantidad|stock(p.unidad_medida) }}</td>
                         <td class="text-end fw-bold">{{ p.total|currency }}</td>
                     </tr>
                     {% endfor %}
