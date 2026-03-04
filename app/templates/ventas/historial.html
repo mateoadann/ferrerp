@@ -82,11 +82,13 @@
                         {% if venta.forma_pago == 'efectivo' %}
                         <span class="badge badge-success">Efectivo</span>
                         {% elif venta.forma_pago == 'tarjeta_debito' %}
-                        <span class="badge badge-secondary">Debito</span>
+                        <span class="badge badge-info">Débito</span>
                         {% elif venta.forma_pago == 'tarjeta_credito' %}
-                        <span class="badge badge-secondary">Credito</span>
+                        <span class="badge badge-bordo">Crédito</span>
                         {% elif venta.forma_pago == 'transferencia' %}
-                        <span class="badge badge-secondary">Transfer.</span>
+                        <span class="badge badge-brown">Transfer.</span>
+                        {% elif venta.forma_pago == 'qr' %}
+                        <span class="badge badge-orange">QR</span>
                         {% elif venta.forma_pago == 'cuenta_corriente' %}
                         <span class="badge badge-warning">Cta. Cte.</span>
                         {% endif %}

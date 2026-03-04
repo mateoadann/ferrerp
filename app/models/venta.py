@@ -24,7 +24,7 @@ class Venta(EmpresaMixin, db.Model):
     forma_pago = db.Column(
         db.Enum(
             'efectivo', 'tarjeta_debito', 'tarjeta_credito',
-            'transferencia', 'cuenta_corriente',
+            'transferencia', 'qr', 'cuenta_corriente',
             name='forma_pago'
         ),
         nullable=False,
@@ -67,6 +67,7 @@ class Venta(EmpresaMixin, db.Model):
             'tarjeta_debito': 'Tarjeta Débito',
             'tarjeta_credito': 'Tarjeta Crédito',
             'transferencia': 'Transferencia',
+            'qr': 'QR',
             'cuenta_corriente': 'Cuenta Corriente'
         }
         return opciones.get(self.forma_pago, self.forma_pago)

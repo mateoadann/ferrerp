@@ -148,7 +148,7 @@ class MovimientoCaja(db.Model):
     monto = db.Column(db.Numeric(12, 2), nullable=False)
     forma_pago = db.Column(
         db.Enum(
-            'efectivo', 'tarjeta_debito', 'tarjeta_credito', 'transferencia',
+            'efectivo', 'tarjeta_debito', 'tarjeta_credito', 'transferencia', 'qr',
             name='forma_pago_movimiento'
         ),
         nullable=False,
@@ -188,7 +188,8 @@ class MovimientoCaja(db.Model):
             'efectivo': 'Efectivo',
             'tarjeta_debito': 'Tarjeta Débito',
             'tarjeta_credito': 'Tarjeta Crédito',
-            'transferencia': 'Transferencia'
+            'transferencia': 'Transferencia',
+            'qr': 'QR'
         }
         return opciones.get(self.forma_pago, self.forma_pago)
 
