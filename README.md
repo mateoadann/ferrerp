@@ -1,9 +1,9 @@
 <div align="center">
   <img src="app/static/img/favicon.svg" alt="FerrERP logo" width="72" height="72">
   <h1>FerrERP</h1>
+  <p>Sistema de gestión para ferreterías.</p>
+  <a href="https://ferrerp.app">ferrerp.app</a>
 </div>
-
-Sistema de gestión para ferreterías.
 
 ## Stack
 - Python 3.11
