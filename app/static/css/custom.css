@@ -354,6 +354,26 @@ body {
     color: var(--foreground-secondary);
 }
 
+.badge-info {
+    background-color: #DBEAFE;
+    color: #2563EB;
+}
+
+.badge-bordo {
+    background-color: #FDE8E8;
+    color: #9B1C31;
+}
+
+.badge-brown {
+    background-color: #EDE0D4;
+    color: #5D4037;
+}
+
+.badge-orange {
+    background-color: #FFE0B2;
+    color: #E65100;
+}
+
 /* Buttons */
 .btn {
     display: inline-flex;
