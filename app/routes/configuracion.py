@@ -16,9 +16,10 @@ bp = Blueprint('configuracion', __name__, url_prefix='/configuracion')
 
 @bp.route('/', methods=['GET', 'POST'])
 @login_required
-@admin_required
 def index():
-    """Configuración general del sistema."""
+    """Configuración general del sistema (solo administradores)."""
+    if not current_user.es_administrador:
+        return redirect(url_for('configuracion.categorias'))
     form = ConfiguracionForm()
 
     if request.method == 'GET':
@@ -94,6 +95,21 @@ def editar_usuario(id):
     form = UsuarioEditForm(original_email=usuario.email, obj=usuario)
 
     if form.validate_on_submit():
+        # Validar que no quede la empresa sin administradores
+        if usuario.rol == 'administrador' and form.rol.data == 'vendedor':
+            admins_empresa = Usuario.query.filter_by(
+                empresa_id=current_user.empresa_id,
+                rol='administrador',
+                activo=True,
+            ).count()
+            if admins_empresa <= 1:
+                flash(
+                    'No se puede cambiar el rol. Debe haber al menos '
+                    'un administrador activo en la empresa.',
+                    'danger',
+                )
+                return redirect(url_for('configuracion.editar_usuario', id=id))
+
         usuario.email = form.email.data.lower()
         usuario.nombre = form.nombre.data
         usuario.rol = form.rol.data
@@ -125,6 +141,21 @@ def toggle_usuario(id):
         flash('No puedes desactivar tu propio usuario.', 'danger')
         return redirect(url_for('configuracion.usuarios'))
 
+    # Validar que no quede la empresa sin administradores activos
+    if usuario.rol == 'administrador' and usuario.activo:
+        admins_activos = Usuario.query.filter_by(
+            empresa_id=current_user.empresa_id,
+            rol='administrador',
+            activo=True,
+        ).count()
+        if admins_activos <= 1:
+            flash(
+                'No se puede desactivar. Debe haber al menos '
+                'un administrador activo en la empresa.',
+                'danger',
+            )
+            return redirect(url_for('configuracion.usuarios'))
+
     usuario.activo = not usuario.activo
     db.session.commit()
 
@@ -139,7 +170,6 @@ def toggle_usuario(id):
 
 @bp.route('/categorias', methods=['GET', 'POST'])
 @login_required
-@admin_required
 def categorias():
     """Gestión de categorías."""
     form = CategoriaForm()
@@ -181,7 +211,6 @@ def categorias():
 
 @bp.route('/categorias/<int:id>/editar', methods=['POST'])
 @login_required
-@admin_required
 def editar_categoria(id):
     """Editar categoría (HTMX)."""
     categoria = Categoria.get_o_404(id)
@@ -209,7 +238,6 @@ def editar_categoria(id):
 
 @bp.route('/categorias/<int:id>/toggle', methods=['POST'])
 @login_required
-@admin_required
 def toggle_categoria(id):
     """Activar/desactivar categoría."""
     categoria = Categoria.get_o_404(id)

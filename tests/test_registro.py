@@ -11,8 +11,8 @@ def test_registro_get_muestra_formulario(app, client):
     assert 'Registrá tu empresa' in response.data.decode()
 
 
-def test_registro_crea_empresa_y_owner(app, client):
-    """POST con datos válidos crea Empresa + Usuario owner."""
+def test_registro_crea_empresa_y_admin(app, client):
+    """POST con datos válidos crea Empresa + Usuario administrador."""
     response = client.post(
         '/auth/registro',
         data={
@@ -37,11 +37,11 @@ def test_registro_crea_empresa_y_owner(app, client):
     assert empresa.direccion == 'Av. Siempre Viva 742'
     assert empresa.activa is True
 
-    # Verificar que se creó el usuario owner
+    # Verificar que se creó el usuario administrador
     usuario = Usuario.query.filter_by(email='juan@miferreteria.com').first()
     assert usuario is not None
     assert usuario.nombre == 'Juan Dueño'
-    assert usuario.rol == 'owner'
+    assert usuario.rol == 'administrador'
     assert usuario.empresa_id == empresa.id
     assert usuario.activo is True
     assert usuario.check_password('clave123') is True
@@ -57,7 +57,7 @@ def test_registro_email_duplicado(app, client):
     usuario = Usuario(
         email='existe@test.com',
         nombre='Ya Existe',
-        rol='owner',
+        rol='administrador',
         activo=True,
         empresa_id=empresa.id,
     )

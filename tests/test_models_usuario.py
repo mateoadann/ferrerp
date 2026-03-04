@@ -21,26 +21,25 @@ def test_usuario_password_roles_iniciales(app):
     assert usuario.iniciales == 'JP'
 
 
-def test_usuario_es_owner(app):
-    """Verifica la property es_owner."""
-    empresa = Empresa(nombre='Empresa Owner Test')
+def test_usuario_es_administrador(app):
+    """Verifica la property es_administrador."""
+    empresa = Empresa(nombre='Empresa Admin Test')
     db.session.add(empresa)
     db.session.flush()
 
-    owner = Usuario(
-        email='owner@ferrerp.test',
-        nombre='Owner Test',
-        rol='owner',
+    admin = Usuario(
+        email='admin2@ferrerp.test',
+        nombre='Admin Test',
+        rol='administrador',
         activo=True,
         empresa_id=empresa.id,
     )
-    owner.set_password('clave')
-    db.session.add(owner)
+    admin.set_password('clave')
+    db.session.add(admin)
     db.session.commit()
 
-    assert owner.es_owner is True
-    assert owner.es_administrador is True
-    assert owner.es_admin is True
+    assert admin.es_administrador is True
+    assert admin.es_admin is True
 
 
 def test_usuario_tiene_empresa(app):

@@ -17,7 +17,7 @@ class Usuario(UserMixin, db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     nombre = db.Column(db.String(100), nullable=False)
     rol = db.Column(
-        db.Enum('owner', 'administrador', 'vendedor', name='rol_usuario'),
+        db.Enum('administrador', 'vendedor', name='rol_usuario'),
         nullable=False,
         default='vendedor',
     )
@@ -51,14 +51,9 @@ class Usuario(UserMixin, db.Model):
         return bcrypt.check_password_hash(self.password_hash, password)
 
     @property
-    def es_owner(self):
-        """Verifica si el usuario es owner de la empresa."""
-        return self.rol == 'owner'
-
-    @property
     def es_administrador(self):
-        """Verifica si el usuario es administrador (incluye owner)."""
-        return self.rol in ('administrador', 'owner')
+        """Verifica si el usuario es administrador."""
+        return self.rol == 'administrador'
 
     @property
     def es_admin(self):

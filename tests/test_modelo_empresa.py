@@ -42,7 +42,7 @@ def test_empresa_tiene_usuarios(app):
     usuario = Usuario(
         email='user@empresa.com',
         nombre='Usuario Empresa',
-        rol='owner',
+        rol='administrador',
         activo=True,
         empresa_id=empresa.id,
     )

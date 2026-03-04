@@ -46,7 +46,7 @@ def login():
 
 @bp.route('/registro', methods=['GET', 'POST'])
 def registro():
-    """Registro de nueva empresa y usuario owner."""
+    """Registro de nueva empresa y usuario administrador."""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard.index'))
 
@@ -63,11 +63,11 @@ def registro():
         db.session.add(empresa)
         db.session.flush()
 
-        # Crear usuario owner
+        # Crear usuario administrador
         usuario = Usuario(
             email=form.email.data.lower(),
             nombre=form.nombre.data,
-            rol='owner',
+            rol='administrador',
             activo=True,
             empresa_id=empresa.id,
         )

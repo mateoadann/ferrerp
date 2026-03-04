@@ -46,31 +46,6 @@ def caja_abierta_required(f):
     return decorated_function
 
 
-def owner_required(f):
-    """
-    Decorador que requiere que el usuario sea owner de la empresa.
-    Debe usarse después de @login_required.
-    """
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated:
-            flash(
-                'Por favor, inicia sesión para acceder a esta página.',
-                'warning',
-            )
-            return redirect(url_for('auth.login', next=request.url))
-
-        if not current_user.es_owner:
-            flash(
-                'Solo el propietario puede realizar esta acción.',
-                'danger',
-            )
-            return redirect(url_for('dashboard.index'))
-
-        return f(*args, **kwargs)
-    return decorated_function
-
-
 def vendedor_o_admin_required(f):
     """
     Decorador que permite acceso a vendedores y administradores.
