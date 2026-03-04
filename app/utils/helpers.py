@@ -1,7 +1,24 @@
 """Funciones auxiliares de la aplicación."""
 
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
 from flask import flash
+
+ZONA_ARGENTINA = ZoneInfo('America/Argentina/Buenos_Aires')
+
+
+def ahora_argentina():
+    """Retorna la fecha/hora actual en zona horaria Argentina (UTC-3).
+
+    Se retorna naive (sin tzinfo) para compatibilidad con las columnas
+    DateTime del esquema actual, que no usan timezone=True.
+    """
+    return (
+        datetime.now(timezone.utc)
+        .astimezone(ZONA_ARGENTINA)
+        .replace(tzinfo=None)
+    )
 
 
 def flash_errors(form):
@@ -29,7 +46,7 @@ def generar_numero_venta(empresa_id=None):
     """
     from ..models import Venta
 
-    anio_actual = datetime.utcnow().year
+    anio_actual = ahora_argentina().year
     inicio_anio = datetime(anio_actual, 1, 1)
     fin_anio = datetime(anio_actual, 12, 31, 23, 59, 59)
 
@@ -59,7 +76,7 @@ def generar_numero_presupuesto(empresa_id=None):
     """
     from ..models import Presupuesto
 
-    anio_actual = datetime.utcnow().year
+    anio_actual = ahora_argentina().year
     inicio_anio = datetime(anio_actual, 1, 1)
     fin_anio = datetime(anio_actual, 12, 31, 23, 59, 59)
 

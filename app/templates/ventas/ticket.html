@@ -178,7 +178,7 @@
         <div class="ticket-item">
             <div class="ticket-item-name">{{ detalle.producto.nombre }}</div>
             <div class="ticket-item-details">
-                <span>{{ detalle.cantidad|int }} x {{ detalle.precio_unitario|currency }}</span>
+                <span>{{ detalle.cantidad|stock(detalle.producto.unidad_medida) }} x {{ detalle.precio_unitario|currency }}</span>
                 <span>{{ detalle.subtotal|currency }}</span>
             </div>
         </div>
@@ -252,6 +252,7 @@
                 {% elif venta.forma_pago == 'tarjeta_debito' %}Tarjeta Debito
                 {% elif venta.forma_pago == 'tarjeta_credito' %}Tarjeta Credito
                 {% elif venta.forma_pago == 'transferencia' %}Transferencia
+                {% elif venta.forma_pago == 'qr' %}QR
                 {% elif venta.forma_pago == 'cuenta_corriente' %}Cuenta Corriente
                 {% endif %}
             </span>

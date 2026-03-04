@@ -1,9 +1,9 @@
 """Modelo de Cliente."""
 
-from datetime import datetime
 from decimal import Decimal
 
 from ..extensions import db
+from ..utils.helpers import ahora_argentina
 from .mixins import EmpresaMixin
 
 
@@ -22,7 +22,7 @@ class Cliente(EmpresaMixin, db.Model):
     saldo_cuenta_corriente = db.Column(db.Numeric(12, 2), default=0, nullable=False)
     notas = db.Column(db.Text)
     activo = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=ahora_argentina)
 
     # Relaciones
     ventas = db.relationship('Venta', backref='cliente', lazy='dynamic')

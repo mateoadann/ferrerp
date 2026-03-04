@@ -94,9 +94,9 @@ class ProductoForm(FlaskForm):
     stock_actual = DecimalField(
         'Stock Actual',
         validators=[Optional(), NumberRange(min=0, message='El stock no puede ser negativo')],
-        places=3,
+        places=2,
         default=0,
-        render_kw={'placeholder': '0'},
+        render_kw={'placeholder': '0', 'step': 'any'},
     )
 
     stock_minimo = DecimalField(
@@ -105,9 +105,9 @@ class ProductoForm(FlaskForm):
             Optional(),
             NumberRange(min=0, message='El stock mínimo no puede ser negativo'),
         ],
-        places=3,
+        places=2,
         default=0,
-        render_kw={'placeholder': '0'},
+        render_kw={'placeholder': '0', 'step': 'any'},
     )
 
     proveedor_id = SelectField('Proveedor', coerce=int, validators=[Optional()])
@@ -134,9 +134,7 @@ class ProductoForm(FlaskForm):
             and self.unidad_medida.data in self.UNIDADES_ENTERAS
             and field.data != int(field.data)
         ):
-            raise ValidationError(
-                'El stock debe ser un número entero para esta unidad de medida.'
-            )
+            raise ValidationError('El stock debe ser un número entero para esta unidad de medida.')
 
     def validate_stock_minimo(self, field):
         """Valida que el stock mínimo sea entero para unidades discretas."""
@@ -184,14 +182,9 @@ class ProductoForm(FlaskForm):
 
         # Proveedores
         proveedores = (
-            Proveedor.query_empresa()
-            .filter_by(activo=True)
-            .order_by(Proveedor.nombre)
-            .all()
+            Proveedor.query_empresa().filter_by(activo=True).order_by(Proveedor.nombre).all()
         )
-        self.proveedor_id.choices = [(0, 'Sin proveedor')] + [
-            (p.id, p.nombre) for p in proveedores
-        ]
+        self.proveedor_id.choices = [(0, 'Sin proveedor')] + [(p.id, p.nombre) for p in proveedores]
 
 
 class CategoriaForm(FlaskForm):
@@ -257,11 +250,16 @@ class AjusteStockForm(FlaskForm):
         'Cantidad',
         validators=[
             DataRequired(message='La cantidad es requerida'),
-            NumberRange(min=0.001, message='La cantidad debe ser mayor a 0'),
+            NumberRange(min=0, message='La cantidad debe ser mayor a 0'),
         ],
         places=3,
-        render_kw={'placeholder': '0', 'step': '0.001'},
+        render_kw={'placeholder': '0', 'step': 'any'},
     )
+
+    def validate_cantidad(self, field):
+        """Valida que la cantidad sea mayor a 0."""
+        if field.data is not None and field.data <= 0:
+            raise ValidationError('La cantidad debe ser mayor a 0')
 
     motivo = TextAreaField(
         'Motivo del Ajuste',
@@ -282,12 +280,7 @@ class AjusteStockForm(FlaskForm):
         """Carga las opciones de productos filtradas por empresa."""
         from ..models import Producto
 
-        productos = (
-            Producto.query_empresa()
-            .filter_by(activo=True)
-            .order_by(Producto.nombre)
-            .all()
-        )
+        productos = Producto.query_empresa().filter_by(activo=True).order_by(Producto.nombre).all()
         self.producto_id.choices = [(0, 'Seleccionar producto...')] + [
             (p.id, f'{p.codigo} - {p.nombre}') for p in productos
         ]

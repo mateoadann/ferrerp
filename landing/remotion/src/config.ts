@@ -55,8 +55,9 @@ export const fontFamily = 'Inter, -apple-system, BlinkMacSystemFont, sans-serif'
 export const iconFontFamily = 'Material Symbols Rounded';
 
 /*
- * Cargar las fuentes de Google. Se llama una vez desde Demo.tsx.
- * Remotion soporta fuentes web cargadas por CSS.
+ * Cargar las fuentes. Se llama una vez desde Demo.tsx.
+ * Material Symbols se carga como archivo local (public/) para que
+ * Remotion la tenga disponible al renderizar stills.
  */
 export const loadFonts = () => {
     const inter = document.createElement('link');
@@ -64,8 +65,14 @@ export const loadFonts = () => {
     inter.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap';
     document.head.appendChild(inter);
 
-    const material = document.createElement('link');
-    material.rel = 'stylesheet';
-    material.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0';
-    document.head.appendChild(material);
+    const style = document.createElement('style');
+    style.textContent = `
+        @font-face {
+            font-family: 'Material Symbols Rounded';
+            src: url('/public/MaterialSymbolsRounded.ttf') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+        }
+    `;
+    document.head.appendChild(style);
 };

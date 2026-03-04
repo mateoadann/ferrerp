@@ -266,6 +266,17 @@ body {
     font-size: 14px;
 }
 
+.alert.alert-dismissible {
+    padding-right: 16px;
+}
+
+.alert .btn-close {
+    position: static;
+    margin-left: auto;
+    padding: 8px;
+    flex-shrink: 0;
+}
+
 .alert .material-symbols-rounded {
     font-size: 20px;
 }
@@ -341,6 +352,26 @@ body {
 .badge-secondary {
     background-color: var(--background-muted);
     color: var(--foreground-secondary);
+}
+
+.badge-info {
+    background-color: #DBEAFE;
+    color: #2563EB;
+}
+
+.badge-bordo {
+    background-color: #FDE8E8;
+    color: #9B1C31;
+}
+
+.badge-brown {
+    background-color: #EDE0D4;
+    color: #5D4037;
+}
+
+.badge-orange {
+    background-color: #FFE0B2;
+    color: #E65100;
 }
 
 /* Buttons */
@@ -709,6 +740,23 @@ input[type="number"] {
 .action-icon:hover {
     background-color: var(--background-muted);
     color: var(--foreground);
+}
+
+/* Categorías: collapse con chevron */
+.cat-padre {
+    cursor: default;
+}
+
+.cat-padre[role="button"] {
+    cursor: pointer;
+}
+
+.cat-chevron {
+    transition: transform 0.2s ease;
+}
+
+.cat-padre[aria-expanded="true"] .cat-chevron {
+    transform: rotate(90deg);
 }
 
 /* Login Page */

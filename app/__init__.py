@@ -120,6 +120,7 @@ def register_commands(app):
     def seed():
         """Carga datos iniciales de prueba."""
         from seeds.seed_data import run_seeds
+
         run_seeds()
         print('Datos de prueba cargados.')
 
@@ -129,11 +130,10 @@ def register_template_context(app):
 
     @app.context_processor
     def inject_globals():
-        from datetime import datetime
-
         from flask_login import current_user
 
         from .models.configuracion import Configuracion
+        from .utils.helpers import ahora_argentina
 
         # Obtener configuración del negocio (filtrada por empresa)
         def get_config(clave, default=None):
@@ -150,7 +150,7 @@ def register_template_context(app):
 
         return {
             'app_name': app.config.get('APP_NAME', 'FerrERP'),
-            'current_year': datetime.now().year,
+            'current_year': ahora_argentina().year,
             'get_config': get_config,
             'precios_con_iva': get_config('precios_con_iva', True),
             'empresa_actual': empresa_actual,
@@ -163,6 +163,15 @@ def register_template_context(app):
         result = dict(d)
         result.update(other)
         return result
+
+    @app.template_filter('stock')
+    def stock_filter(value, unidad_medida='unidad'):
+        """Formatea una cantidad de stock según la unidad de medida."""
+        if value is None:
+            return '0'
+        if unidad_medida in ('unidad', 'par'):
+            return f'{int(value)}'
+        return f'{float(value):.2f}'
 
     @app.template_filter('currency')
     def currency_filter(value):

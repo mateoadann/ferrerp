@@ -70,8 +70,8 @@
                         <td><code class="table-code">{{ p.codigo }}</code></td>
                         <td>{{ p.nombre }}</td>
                         <td>{{ p.categoria.nombre_completo if p.categoria else '-' }}</td>
-                        <td class="text-end {% if p.stock_bajo %}text-danger fw-bold{% endif %}">{{ p.stock_actual|int }} {{ p.unidad_medida_abrev }}</td>
-                        <td class="text-end">{{ p.stock_minimo|int }}</td>
+                        <td class="text-end {% if p.stock_bajo %}text-danger fw-bold{% endif %}">{{ p.stock_actual|stock(p.unidad_medida) }} {{ p.unidad_medida_abrev }}</td>
+                        <td class="text-end">{{ p.stock_minimo|stock(p.unidad_medida) }}</td>
                         <td class="text-center">
                             {% if p.stock_bajo %}<span class="badge badge-danger">Bajo</span>
                             {% else %}<span class="badge badge-success">OK</span>{% endif %}

@@ -25,10 +25,7 @@ def index():
 
     if busqueda:
         query = query.filter(
-            db.or_(
-                Producto.codigo.ilike(f'%{busqueda}%'),
-                Producto.nombre.ilike(f'%{busqueda}%')
-            )
+            db.or_(Producto.codigo.ilike(f'%{busqueda}%'), Producto.nombre.ilike(f'%{busqueda}%'))
         )
 
     if solo_bajo_minimo:
@@ -39,16 +36,15 @@ def index():
 
     # Estadísticas
     total_productos = Producto.query_empresa().filter_by(activo=True).count()
-    productos_bajo_minimo = Producto.query_empresa().filter(
-        Producto.activo.is_(True),
-        Producto.stock_actual < Producto.stock_minimo
-    ).count()
+    productos_bajo_minimo = (
+        Producto.query_empresa()
+        .filter(Producto.activo.is_(True), Producto.stock_actual < Producto.stock_minimo)
+        .count()
+    )
 
     if es_peticion_htmx():
         return render_template(
-            'inventario/_tabla_stock.html',
-            productos=productos,
-            busqueda=busqueda
+            'inventario/_tabla_stock.html', productos=productos, busqueda=busqueda
         )
 
     return render_template(
@@ -57,7 +53,7 @@ def index():
         busqueda=busqueda,
         solo_bajo_minimo=solo_bajo_minimo,
         total_productos=total_productos,
-        productos_bajo_minimo=productos_bajo_minimo
+        productos_bajo_minimo=productos_bajo_minimo,
     )
 
 
@@ -67,15 +63,14 @@ def bajo_minimo():
     """Productos con stock bajo el mínimo."""
     page = request.args.get('page', 1, type=int)
 
-    productos = Producto.query_empresa().filter(
-        Producto.activo.is_(True),
-        Producto.stock_actual < Producto.stock_minimo
-    ).order_by(Producto.stock_actual).paginate(page=page, per_page=20)
-
-    return render_template(
-        'inventario/bajo_minimo.html',
-        productos=productos
+    productos = (
+        Producto.query_empresa()
+        .filter(Producto.activo.is_(True), Producto.stock_actual < Producto.stock_minimo)
+        .order_by(Producto.stock_actual)
+        .paginate(page=page, per_page=20)
     )
+
+    return render_template('inventario/bajo_minimo.html', productos=productos)
 
 
 @bp.route('/ajuste', methods=['GET', 'POST'])
@@ -127,9 +122,15 @@ def ajuste():
         db.session.add(movimiento)
         db.session.commit()
 
+        def _fmt(valor):
+            if producto.unidad_medida in ('unidad', 'par'):
+                return str(int(valor))
+            return f'{float(valor):.2f}'
+
         flash(
-            f'Ajuste realizado. Stock de "{producto.nombre}": {stock_anterior} → {stock_posterior}',
-            'success'
+            f'Ajuste realizado. Stock de "{producto.nombre}": '
+            f'{_fmt(stock_anterior)} → {_fmt(stock_posterior)}',
+            'success',
         )
         return redirect(url_for('inventario.index'))
 
@@ -161,10 +162,7 @@ def movimientos():
         producto = Producto.get_o_404(producto_id)
 
     return render_template(
-        'inventario/movimientos.html',
-        movimientos=movimientos,
-        producto=producto,
-        tipo_filtro=tipo
+        'inventario/movimientos.html', movimientos=movimientos, producto=producto, tipo_filtro=tipo
     )
 
 
@@ -175,14 +173,13 @@ def movimientos_producto(producto_id):
     producto = Producto.get_o_404(producto_id)
     page = request.args.get('page', 1, type=int)
 
-    movimientos = MovimientoStock.query_empresa().filter_by(
-        producto_id=producto_id
-    ).order_by(
-        MovimientoStock.created_at.desc()
-    ).paginate(page=page, per_page=20)
+    movimientos = (
+        MovimientoStock.query_empresa()
+        .filter_by(producto_id=producto_id)
+        .order_by(MovimientoStock.created_at.desc())
+        .paginate(page=page, per_page=20)
+    )
 
     return render_template(
-        'inventario/movimientos.html',
-        movimientos=movimientos,
-        producto=producto
+        'inventario/movimientos.html', movimientos=movimientos, producto=producto
     )

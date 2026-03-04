@@ -79,6 +79,7 @@ class ConvertirPresupuestoForm(FlaskForm):
             ('tarjeta_debito', 'Tarjeta Débito'),
             ('tarjeta_credito', 'Tarjeta Crédito'),
             ('transferencia', 'Transferencia'),
+            ('qr', 'QR'),
             ('cuenta_corriente', 'Cuenta Corriente')
         ],
         default='efectivo',

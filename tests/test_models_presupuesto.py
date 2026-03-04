@@ -1,8 +1,9 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from app.extensions import db
 from app.models import Empresa, Presupuesto, PresupuestoDetalle, Producto, Usuario
+from app.utils.helpers import ahora_argentina
 
 
 def _crear_empresa():
@@ -45,7 +46,7 @@ def test_presupuesto_totales_y_estado(app):
     db.session.add_all([usuario, producto])
     db.session.commit()
 
-    fecha = datetime.utcnow()
+    fecha = ahora_argentina()
     presupuesto = Presupuesto(
         numero=1,
         fecha=fecha,

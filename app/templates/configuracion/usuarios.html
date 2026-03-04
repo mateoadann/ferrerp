@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Usuarios - {{ app_name }}{% endblock %}
+{% block alerts %}{% endblock %}
 {% block content %}
 <div class="page-header">
     <h2>Usuarios</h2>
@@ -19,6 +20,7 @@
         </div>
     </div>
     <div class="col-lg-9">
+        {% include 'components/alerts.html' %}
         <div class="card">
             <div class="card-body p-0">
                 <div class="table-responsive">

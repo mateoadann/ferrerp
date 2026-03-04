@@ -26,6 +26,7 @@
                     <div class="mb-3">
                         <label class="form-label">{{ form.cantidad.label.text }} *</label>
                         {{ form.cantidad(class="form-control", id="cantidad_ajuste") }}
+                        <small id="cantidad_hint" class="text-muted d-none">Decimal: punto (.) — Ej: 2.50</small>
                     </div>
                     <div class="mb-4">
                         <label class="form-label">{{ form.motivo.label.text }} *</label>
@@ -46,7 +47,13 @@
 async function ajustarStepCantidad() {
     const productoId = document.getElementById('producto_id').value;
     const cantidadInput = document.getElementById('cantidad_ajuste');
-    if (!productoId || productoId === '0') return;
+    const hint = document.getElementById('cantidad_hint');
+    if (!productoId || productoId === '0') {
+        cantidadInput.step = 'any';
+        cantidadInput.removeAttribute('min');
+        if (hint) hint.classList.add('d-none');
+        return;
+    }
 
     try {
         const resp = await fetch(`/ventas/api/producto/${productoId}`);
@@ -54,8 +61,12 @@ async function ajustarStepCantidad() {
             const data = await resp.json();
             const esEntero = (data.unidad_medida === 'unidad' || data.unidad_medida === 'par');
             cantidadInput.step = esEntero ? '1' : '0.01';
+            cantidadInput.min = esEntero ? '1' : '0.01';
+            if (hint) hint.classList.toggle('d-none', esEntero);
         }
     } catch (e) { /* silenciar error */ }
 }
+
+document.addEventListener('DOMContentLoaded', ajustarStepCantidad);
 </script>
 {% endblock %}

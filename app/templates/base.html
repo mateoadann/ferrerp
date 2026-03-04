@@ -37,7 +37,9 @@
             <!-- Page Content -->
             <div class="content-area">
                 <!-- Alerts -->
+                {% block alerts %}
                 {% include 'components/alerts.html' %}
+                {% endblock %}
 
                 {% block content %}{% endblock %}
             </div>

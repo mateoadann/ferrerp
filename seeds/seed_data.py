@@ -4,7 +4,7 @@ Ejecutar con: flask seed
 """
 
 import random
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from app import create_app
@@ -25,6 +25,7 @@ from app.models import (
     Venta,
     VentaDetalle,
 )
+from app.utils.helpers import ahora_argentina
 
 
 def run_seeds():
@@ -763,7 +764,7 @@ def seed_ventas(empresa_id):
 
     # Crear una caja abierta
     caja = Caja(
-        fecha_apertura=datetime.utcnow().replace(hour=8, minute=0, second=0),
+        fecha_apertura=ahora_argentina().replace(hour=8, minute=0, second=0),
         monto_inicial=Decimal('10000'),
         estado='abierta',
         usuario_apertura_id=usuario.id,
@@ -777,7 +778,7 @@ def seed_ventas(empresa_id):
     # Generar ventas para los ultimos 7 dias
     numero_base = 1
     for dias_atras in range(7, -1, -1):
-        fecha_base = datetime.utcnow() - timedelta(days=dias_atras)
+        fecha_base = ahora_argentina() - timedelta(days=dias_atras)
 
         # Entre 3 y 8 ventas por dia
         num_ventas = random.randint(3, 8)

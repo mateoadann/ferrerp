@@ -1,8 +1,8 @@
 """Modelo de Empresa (tenant)."""
 
-from datetime import datetime
 
 from ..extensions import db
+from ..utils.helpers import ahora_argentina
 
 
 class Empresa(db.Model):
@@ -17,9 +17,9 @@ class Empresa(db.Model):
     telefono = db.Column(db.String(20))
     email = db.Column(db.String(120))
     activa = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=ahora_argentina)
     updated_at = db.Column(
-        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        db.DateTime, default=ahora_argentina, onupdate=ahora_argentina
     )
 
     # Relaciones

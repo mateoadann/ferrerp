@@ -1,10 +1,11 @@
 """Modelos de Presupuesto."""
 
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from ..extensions import db
+from ..utils.helpers import ahora_argentina
 from .mixins import EmpresaMixin
 
 
@@ -15,7 +16,7 @@ class Presupuesto(EmpresaMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     numero = db.Column(db.Integer, nullable=False, index=True)
-    fecha = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    fecha = db.Column(db.DateTime, nullable=False, default=ahora_argentina)
     fecha_vencimiento = db.Column(db.DateTime, nullable=False)
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), index=True)
     cliente_nombre = db.Column(db.String(100))
@@ -35,8 +36,8 @@ class Presupuesto(EmpresaMixin, db.Model):
     )
     notas = db.Column(db.Text)
     token = db.Column(db.String(64), unique=True, nullable=False, index=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=ahora_argentina)
+    updated_at = db.Column(db.DateTime, default=ahora_argentina, onupdate=ahora_argentina)
 
     # Relaciones
     detalles = db.relationship(
@@ -59,7 +60,7 @@ class Presupuesto(EmpresaMixin, db.Model):
     @property
     def numero_completo(self):
         """Retorna el número con formato AÑO-NNNNNN."""
-        anio = self.fecha.year if self.fecha else datetime.utcnow().year
+        anio = self.fecha.year if self.fecha else ahora_argentina().year
         return f'{anio}-{self.numero:06d}'
 
     @property
@@ -93,7 +94,7 @@ class Presupuesto(EmpresaMixin, db.Model):
         """Verifica si el presupuesto está vencido."""
         if self.estado != 'pendiente':
             return False
-        return datetime.utcnow() > self.fecha_vencimiento
+        return ahora_argentina() > self.fecha_vencimiento
 
     @property
     def puede_editar(self):

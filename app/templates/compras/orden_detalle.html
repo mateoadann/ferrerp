@@ -57,11 +57,11 @@
                         <tr class="{% if detalle.esta_completo %}table-success{% endif %}">
                             <td class="table-code">{{ detalle.producto.codigo }}</td>
                             <td>{{ detalle.producto.nombre }}</td>
-                            <td class="text-center">{{ detalle.cantidad_pedida|int }}</td>
-                            <td class="text-center">{{ (detalle.cantidad_recibida or 0)|int }}</td>
+                            <td class="text-center">{{ detalle.cantidad_pedida|stock(detalle.producto.unidad_medida) }}</td>
+                            <td class="text-center">{{ (detalle.cantidad_recibida or 0)|stock(detalle.producto.unidad_medida) }}</td>
                             <td class="text-center">
                                 {% if detalle.cantidad_pendiente > 0 %}
-                                <span class="badge badge-warning">{{ detalle.cantidad_pendiente|int }}</span>
+                                <span class="badge badge-warning">{{ detalle.cantidad_pendiente|stock(detalle.producto.unidad_medida) }}</span>
                                 {% else %}
                                 <span class="badge badge-success">Completo</span>
                                 {% endif %}

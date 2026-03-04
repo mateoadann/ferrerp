@@ -1,10 +1,10 @@
 """Modelo de Usuario."""
 
-from datetime import datetime
 
 from flask_login import UserMixin
 
 from ..extensions import bcrypt, db
+from ..utils.helpers import ahora_argentina
 
 
 class Usuario(UserMixin, db.Model):
@@ -25,9 +25,9 @@ class Usuario(UserMixin, db.Model):
     empresa_id = db.Column(
         db.Integer, db.ForeignKey('empresas.id'), index=True
     )
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=ahora_argentina)
     updated_at = db.Column(
-        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        db.DateTime, default=ahora_argentina, onupdate=ahora_argentina
     )
 
     # Relaciones
