@@ -97,7 +97,7 @@
                         <span class="material-symbols-rounded text-danger">inventory_2</span>
                         <div class="flex-grow-1">
                             <div class="fw-medium">{{ producto.nombre }}</div>
-                            <small class="text-muted">Stock: {{ producto.stock_actual|int }} / Mín: {{ producto.stock_minimo|int }}</small>
+                            <small class="text-muted">Stock: {{ producto.stock_actual|stock(producto.unidad_medida) }} / Mín: {{ producto.stock_minimo|stock(producto.unidad_medida) }}</small>
                         </div>
                         <span class="badge badge-danger">Stock bajo</span>
                     </li>

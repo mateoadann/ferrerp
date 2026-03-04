@@ -90,11 +90,13 @@
                 {% if producto is defined %}
                 <small class="text-muted">Usa ajustes de inventario para modificar</small>
                 {% endif %}
+                <small id="stock_actual_hint" class="text-muted d-none">Decimal: punto (.) — Ej: 10.50</small>
             </div>
 
             <div class="col-md-3">
                 <label class="form-label">{{ form.stock_minimo.label.text }}</label>
                 {{ form.stock_minimo(class="form-control", id="stock_minimo") }}
+                <small id="stock_minimo_hint" class="text-muted d-none">Decimal: punto (.) — Ej: 5.25</small>
             </div>
 
             <div class="col-md-6">
@@ -204,11 +206,18 @@ function categoriaProductoForm() {
             const campos = ['stock_actual', 'stock_minimo'];
             campos.forEach(id => {
                 const input = document.getElementById(id);
+                const hint = document.getElementById(id + '_hint');
                 if (input) {
                     input.step = step;
+                    const val = parseFloat(input.value) || 0;
                     if (esEntero) {
-                        input.value = Math.round(parseFloat(input.value) || 0);
+                        input.value = Math.round(val);
+                    } else {
+                        input.value = val.toFixed(2);
                     }
+                }
+                if (hint) {
+                    hint.classList.toggle('d-none', esEntero);
                 }
             });
         },

@@ -329,7 +329,7 @@
             <tr>
                 <td class="col-codigo">{{ detalle.producto.codigo }}</td>
                 <td>{{ detalle.producto.nombre }}</td>
-                <td class="col-cantidad">{{ detalle.cantidad|int if detalle.cantidad == detalle.cantidad|int else detalle.cantidad }}</td>
+                <td class="col-cantidad">{{ detalle.cantidad|stock(detalle.producto.unidad_medida) }}</td>
                 <td class="col-precio">${{ '{:,.2f}'.format(detalle.precio_unitario) }}</td>
                 <td class="col-subtotal">${{ '{:,.2f}'.format(detalle.subtotal) }}</td>
             </tr>
