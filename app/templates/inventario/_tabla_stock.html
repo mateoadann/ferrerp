@@ -23,12 +23,12 @@
             <td>{{ producto.categoria.nombre_completo if producto.categoria else '-' }}</td>
             <td class="text-center">
                 {% if producto.stock_actual < producto.stock_minimo %}
-                <span class="badge badge-danger">{{ producto.stock_actual|int }}</span>
+                <span class="badge badge-danger">{{ producto.stock_actual|stock(producto.unidad_medida) }}</span>
                 {% else %}
-                {{ producto.stock_actual|int }}
+                {{ producto.stock_actual|stock(producto.unidad_medida) }}
                 {% endif %}
             </td>
-            <td class="text-center">{{ producto.stock_minimo|int }}</td>
+            <td class="text-center">{{ producto.stock_minimo|stock(producto.unidad_medida) }}</td>
             <td class="text-end">{{ producto.precio_costo|currency }}</td>
             <td class="text-end fw-bold">{{ (producto.stock_actual * producto.precio_costo)|currency }}</td>
             <td>

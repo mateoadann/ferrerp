@@ -34,10 +34,10 @@
                             {% else %}<span class="badge badge-danger">{{ mov.tipo_display }}</span>{% endif %}
                         </td>
                         <td class="text-end {% if mov.cantidad > 0 %}text-success{% else %}text-danger{% endif %}">
-                            {% if mov.cantidad > 0 %}+{% endif %}{{ mov.cantidad|int }}
+                            {% if mov.cantidad > 0 %}+{% endif %}{{ mov.cantidad|stock(mov.producto.unidad_medida) }}
                         </td>
-                        <td class="text-end">{{ mov.stock_anterior|int }}</td>
-                        <td class="text-end fw-bold">{{ mov.stock_posterior|int }}</td>
+                        <td class="text-end">{{ mov.stock_anterior|stock(mov.producto.unidad_medida) }}</td>
+                        <td class="text-end fw-bold">{{ mov.stock_posterior|stock(mov.producto.unidad_medida) }}</td>
                         <td>{{ mov.usuario.nombre if mov.usuario else '-' }}</td>
                         <td>{{ mov.motivo or '-' }}</td>
                     </tr>

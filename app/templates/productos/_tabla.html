@@ -31,7 +31,7 @@
                     {% if producto.stock_bajo %}
                     <span class="material-symbols-rounded text-danger" style="font-size: 16px;">warning</span>
                     {% endif %}
-                    {{ producto.stock_actual|int }} {{ producto.unidad_medida_abrev }}
+                    {{ producto.stock_actual|stock(producto.unidad_medida) }} {{ producto.unidad_medida_abrev }}
                 </td>
                 <td class="text-end fw-bold">{{ producto.precio_venta|currency }}</td>
                 <td class="text-center">

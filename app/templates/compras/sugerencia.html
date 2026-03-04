@@ -58,12 +58,12 @@
                             <td class="table-code">{{ item.producto.codigo }}</td>
                             <td>{{ item.producto.nombre }}</td>
                             <td class="text-center">
-                                <span class="badge badge-danger">{{ item.producto.stock_actual|int }}</span>
+                                <span class="badge badge-danger">{{ item.producto.stock_actual|stock(item.producto.unidad_medida) }}</span>
                             </td>
-                            <td class="text-center">{{ item.producto.stock_minimo|int }}</td>
+                            <td class="text-center">{{ item.producto.stock_minimo|stock(item.producto.unidad_medida) }}</td>
                             <td>
                                 <input type="number" class="form-control cantidad-{{ proveedor_id }}"
-                                       value="{{ item.cantidad_sugerida|int }}" min="1" step="1"
+                                       value="{{ item.cantidad_sugerida|stock(item.producto.unidad_medida) }}" min="1" step="1"
                                        data-producto="{{ item.producto.id }}">
                             </td>
                         </tr>

@@ -11,7 +11,7 @@
         <div class="text-end">
             <strong>{{ producto.precio_venta|currency }}</strong>
             <br>
-            <small class="text-muted">Stock: {{ producto.stock_actual|int }}</small>
+            <small class="text-muted">Stock: {{ producto.stock_actual|stock(producto.unidad_medida) }}</small>
         </div>
     </button>
     {% endfor %}

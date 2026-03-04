@@ -120,6 +120,7 @@ def register_commands(app):
     def seed():
         """Carga datos iniciales de prueba."""
         from seeds.seed_data import run_seeds
+
         run_seeds()
         print('Datos de prueba cargados.')
 
@@ -162,6 +163,15 @@ def register_template_context(app):
         result = dict(d)
         result.update(other)
         return result
+
+    @app.template_filter('stock')
+    def stock_filter(value, unidad_medida='unidad'):
+        """Formatea una cantidad de stock según la unidad de medida."""
+        if value is None:
+            return '0'
+        if unidad_medida in ('unidad', 'par'):
+            return f'{int(value)}'
+        return f'{float(value):.2f}'
 
     @app.template_filter('currency')
     def currency_filter(value):
