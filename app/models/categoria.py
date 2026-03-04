@@ -1,10 +1,10 @@
 """Modelo de Categoría."""
 
-from datetime import datetime
 
 from sqlalchemy import UniqueConstraint
 
 from ..extensions import db
+from ..utils.helpers import ahora_argentina
 from .mixins import EmpresaMixin
 
 
@@ -24,7 +24,7 @@ class Categoria(EmpresaMixin, db.Model):
     descripcion = db.Column(db.String(200))
     padre_id = db.Column(db.Integer, db.ForeignKey('categorias.id'), index=True)
     activa = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=ahora_argentina)
 
     # Relaciones
     productos = db.relationship('Producto', backref='categoria', lazy='dynamic')

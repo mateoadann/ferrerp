@@ -1,6 +1,6 @@
 """Servicio de presupuestos."""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from urllib.parse import quote
 
@@ -19,7 +19,7 @@ from ..models import (
     Venta,
     VentaDetalle,
 )
-from ..utils.helpers import generar_numero_presupuesto, generar_numero_venta
+from ..utils.helpers import ahora_argentina, generar_numero_presupuesto, generar_numero_venta
 
 
 def crear_presupuesto(items, usuario_id, empresa_id=None, cliente_id=None,
@@ -29,7 +29,7 @@ def crear_presupuesto(items, usuario_id, empresa_id=None, cliente_id=None,
     if validez_dias is None:
         validez_dias = Configuracion.get('presupuesto_validez_dias', 15)
 
-    fecha = datetime.utcnow()
+    fecha = ahora_argentina()
     fecha_vencimiento = fecha + timedelta(days=int(validez_dias))
 
     presupuesto = Presupuesto(
@@ -185,7 +185,7 @@ def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id,
     # Crear venta
     venta = Venta(
         numero=generar_numero_venta(empresa_id),
-        fecha=datetime.utcnow(),
+        fecha=ahora_argentina(),
         cliente_id=presupuesto.cliente_id,
         usuario_id=usuario_id,
         descuento_porcentaje=presupuesto.descuento_porcentaje,
@@ -291,7 +291,7 @@ def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id,
 
 def marcar_vencidos():
     """Marca como vencidos los presupuestos pendientes cuya fecha de vencimiento pasó."""
-    ahora = datetime.utcnow()
+    ahora = ahora_argentina()
     vencidos = Presupuesto.query.filter(
         Presupuesto.estado == 'pendiente',
         Presupuesto.fecha_vencimiento < ahora

@@ -1,8 +1,8 @@
 """Modelo de Proveedor."""
 
-from datetime import datetime
 
 from ..extensions import db
+from ..utils.helpers import ahora_argentina
 from .mixins import EmpresaMixin
 
 
@@ -24,7 +24,7 @@ class Proveedor(EmpresaMixin, db.Model):
     )
     notas = db.Column(db.Text)
     activo = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=ahora_argentina)
 
     # Relaciones
     productos = db.relationship('Producto', backref='proveedor', lazy='dynamic')

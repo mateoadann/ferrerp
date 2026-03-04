@@ -1,8 +1,8 @@
 """Modelo de Devolución."""
 
-from datetime import datetime
 
 from ..extensions import db
+from ..utils.helpers import ahora_argentina
 from .mixins import EmpresaMixin
 
 
@@ -18,7 +18,7 @@ class Devolucion(EmpresaMixin, db.Model):
         nullable=False,
         index=True
     )
-    fecha = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    fecha = db.Column(db.DateTime, nullable=False, default=ahora_argentina)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
     motivo = db.Column(db.Text, nullable=False)
     accion = db.Column(
@@ -29,7 +29,7 @@ class Devolucion(EmpresaMixin, db.Model):
         nullable=False
     )
     monto_total = db.Column(db.Numeric(12, 2))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=ahora_argentina)
 
     # Relaciones
     detalles = db.relationship(

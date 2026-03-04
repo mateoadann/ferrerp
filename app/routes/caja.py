@@ -1,6 +1,6 @@
 """Rutas de caja."""
 
-from datetime import datetime, date
+from datetime import date
 from decimal import Decimal
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
@@ -8,7 +8,7 @@ from flask_login import login_required, current_user
 from ..extensions import db
 from ..models import Caja, MovimientoCaja, Venta
 from ..forms.caja_forms import AperturaCajaForm, CierreCajaForm, EgresoCajaForm
-from ..utils.helpers import paginar_query
+from ..utils.helpers import ahora_argentina, paginar_query
 from ..utils.decorators import admin_required
 
 bp = Blueprint('caja', __name__, url_prefix='/caja')
@@ -119,7 +119,7 @@ def abrir():
 
     if form.validate_on_submit():
         caja = Caja(
-            fecha_apertura=datetime.utcnow(),
+            fecha_apertura=ahora_argentina(),
             usuario_apertura_id=current_user.id,
             monto_inicial=form.monto_inicial.data,
             estado='abierta',

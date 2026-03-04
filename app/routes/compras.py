@@ -8,7 +8,7 @@ from flask_login import login_required, current_user
 from ..extensions import db
 from ..models import OrdenCompra, OrdenCompraDetalle, Producto, Proveedor, MovimientoStock
 from ..services import orden_compra_service
-from ..utils.helpers import paginar_query, generar_numero_orden_compra, es_peticion_htmx
+from ..utils.helpers import ahora_argentina, es_peticion_htmx, generar_numero_orden_compra, paginar_query
 
 bp = Blueprint('compras', __name__, url_prefix='/compras')
 
@@ -64,7 +64,7 @@ def nueva():
             flash('Agrega al menos un producto a la orden.', 'danger')
             return redirect(url_for('compras.nueva'))
 
-        fecha_orden = datetime.utcnow()
+        fecha_orden = ahora_argentina()
         if fecha_input:
             fecha_parseada = None
             for formato in ('%d/%m/%Y', '%Y-%m-%d'):
@@ -75,7 +75,7 @@ def nueva():
                     continue
 
             if fecha_parseada:
-                fecha_orden = datetime.combine(fecha_parseada, datetime.now().time())
+                fecha_orden = datetime.combine(fecha_parseada, ahora_argentina().time())
             else:
                 flash('Fecha inválida. Se usó la fecha actual.', 'warning')
 
@@ -297,7 +297,7 @@ def generar_orden_sugerencia():
     # Crear orden
     orden = OrdenCompra(
         numero=generar_numero_orden_compra(current_user.empresa_id),
-        fecha=datetime.utcnow(),
+        fecha=ahora_argentina(),
         proveedor_id=proveedor_id,
         usuario_id=current_user.id,
         estado='pendiente',

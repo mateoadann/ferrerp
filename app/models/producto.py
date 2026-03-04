@@ -1,11 +1,11 @@
 """Modelo de Producto."""
 
-from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import UniqueConstraint
 
 from ..extensions import db
+from ..utils.helpers import ahora_argentina
 from .mixins import EmpresaMixin
 
 
@@ -36,8 +36,8 @@ class Producto(EmpresaMixin, db.Model):
     proveedor_id = db.Column(db.Integer, db.ForeignKey('proveedores.id'), index=True)
     ubicacion = db.Column(db.String(50))
     activo = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=ahora_argentina)
+    updated_at = db.Column(db.DateTime, default=ahora_argentina, onupdate=ahora_argentina)
 
     # Relaciones
     movimientos_stock = db.relationship('MovimientoStock', backref='producto', lazy='dynamic')

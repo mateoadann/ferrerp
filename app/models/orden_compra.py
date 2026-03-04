@@ -1,11 +1,11 @@
 """Modelos de Orden de Compra."""
 
-from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import UniqueConstraint
 
 from ..extensions import db
+from ..utils.helpers import ahora_argentina
 from .mixins import EmpresaMixin
 
 
@@ -22,7 +22,7 @@ class OrdenCompra(EmpresaMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     numero = db.Column(db.Integer, nullable=False, index=True)
-    fecha = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    fecha = db.Column(db.DateTime, nullable=False, default=ahora_argentina)
     proveedor_id = db.Column(
         db.Integer,
         db.ForeignKey('proveedores.id'),
@@ -40,7 +40,7 @@ class OrdenCompra(EmpresaMixin, db.Model):
     )
     total = db.Column(db.Numeric(12, 2), default=0)
     notas = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=ahora_argentina)
 
     # Relaciones
     detalles = db.relationship(

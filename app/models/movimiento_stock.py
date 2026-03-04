@@ -1,8 +1,8 @@
 """Modelo de Movimiento de Stock."""
 
-from datetime import datetime
 
 from ..extensions import db
+from ..utils.helpers import ahora_argentina
 from .mixins import EmpresaMixin
 
 
@@ -32,7 +32,7 @@ class MovimientoStock(EmpresaMixin, db.Model):
     referencia_id = db.Column(db.Integer)
     motivo = db.Column(db.Text)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, default=ahora_argentina, index=True)
 
     def __repr__(self):
         return f'<MovimientoStock {self.id} - {self.tipo}>'

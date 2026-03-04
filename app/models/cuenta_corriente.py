@@ -1,8 +1,8 @@
 """Modelo de Movimiento de Cuenta Corriente."""
 
-from datetime import datetime
 
 from ..extensions import db
+from ..utils.helpers import ahora_argentina
 from .mixins import EmpresaMixin
 
 
@@ -29,7 +29,7 @@ class MovimientoCuentaCorriente(EmpresaMixin, db.Model):
     referencia_id = db.Column(db.Integer)
     descripcion = db.Column(db.String(200))
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, default=ahora_argentina, index=True)
 
     # Relaciones
     usuario = db.relationship('Usuario', backref='movimientos_cc')
