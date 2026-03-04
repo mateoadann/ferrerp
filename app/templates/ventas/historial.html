@@ -87,6 +87,8 @@
                         <span class="badge badge-secondary">Credito</span>
                         {% elif venta.forma_pago == 'transferencia' %}
                         <span class="badge badge-secondary">Transfer.</span>
+                        {% elif venta.forma_pago == 'qr' %}
+                        <span class="badge badge-info">QR</span>
                         {% elif venta.forma_pago == 'cuenta_corriente' %}
                         <span class="badge badge-warning">Cta. Cte.</span>
                         {% endif %}

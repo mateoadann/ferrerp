@@ -105,7 +105,8 @@ class PagoCuentaCorrienteForm(FlaskForm):
             ('efectivo', 'Efectivo'),
             ('tarjeta_debito', 'Tarjeta Débito'),
             ('tarjeta_credito', 'Tarjeta Crédito'),
-            ('transferencia', 'Transferencia')
+            ('transferencia', 'Transferencia'),
+            ('qr', 'QR')
         ],
         default='efectivo',
         validators=[DataRequired(message='Selecciona una forma de pago')]

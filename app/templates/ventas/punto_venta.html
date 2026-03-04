@@ -208,6 +208,12 @@
                         <small>Transfer.</small>
                     </div>
                     <div class="payment-method"
+                         :class="{'active': formaPago === 'qr'}"
+                         @click="formaPago = 'qr'">
+                        <span class="material-symbols-rounded d-block mb-1">qr_code_2</span>
+                        <small>QR</small>
+                    </div>
+                    <div class="payment-method"
                          :class="{'active': formaPago === 'cuenta_corriente'}"
                          @click="formaPago = 'cuenta_corriente'"
                          :disabled="!clienteId">
