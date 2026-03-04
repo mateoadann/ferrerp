@@ -1,4 +1,4 @@
-"""Formularios de registro de empresa y usuario owner."""
+"""Formularios de registro de empresa y usuario administrador."""
 
 from flask_wtf import FlaskForm
 from wtforms import PasswordField, StringField, SubmitField
@@ -13,9 +13,9 @@ from wtforms.validators import (
 
 
 class RegistroForm(FlaskForm):
-    """Formulario de registro: datos del owner + datos de la empresa."""
+    """Formulario de registro: datos del administrador + datos de la empresa."""
 
-    # --- Datos del usuario owner ---
+    # --- Datos del usuario administrador ---
     nombre = StringField(
         'Nombre completo',
         validators=[

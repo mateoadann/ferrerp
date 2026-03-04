@@ -73,13 +73,11 @@
             <span>Reportes</span>
         </a>
 
-        {% if current_user.es_administrador %}
-        <a href="{{ url_for('configuracion.index') }}"
+        <a href="{{ url_for('configuracion.categorias') }}"
            class="nav-item {% if request.endpoint and request.endpoint.startswith('configuracion.') %}active{% endif %}">
             <span class="material-symbols-rounded">settings</span>
             <span>Configuración</span>
         </a>
-        {% endif %}
     </nav>
 
     <!-- User Section -->
