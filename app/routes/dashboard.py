@@ -7,6 +7,7 @@ from sqlalchemy import func, and_
 
 from ..extensions import db
 from ..models import Venta, Producto, Cliente, MovimientoCaja
+from ..utils.helpers import ahora_argentina
 
 bp = Blueprint('dashboard', __name__)
 
@@ -16,7 +17,7 @@ bp = Blueprint('dashboard', __name__)
 def index():
     """Página principal del dashboard."""
     # Obtener estadísticas del día
-    hoy = datetime.utcnow().date()
+    hoy = ahora_argentina().date()
     inicio_dia = datetime.combine(hoy, datetime.min.time())
     fin_dia = datetime.combine(hoy, datetime.max.time())
 
@@ -128,7 +129,7 @@ def index():
 @login_required
 def api_stats():
     """API para obtener estadísticas actualizadas (HTMX)."""
-    hoy = datetime.utcnow().date()
+    hoy = ahora_argentina().date()
     inicio_dia = datetime.combine(hoy, datetime.min.time())
     fin_dia = datetime.combine(hoy, datetime.max.time())
 

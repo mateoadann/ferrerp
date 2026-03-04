@@ -129,11 +129,10 @@ def register_template_context(app):
 
     @app.context_processor
     def inject_globals():
-        from datetime import datetime
-
         from flask_login import current_user
 
         from .models.configuracion import Configuracion
+        from .utils.helpers import ahora_argentina
 
         # Obtener configuración del negocio (filtrada por empresa)
         def get_config(clave, default=None):
@@ -150,7 +149,7 @@ def register_template_context(app):
 
         return {
             'app_name': app.config.get('APP_NAME', 'FerrERP'),
-            'current_year': datetime.now().year,
+            'current_year': ahora_argentina().year,
             'get_config': get_config,
             'precios_con_iva': get_config('precios_con_iva', True),
             'empresa_actual': empresa_actual,

@@ -31,7 +31,7 @@ from ..models import (
 )
 from ..services import venta_service
 from ..utils.decorators import admin_required, caja_abierta_required
-from ..utils.helpers import generar_numero_venta, paginar_query
+from ..utils.helpers import ahora_argentina, generar_numero_venta, paginar_query
 
 bp = Blueprint('ventas', __name__, url_prefix='/ventas')
 
@@ -76,7 +76,7 @@ def punto_de_venta():
             # Crear venta
             venta = Venta(
                 numero=generar_numero_venta(current_user.empresa_id),
-                fecha=datetime.utcnow(),
+                fecha=ahora_argentina(),
                 cliente_id=cliente_id if cliente_id else None,
                 usuario_id=current_user.id,
                 descuento_porcentaje=descuento_porcentaje,

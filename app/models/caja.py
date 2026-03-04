@@ -1,9 +1,9 @@
 """Modelos de Caja."""
 
-from datetime import datetime
 from decimal import Decimal
 
 from ..extensions import db
+from ..utils.helpers import ahora_argentina
 from .mixins import EmpresaMixin
 
 
@@ -13,7 +13,7 @@ class Caja(EmpresaMixin, db.Model):
     __tablename__ = 'cajas'
 
     id = db.Column(db.Integer, primary_key=True)
-    fecha_apertura = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    fecha_apertura = db.Column(db.DateTime, nullable=False, default=ahora_argentina)
     fecha_cierre = db.Column(db.DateTime)
     usuario_apertura_id = db.Column(
         db.Integer,
@@ -97,7 +97,7 @@ class Caja(EmpresaMixin, db.Model):
         self.monto_real = Decimal(str(monto_real))
         self.diferencia = self.monto_real - self.monto_esperado
         self.usuario_cierre_id = usuario_cierre_id
-        self.fecha_cierre = datetime.utcnow()
+        self.fecha_cierre = ahora_argentina()
         self.estado = 'cerrada'
         if observaciones:
             self.observaciones = observaciones
@@ -157,7 +157,7 @@ class MovimientoCaja(db.Model):
     referencia_tipo = db.Column(db.String(20))  # 'venta', 'devolucion', 'pago', etc.
     referencia_id = db.Column(db.Integer)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, default=ahora_argentina, index=True)
 
     def __repr__(self):
         return f'<MovimientoCaja {self.id} - {self.tipo} ${self.monto}>'

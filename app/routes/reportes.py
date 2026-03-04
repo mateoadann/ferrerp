@@ -10,6 +10,7 @@ from sqlalchemy import func
 from ..extensions import db
 from ..models import Categoria, Cliente, Producto, Venta, VentaDetalle
 from ..utils.decorators import admin_required
+from ..utils.helpers import ahora_argentina
 
 bp = Blueprint('reportes', __name__, url_prefix='/reportes')
 
@@ -19,7 +20,7 @@ bp = Blueprint('reportes', __name__, url_prefix='/reportes')
 def ventas():
     """Reporte de ventas."""
     # Fechas por defecto: último mes
-    fecha_hasta = datetime.utcnow().date()
+    fecha_hasta = ahora_argentina().date()
     fecha_desde = fecha_hasta - timedelta(days=30)
 
     def parse_fecha(valor):
@@ -273,7 +274,7 @@ def clientes():
 def rentabilidad():
     """Reporte de rentabilidad."""
     # Fechas por defecto: último mes
-    fecha_hasta = datetime.utcnow().date()
+    fecha_hasta = ahora_argentina().date()
     fecha_desde = fecha_hasta - timedelta(days=30)
 
     if request.args.get('fecha_desde'):
@@ -342,7 +343,7 @@ def exportar_ventas():
     from openpyxl import Workbook
 
     # Fechas
-    fecha_hasta = datetime.utcnow().date()
+    fecha_hasta = ahora_argentina().date()
     fecha_desde = fecha_hasta - timedelta(days=30)
 
     if request.args.get('fecha_desde'):

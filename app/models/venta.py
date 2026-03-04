@@ -1,9 +1,9 @@
 """Modelo de Venta."""
 
-from datetime import datetime
 from decimal import Decimal
 
 from ..extensions import db
+from ..utils.helpers import ahora_argentina
 from .mixins import EmpresaMixin
 
 
@@ -14,7 +14,7 @@ class Venta(EmpresaMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     numero = db.Column(db.Integer, nullable=False, index=True)
-    fecha = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    fecha = db.Column(db.DateTime, nullable=False, default=ahora_argentina)
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), index=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
     subtotal = db.Column(db.Numeric(12, 2), default=0)
@@ -38,7 +38,7 @@ class Venta(EmpresaMixin, db.Model):
     motivo_anulacion = db.Column(db.Text)
     caja_id = db.Column(db.Integer, db.ForeignKey('cajas.id'), index=True)
     presupuesto_id = db.Column(db.Integer, db.ForeignKey('presupuestos.id'), index=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=ahora_argentina)
 
     # Relaciones
     detalles = db.relationship(
@@ -56,7 +56,7 @@ class Venta(EmpresaMixin, db.Model):
     @property
     def numero_completo(self):
         """Retorna el número de venta con formato año-número."""
-        anio = self.fecha.year if self.fecha else datetime.utcnow().year
+        anio = self.fecha.year if self.fecha else ahora_argentina().year
         return f'{anio}-{self.numero:06d}'
 
     @property
