@@ -206,8 +206,11 @@ function categoriaProductoForm() {
                 const input = document.getElementById(id);
                 if (input) {
                     input.step = step;
+                    const val = parseFloat(input.value) || 0;
                     if (esEntero) {
-                        input.value = Math.round(parseFloat(input.value) || 0);
+                        input.value = Math.round(val);
+                    } else {
+                        input.value = parseFloat(val.toFixed(2));
                     }
                 }
             });

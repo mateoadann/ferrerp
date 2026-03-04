@@ -94,9 +94,9 @@ class ProductoForm(FlaskForm):
     stock_actual = DecimalField(
         'Stock Actual',
         validators=[Optional(), NumberRange(min=0, message='El stock no puede ser negativo')],
-        places=3,
+        places=2,
         default=0,
-        render_kw={'placeholder': '0'},
+        render_kw={'placeholder': '0', 'step': 'any'},
     )
 
     stock_minimo = DecimalField(
@@ -105,9 +105,9 @@ class ProductoForm(FlaskForm):
             Optional(),
             NumberRange(min=0, message='El stock mínimo no puede ser negativo'),
         ],
-        places=3,
+        places=2,
         default=0,
-        render_kw={'placeholder': '0'},
+        render_kw={'placeholder': '0', 'step': 'any'},
     )
 
     proveedor_id = SelectField('Proveedor', coerce=int, validators=[Optional()])
