@@ -62,3 +62,49 @@ def vendedor_o_admin_required(f):
 
         return f(*args, **kwargs)
     return decorated_function
+
+
+def superadmin_required(f):
+    """
+    Decorador que requiere que el usuario sea superadmin.
+    Debe usarse después de @login_required.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('Por favor, inicia sesión para acceder a esta página.', 'warning')
+            return redirect(url_for('auth.login', next=request.url))
+
+        if not current_user.es_superadmin:
+            flash('No tienes permisos para acceder a esta sección.', 'danger')
+            return redirect(url_for('dashboard.index'))
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def empresa_aprobada_required(f):
+    """
+    Decorador que requiere que la empresa del usuario esté aprobada.
+    Permite acceso al superadmin (no tiene empresa).
+    Debe usarse después de @login_required.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return redirect(url_for('auth.login', next=request.url))
+
+        # El superadmin no tiene empresa, siempre pasa
+        if current_user.es_superadmin:
+            return f(*args, **kwargs)
+
+        if current_user.empresa and not current_user.empresa.aprobada:
+            flash(
+                'Tu empresa está pendiente de aprobación. '
+                'No puedes realizar esta acción.',
+                'warning',
+            )
+            return redirect(url_for('dashboard.index'))
+
+        return f(*args, **kwargs)
+    return decorated_function
