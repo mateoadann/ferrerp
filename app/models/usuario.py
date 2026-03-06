@@ -17,13 +17,14 @@ class Usuario(UserMixin, db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     nombre = db.Column(db.String(100), nullable=False)
     rol = db.Column(
-        db.Enum('administrador', 'vendedor', name='rol_usuario'),
+        db.Enum('superadmin', 'administrador', 'vendedor', name='rol_usuario'),
         nullable=False,
         default='vendedor',
     )
     activo = db.Column(db.Boolean, default=True, nullable=False)
+    debe_cambiar_password = db.Column(db.Boolean, default=False, nullable=False)
     empresa_id = db.Column(
-        db.Integer, db.ForeignKey('empresas.id'), index=True
+        db.Integer, db.ForeignKey('empresas.id'), nullable=True, index=True
     )
     created_at = db.Column(db.DateTime, default=ahora_argentina)
     updated_at = db.Column(
@@ -59,6 +60,11 @@ class Usuario(UserMixin, db.Model):
     def es_admin(self):
         """Alias para es_administrador."""
         return self.es_administrador
+
+    @property
+    def es_superadmin(self):
+        """Verifica si el usuario es superadmin."""
+        return self.rol == 'superadmin'
 
     @property
     def nombre_completo(self):
