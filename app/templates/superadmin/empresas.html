@@ -34,6 +34,7 @@
             <thead>
                 <tr>
                     <th>Empresa</th>
+                    <th>CUIT</th>
                     <th>Admin</th>
                     <th>Estado</th>
                     <th>Fecha registro</th>
@@ -43,13 +44,14 @@
             <tbody>
                 {% for item in empresas %}
                 <tr>
-                    <td>{{ item.empresa.nombre }}</td>
+                    <td><strong>{{ item.empresa.nombre }}</strong></td>
+                    <td>{{ item.empresa.cuit or '-' }}</td>
                     <td>{{ item.admin.email if item.admin else 'Sin admin' }}</td>
                     <td>
                         {% if not item.empresa.activa %}
                             <span class="badge bg-secondary">Inactiva</span>
                         {% elif not item.empresa.aprobada %}
-                            <span class="badge bg-warning">Pendiente</span>
+                            <span class="badge bg-warning text-dark">Pendiente</span>
                         {% else %}
                             <span class="badge bg-success">Aprobada</span>
                         {% endif %}
@@ -65,10 +67,10 @@
 
                         {% if item.admin %}
                             {% if item.admin.activo %}
-                            <form method="POST" action="{{ url_for('superadmin.desactivar_admin', empresa_id=item.empresa.id) }}" style="display:inline">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Desactivar admin</button>
-                            </form>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    onclick="confirmarAccion('{{ url_for('superadmin.desactivar_admin', empresa_id=item.empresa.id) }}', '¿Desactivar al administrador {{ item.admin.email }}? No podrá iniciar sesión.', 'Desactivar', 'warning')">
+                                Desactivar admin
+                            </button>
                             {% else %}
                             <form method="POST" action="{{ url_for('superadmin.activar_admin', empresa_id=item.empresa.id) }}" style="display:inline">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -76,10 +78,10 @@
                             </form>
                             {% endif %}
 
-                            <form method="POST" action="{{ url_for('superadmin.reset_password', empresa_id=item.empresa.id) }}" style="display:inline">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-warning">Reset password</button>
-                            </form>
+                            <button type="button" class="btn btn-sm btn-outline-warning"
+                                    onclick="confirmarAccion('{{ url_for('superadmin.reset_password', empresa_id=item.empresa.id) }}', '¿Resetear la contraseña de {{ item.admin.email }}? Se generará una contraseña temporal.', 'Resetear', 'warning')">
+                                Reset password
+                            </button>
                         {% endif %}
                     </td>
                 </tr>
@@ -88,4 +90,31 @@
         </table>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmarAccion(url, mensaje, textoBoton, tipo) {
+    const modal = document.getElementById('confirmModal');
+    const form = document.getElementById('confirmModalForm');
+    const msgEl = document.getElementById('confirmModalMessage');
+    const btnEl = document.getElementById('confirmModalSubmit');
+    const iconEl = document.getElementById('confirmModalIcon');
+
+    form.action = url;
+    msgEl.textContent = mensaje;
+    btnEl.textContent = textoBoton || 'Confirmar';
+
+    if (tipo === 'warning') {
+        btnEl.className = 'btn btn-warning';
+        iconEl.textContent = 'warning';
+    } else {
+        btnEl.className = 'btn btn-danger';
+        iconEl.textContent = 'help_outline';
+    }
+
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+}
+</script>
 {% endblock %}

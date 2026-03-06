@@ -24,7 +24,11 @@
     <div class="app-container">
         <!-- Sidebar -->
         {% if current_user.is_authenticated %}
-        {% include 'components/sidebar.html' %}
+            {% if current_user.es_superadmin %}
+            {% include 'components/sidebar_superadmin.html' %}
+            {% else %}
+            {% include 'components/sidebar.html' %}
+            {% endif %}
         {% endif %}
 
         <!-- Main Content -->
@@ -40,6 +44,17 @@
                 {% block alerts %}
                 {% include 'components/alerts.html' %}
                 {% endblock %}
+
+                {% if current_user.is_authenticated and not current_user.es_superadmin
+                   and current_user.empresa and not current_user.empresa.aprobada %}
+                <div class="alert alert-warning d-flex align-items-center mx-3 mt-3" role="alert">
+                    <span class="material-symbols-rounded me-2">pending</span>
+                    <div>
+                        <strong>Empresa pendiente de aprobación.</strong>
+                        Tu cuenta está en modo lectura hasta que un administrador apruebe tu empresa.
+                    </div>
+                </div>
+                {% endif %}
 
                 {% block content %}{% endblock %}
             </div>
