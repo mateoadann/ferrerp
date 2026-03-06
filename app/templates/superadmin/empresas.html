@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Empresas - Superadmin - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Gestión de Empresas</h2>
+</div>
+
+<!-- Filtros -->
+<div class="mb-3">
+    <a href="{{ url_for('superadmin.empresas', filtro='todas') }}"
+       class="btn btn-sm {% if filtro_actual == 'todas' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        Todas
+    </a>
+    <a href="{{ url_for('superadmin.empresas', filtro='pendientes') }}"
+       class="btn btn-sm {% if filtro_actual == 'pendientes' %}btn-warning{% else %}btn-outline-warning{% endif %}">
+        Pendientes
+    </a>
+    <a href="{{ url_for('superadmin.empresas', filtro='aprobadas') }}"
+       class="btn btn-sm {% if filtro_actual == 'aprobadas' %}btn-success{% else %}btn-outline-success{% endif %}">
+        Aprobadas
+    </a>
+    <a href="{{ url_for('superadmin.empresas', filtro='inactivas') }}"
+       class="btn btn-sm {% if filtro_actual == 'inactivas' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+        Inactivas
+    </a>
+</div>
+
+<!-- Tabla de empresas -->
+<div class="card">
+    <div class="card-body">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Empresa</th>
+                    <th>Admin</th>
+                    <th>Estado</th>
+                    <th>Fecha registro</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in empresas %}
+                <tr>
+                    <td>{{ item.empresa.nombre }}</td>
+                    <td>{{ item.admin.email if item.admin else 'Sin admin' }}</td>
+                    <td>
+                        {% if not item.empresa.activa %}
+                            <span class="badge bg-secondary">Inactiva</span>
+                        {% elif not item.empresa.aprobada %}
+                            <span class="badge bg-warning">Pendiente</span>
+                        {% else %}
+                            <span class="badge bg-success">Aprobada</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ item.empresa.created_at.strftime('%d/%m/%Y') if item.empresa.created_at else '-' }}</td>
+                    <td>
+                        {% if not item.empresa.aprobada and item.empresa.activa %}
+                        <form method="POST" action="{{ url_for('superadmin.aprobar_empresa', empresa_id=item.empresa.id) }}" style="display:inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-success">Aprobar</button>
+                        </form>
+                        {% endif %}
+
+                        {% if item.admin %}
+                            {% if item.admin.activo %}
+                            <form method="POST" action="{{ url_for('superadmin.desactivar_admin', empresa_id=item.empresa.id) }}" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Desactivar admin</button>
+                            </form>
+                            {% else %}
+                            <form method="POST" action="{{ url_for('superadmin.activar_admin', empresa_id=item.empresa.id) }}" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-success">Activar admin</button>
+                            </form>
+                            {% endif %}
+
+                            <form method="POST" action="{{ url_for('superadmin.reset_password', empresa_id=item.empresa.id) }}" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-warning">Reset password</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
