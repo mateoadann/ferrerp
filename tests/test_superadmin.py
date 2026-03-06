@@ -186,3 +186,72 @@ def test_acceso_denegado_para_admin_normal(app, empresa_aprobada):
     )
     resp = client.get('/superadmin/', follow_redirects=False)
     assert resp.status_code == 302
+
+
+def test_acceso_denegado_para_vendedor(app):
+    """Un vendedor no puede acceder a /superadmin/."""
+    emp = Empresa(nombre='Taller Vendedor', activa=True, aprobada=True)
+    _db.session.add(emp)
+    _db.session.flush()
+    vendedor = Usuario(
+        email='vendedor@taller.com',
+        nombre='Vendedor',
+        rol='vendedor',
+        activo=True,
+        empresa_id=emp.id,
+    )
+    vendedor.set_password('password123')
+    _db.session.add(vendedor)
+    _db.session.commit()
+
+    client = app.test_client()
+    client.post(
+        '/auth/login',
+        data={'email': 'vendedor@taller.com', 'password': 'password123'},
+    )
+    resp = client.get('/superadmin/', follow_redirects=False)
+    assert resp.status_code == 302
+
+
+def test_aprobar_empresa_inexistente(app, superadmin):
+    """Aprobar una empresa que no existe muestra error."""
+    client = app.test_client()
+    _login_superadmin(client)
+    resp = client.post(
+        '/superadmin/empresas/99999/aprobar',
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert b'Empresa no encontrada' in resp.data
+
+
+def test_desactivar_admin_empresa_sin_admin(app, superadmin):
+    """Desactivar admin de empresa sin administrador muestra error."""
+    emp = Empresa(nombre='Sin Admin', activa=True, aprobada=True)
+    _db.session.add(emp)
+    _db.session.commit()
+
+    client = app.test_client()
+    _login_superadmin(client)
+    resp = client.post(
+        f'/superadmin/empresas/{emp.id}/desactivar-admin',
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert b'No se encontr' in resp.data
+
+
+def test_reset_password_empresa_sin_admin(app, superadmin):
+    """Reset password de empresa sin administrador muestra error."""
+    emp = Empresa(nombre='Sin Admin 2', activa=True, aprobada=True)
+    _db.session.add(emp)
+    _db.session.commit()
+
+    client = app.test_client()
+    _login_superadmin(client)
+    resp = client.post(
+        f'/superadmin/empresas/{emp.id}/reset-password',
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert b'No se encontr' in resp.data

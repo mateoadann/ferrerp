@@ -138,3 +138,114 @@ def test_cambiar_password_exitoso(app, admin_con_cambio_password):
         u = Usuario.query.filter_by(email='admin@test.com').first()
         assert u.debe_cambiar_password is False
         assert u.check_password('nuevapassword123')
+
+
+def test_login_admin_desactivado(app):
+    """Un admin desactivado por superadmin no puede loguearse."""
+    emp = Empresa(nombre='Empresa Desact', activa=True, aprobada=True)
+    _db.session.add(emp)
+    _db.session.flush()
+    u = Usuario(
+        email='desact@test.com',
+        nombre='Admin Desact',
+        rol='administrador',
+        activo=False,
+        empresa_id=emp.id,
+    )
+    u.set_password('password123')
+    _db.session.add(u)
+    _db.session.commit()
+
+    client = app.test_client()
+    resp = client.post(
+        '/auth/login',
+        data={'email': 'desact@test.com', 'password': 'password123'},
+        follow_redirects=True,
+    )
+    assert b'Tu cuenta est' in resp.data  # "Tu cuenta está desactivada"
+
+
+def test_cambiar_password_actual_incorrecta(app, admin_con_cambio_password):
+    """El cambio falla si la contraseña actual es incorrecta."""
+    client = app.test_client()
+    client.post(
+        '/auth/login',
+        data={'email': 'admin@test.com', 'password': 'temporal123'},
+    )
+    resp = client.post(
+        '/auth/cambiar-password',
+        data={
+            'password_actual': 'incorrecta',
+            'password_nueva': 'nuevapassword123',
+            'password_confirmar': 'nuevapassword123',
+        },
+        follow_redirects=True,
+    )
+    assert b'incorrecta' in resp.data
+    with app.app_context():
+        u = Usuario.query.filter_by(email='admin@test.com').first()
+        assert u.debe_cambiar_password is True
+
+
+def test_cambiar_password_confirmacion_no_coincide(app, admin_con_cambio_password):
+    """El cambio falla si la confirmación no coincide."""
+    client = app.test_client()
+    client.post(
+        '/auth/login',
+        data={'email': 'admin@test.com', 'password': 'temporal123'},
+    )
+    resp = client.post(
+        '/auth/cambiar-password',
+        data={
+            'password_actual': 'temporal123',
+            'password_nueva': 'nuevapassword123',
+            'password_confirmar': 'otrapassword456',
+        },
+        follow_redirects=True,
+    )
+    assert b'no coinciden' in resp.data
+    with app.app_context():
+        u = Usuario.query.filter_by(email='admin@test.com').first()
+        assert u.debe_cambiar_password is True
+
+
+def test_superadmin_con_debe_cambiar_password(app):
+    """Superadmin con debe_cambiar_password es forzado y luego redirige a /superadmin/."""
+    u = Usuario(
+        email='super2@test.com',
+        nombre='Super Admin 2',
+        rol='superadmin',
+        activo=True,
+        empresa_id=None,
+        debe_cambiar_password=True,
+    )
+    u.set_password('temporal123')
+    _db.session.add(u)
+    _db.session.commit()
+
+    client = app.test_client()
+    # Login redirige a cambiar password
+    resp = client.post(
+        '/auth/login',
+        data={'email': 'super2@test.com', 'password': 'temporal123'},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+    assert '/auth/cambiar-password' in resp.headers['Location']
+
+    # Cambiar password redirige a /superadmin/
+    resp = client.post(
+        '/auth/cambiar-password',
+        data={
+            'password_actual': 'temporal123',
+            'password_nueva': 'nuevapass123',
+            'password_confirmar': 'nuevapass123',
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+    assert '/superadmin/' in resp.headers['Location']
+
+    with app.app_context():
+        u = Usuario.query.filter_by(email='super2@test.com').first()
+        assert u.debe_cambiar_password is False
