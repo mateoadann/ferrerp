@@ -109,6 +109,7 @@ def register_blueprints(app):
 
 def register_commands(app):
     """Registra comandos CLI personalizados."""
+    import click
 
     @app.cli.command('init-db')
     def init_db():
@@ -123,6 +124,31 @@ def register_commands(app):
 
         run_seeds()
         print('Datos de prueba cargados.')
+
+    @app.cli.command('crear-superadmin')
+    @click.option('--email', required=True, help='Email del superadmin')
+    @click.option('--nombre', required=True, help='Nombre del superadmin')
+    @click.option('--password', required=True, help='Contraseña del superadmin')
+    def crear_superadmin(email, nombre, password):
+        """Crea el usuario superadmin (único en el sistema)."""
+        from .models import Usuario
+
+        existente = Usuario.query.filter_by(rol='superadmin').first()
+        if existente:
+            print(f'Ya existe un superadmin registrado: {existente.email}')
+            return
+
+        usuario = Usuario(
+            email=email.lower(),
+            nombre=nombre,
+            rol='superadmin',
+            activo=True,
+            empresa_id=None,
+        )
+        usuario.set_password(password)
+        db.session.add(usuario)
+        db.session.commit()
+        print(f'Superadmin creado exitosamente: {email}')
 
 
 def register_template_context(app):
