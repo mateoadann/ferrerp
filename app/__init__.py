@@ -167,6 +167,8 @@ def register_template_context(app):
         def get_config(clave, default=None):
             if not current_user.is_authenticated:
                 return default
+            if current_user.empresa_id is None:
+                return default
             config_item = Configuracion.query.filter_by(
                 clave=clave, empresa_id=current_user.empresa_id
             ).first()
