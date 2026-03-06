@@ -30,7 +30,7 @@ from ..models import (
     VentaDetalle,
 )
 from ..services import venta_service
-from ..utils.decorators import admin_required, caja_abierta_required
+from ..utils.decorators import admin_required, caja_abierta_required, empresa_aprobada_required
 from ..utils.helpers import ahora_argentina, generar_numero_venta, paginar_query
 
 bp = Blueprint('ventas', __name__, url_prefix='/ventas')
@@ -38,6 +38,7 @@ bp = Blueprint('ventas', __name__, url_prefix='/ventas')
 
 @bp.route('/punto-de-venta', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 @caja_abierta_required
 def punto_de_venta():
     """Pantalla principal de punto de venta."""
@@ -282,6 +283,7 @@ def detalle(id):
 
 @bp.route('/<int:id>/anular', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 @admin_required
 def anular(id):
     """Anular venta (solo administradores)."""
