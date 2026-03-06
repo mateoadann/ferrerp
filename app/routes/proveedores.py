@@ -6,6 +6,7 @@ from flask_login import current_user, login_required
 from ..extensions import db
 from ..forms.proveedor_forms import ProveedorForm
 from ..models import OrdenCompra, Proveedor
+from ..utils.decorators import empresa_aprobada_required
 from ..utils.helpers import es_peticion_htmx, paginar_query
 
 bp = Blueprint('proveedores', __name__, url_prefix='/proveedores')
@@ -53,6 +54,7 @@ def index():
 
 @bp.route('/nuevo', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 def nuevo():
     """Crear nuevo proveedor."""
     form = ProveedorForm()
@@ -101,6 +103,7 @@ def detalle(id):
 
 @bp.route('/<int:id>/editar', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 def editar(id):
     """Editar proveedor."""
     proveedor = Proveedor.get_o_404(id)
@@ -132,6 +135,7 @@ def editar(id):
 
 @bp.route('/<int:id>/toggle-activo', methods=['POST'])
 @login_required
+@empresa_aprobada_required
 def toggle_activo(id):
     """Activar/desactivar proveedor."""
     proveedor = Proveedor.get_o_404(id)

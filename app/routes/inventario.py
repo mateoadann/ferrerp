@@ -8,6 +8,7 @@ from flask_login import current_user, login_required
 from ..extensions import db
 from ..forms.producto_forms import AjusteStockForm
 from ..models import MovimientoStock, Producto
+from ..utils.decorators import empresa_aprobada_required
 from ..utils.helpers import es_peticion_htmx, paginar_query
 
 bp = Blueprint('inventario', __name__, url_prefix='/inventario')
@@ -75,6 +76,7 @@ def bajo_minimo():
 
 @bp.route('/ajuste', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 def ajuste():
     """Formulario de ajuste de stock."""
     form = AjusteStockForm()

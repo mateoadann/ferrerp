@@ -9,7 +9,7 @@ from ..extensions import db
 from ..models import Caja, MovimientoCaja, Venta
 from ..forms.caja_forms import AperturaCajaForm, CierreCajaForm, EgresoCajaForm
 from ..utils.helpers import ahora_argentina, paginar_query
-from ..utils.decorators import admin_required
+from ..utils.decorators import admin_required, empresa_aprobada_required
 
 bp = Blueprint('caja', __name__, url_prefix='/caja')
 
@@ -107,6 +107,7 @@ def index():
 
 @bp.route('/abrir', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 def abrir():
     """Abrir caja del día."""
     # Verificar si ya hay una caja abierta
@@ -137,6 +138,7 @@ def abrir():
 
 @bp.route('/cerrar', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 def cerrar():
     """Cerrar caja del día."""
     caja = Caja.query_empresa().filter_by(estado='abierta').first()
@@ -179,6 +181,7 @@ def cerrar():
 
 @bp.route('/egreso', methods=['POST'])
 @login_required
+@empresa_aprobada_required
 def egreso():
     """Registrar egreso de caja."""
     caja = Caja.query_empresa().filter_by(estado='abierta').first()

@@ -1,12 +1,13 @@
 """Rutas del Dashboard."""
 
 from datetime import datetime, timedelta
-from flask import Blueprint, render_template, jsonify
+
+from flask import Blueprint, jsonify, redirect, render_template, url_for
 from flask_login import current_user, login_required
-from sqlalchemy import func, and_
+from sqlalchemy import func
 
 from ..extensions import db
-from ..models import Venta, Producto, Cliente, MovimientoCaja
+from ..models import Cliente, Producto, Venta
 from ..utils.helpers import ahora_argentina
 
 bp = Blueprint('dashboard', __name__)
@@ -16,6 +17,9 @@ bp = Blueprint('dashboard', __name__)
 @login_required
 def index():
     """Página principal del dashboard."""
+    if current_user.es_superadmin:
+        return redirect(url_for('superadmin.index'))
+
     # Obtener estadísticas del día
     hoy = ahora_argentina().date()
     inicio_dia = datetime.combine(hoy, datetime.min.time())

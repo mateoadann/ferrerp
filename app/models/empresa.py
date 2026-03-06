@@ -17,6 +17,7 @@ class Empresa(db.Model):
     telefono = db.Column(db.String(20))
     email = db.Column(db.String(120))
     activa = db.Column(db.Boolean, default=True, nullable=False)
+    aprobada = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=ahora_argentina)
     updated_at = db.Column(
         db.DateTime, default=ahora_argentina, onupdate=ahora_argentina

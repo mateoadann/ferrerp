@@ -9,6 +9,7 @@ from sqlalchemy import func
 from ..extensions import db
 from ..forms.cliente_forms import ClienteForm, PagoCuentaCorrienteForm
 from ..models import Caja, Cliente, MovimientoCaja, MovimientoCuentaCorriente
+from ..utils.decorators import empresa_aprobada_required
 from ..utils.helpers import es_peticion_htmx, paginar_query
 
 bp = Blueprint('clientes', __name__, url_prefix='/clientes')
@@ -56,6 +57,7 @@ def index():
 
 @bp.route('/nuevo', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 def nuevo():
     """Crear nuevo cliente."""
     form = ClienteForm()
@@ -84,6 +86,7 @@ def nuevo():
 
 @bp.route('/<int:id>/editar', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 def editar(id):
     """Editar cliente."""
     cliente = Cliente.get_o_404(id)
@@ -147,6 +150,7 @@ def cuenta_corriente(id):
 
 @bp.route('/<int:id>/registrar-pago', methods=['POST'])
 @login_required
+@empresa_aprobada_required
 def registrar_pago(id):
     """Registrar pago de cuenta corriente."""
     cliente = Cliente.get_o_404(id)
@@ -261,6 +265,7 @@ def buscar():
 
 @bp.route('/<int:id>/toggle-activo', methods=['POST'])
 @login_required
+@empresa_aprobada_required
 def toggle_activo(id):
     """Activar/desactivar cliente."""
     cliente = Cliente.get_o_404(id)

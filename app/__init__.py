@@ -89,6 +89,7 @@ def register_blueprints(app):
         productos_bp,
         proveedores_bp,
         reportes_bp,
+        superadmin_bp,
         ventas_bp,
     )
 
@@ -105,10 +106,12 @@ def register_blueprints(app):
     app.register_blueprint(reportes_bp)
     app.register_blueprint(configuracion_bp)
     app.register_blueprint(facturacion_bp)
+    app.register_blueprint(superadmin_bp)
 
 
 def register_commands(app):
     """Registra comandos CLI personalizados."""
+    import click
 
     @app.cli.command('init-db')
     def init_db():
@@ -124,6 +127,31 @@ def register_commands(app):
         run_seeds()
         print('Datos de prueba cargados.')
 
+    @app.cli.command('crear-superadmin')
+    @click.option('--email', required=True, help='Email del superadmin')
+    @click.option('--nombre', required=True, help='Nombre del superadmin')
+    @click.option('--password', required=True, help='Contraseña del superadmin')
+    def crear_superadmin(email, nombre, password):
+        """Crea el usuario superadmin (único en el sistema)."""
+        from .models import Usuario
+
+        existente = Usuario.query.filter_by(rol='superadmin').first()
+        if existente:
+            print(f'Ya existe un superadmin registrado: {existente.email}')
+            return
+
+        usuario = Usuario(
+            email=email.lower(),
+            nombre=nombre,
+            rol='superadmin',
+            activo=True,
+            empresa_id=None,
+        )
+        usuario.set_password(password)
+        db.session.add(usuario)
+        db.session.commit()
+        print(f'Superadmin creado exitosamente: {email}')
+
 
 def register_template_context(app):
     """Registra variables y funciones globales para templates."""
@@ -138,6 +166,8 @@ def register_template_context(app):
         # Obtener configuración del negocio (filtrada por empresa)
         def get_config(clave, default=None):
             if not current_user.is_authenticated:
+                return default
+            if current_user.empresa_id is None:
                 return default
             config_item = Configuracion.query.filter_by(
                 clave=clave, empresa_id=current_user.empresa_id
