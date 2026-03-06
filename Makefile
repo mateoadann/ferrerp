@@ -1,7 +1,7 @@
 # FerrERP - Makefile
 # Comandos para facilitar el uso de Docker
 
-.PHONY: help build up down logs shell db-shell seed migrate clean test test-dev test-dev-run install-hooks up-prod logs-nginx reload-nginx
+.PHONY: help build up down logs shell db-shell seed migrate clean test test-dev test-dev-run install-hooks up-prod logs-nginx reload-nginx crear-superadmin
 
 # Mostrar ayuda
 help:
@@ -20,6 +20,7 @@ help:
 	@echo "  make test-dev   - Ejecutar tests (stack dev)"
 	@echo "  make test-dev-run - Ejecutar tests en contenedor nuevo (dev)"
 	@echo "  make install-hooks - Instalar hook pre-push"
+	@echo "  make crear-superadmin - Crear usuario superadmin"
 	@echo "  make clean      - Eliminar contenedores, volumenes e imagenes"
 	@echo "  make restart    - Reiniciar aplicacion"
 	@echo "  make status     - Ver estado de contenedores"
@@ -80,6 +81,14 @@ seed:
 # Ejecutar migraciones
 migrate:
 	docker-compose exec web flask db upgrade
+
+# Crear superadmin
+crear-superadmin:
+	@read -p "Email: " email; \
+	read -p "Nombre: " nombre; \
+	read -s -p "Contraseña: " password; \
+	echo ""; \
+	docker-compose -f docker-compose.dev.yml exec web flask crear-superadmin --email "$$email" --nombre "$$nombre" --password "$$password"
 
 # Inicializar base de datos
 init-db:
