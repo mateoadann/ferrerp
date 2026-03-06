@@ -30,7 +30,7 @@ def app():
 @pytest.fixture
 def empresa(app):
     """Crea una empresa de prueba."""
-    emp = Empresa(nombre='Empresa Test', activa=True)
+    emp = Empresa(nombre='Empresa Test', activa=True, aprobada=True)
     _db.session.add(emp)
     _db.session.commit()
     return emp
