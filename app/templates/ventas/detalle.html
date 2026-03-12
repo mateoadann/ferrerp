@@ -22,6 +22,15 @@
             <span class="material-symbols-rounded me-2">print</span>
             Imprimir Ticket
         </a>
+        {% if venta.es_anulable %}
+        <form method="POST" action="{{ url_for('facturacion.emitir_desde_venta', venta_id=venta.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary">
+                <span class="material-symbols-rounded me-2">receipt_long</span>
+                Emitir factura
+            </button>
+        </form>
+        {% endif %}
         {% if venta.es_anulable and current_user.es_admin %}
         <a href="{{ url_for('ventas.anular', id=venta.id) }}" class="btn btn-outline-danger">
             <span class="material-symbols-rounded me-2">cancel</span>

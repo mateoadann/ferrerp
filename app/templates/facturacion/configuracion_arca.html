@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+{% block title %}Configuración ARCA - {{ app_name }}{% endblock %}
+{% block alerts %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Configuración ARCA</h2>
+</div>
+
+<div class="row">
+    <div class="col-lg-3 mb-4">
+        <div class="list-group">
+            {% if current_user.es_administrador %}
+            <a href="{{ url_for('configuracion.index') }}" class="list-group-item list-group-item-action">General</a>
+            <a href="{{ url_for('configuracion.usuarios') }}" class="list-group-item list-group-item-action">Usuarios</a>
+            <a href="{{ url_for('facturacion.configuracion_arca') }}" class="list-group-item list-group-item-action active">ARCA</a>
+            {% endif %}
+            <a href="{{ url_for('configuracion.categorias') }}" class="list-group-item list-group-item-action">Categorías</a>
+        </div>
+    </div>
+
+    <div class="col-lg-9">
+        {% include 'components/alerts.html' %}
+        <div class="card">
+            <div class="card-header">Datos fiscales y credenciales</div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data" class="row g-3">
+                    {{ form.hidden_tag() }}
+
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.cuit.label.text }}</label>
+                        {{ form.cuit(class="form-control" + (" is-invalid" if form.cuit.errors else "")) }}
+                        {% for error in form.cuit.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.condicion_iva_id.label.text }}</label>
+                        {{ form.condicion_iva_id(class="form-select" + (" is-invalid" if form.condicion_iva_id.errors else "")) }}
+                        {% for error in form.condicion_iva_id.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.condicion_iva.label.text }}</label>
+                        {{ form.condicion_iva(class="form-control" + (" is-invalid" if form.condicion_iva.errors else "")) }}
+                        {% for error in form.condicion_iva.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.inicio_actividades.label.text }}</label>
+                        {{ form.inicio_actividades(class="form-control" + (" is-invalid" if form.inicio_actividades.errors else "")) }}
+                        {% for error in form.inicio_actividades.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.punto_venta_arca.label.text }}</label>
+                        {{ form.punto_venta_arca(class="form-control" + (" is-invalid" if form.punto_venta_arca.errors else "")) }}
+                        {% for error in form.punto_venta_arca.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.ambiente_arca.label.text }}</label>
+                        {{ form.ambiente_arca(class="form-select" + (" is-invalid" if form.ambiente_arca.errors else "")) }}
+                        {% for error in form.ambiente_arca.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.certificado_arca.label.text }}</label>
+                        {{ form.certificado_arca(class="form-control" + (" is-invalid" if form.certificado_arca.errors else "")) }}
+                        {% for error in form.certificado_arca.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+                        {% if empresa.certificado_arca %}
+                        <small class="text-muted d-block mt-1">Ya hay un certificado cargado.</small>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.clave_privada_arca.label.text }}</label>
+                        {{ form.clave_privada_arca(class="form-control" + (" is-invalid" if form.clave_privada_arca.errors else "")) }}
+                        {% for error in form.clave_privada_arca.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+                        {% if empresa.clave_privada_arca %}
+                        <small class="text-muted d-block mt-1">Ya hay una clave privada cargada.</small>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check">
+                            {{ form.arca_habilitado(class="form-check-input", id="arca_habilitado") }}
+                            <label class="form-check-label" for="arca_habilitado">
+                                {{ form.arca_habilitado.label.text }}
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="col-12"><hr>
+                        <button type="submit" class="btn btn-primary">
+                            <span class="material-symbols-rounded me-2">save</span>
+                            Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">Consulta de padrón por CUIT</div>
+            <div class="card-body">
+                <form id="form-padron-consulta" class="row g-3" autocomplete="off">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="col-md-8">
+                        <label for="padron_cuit" class="form-label">CUIT a consultar</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="padron_cuit"
+                            name="cuit"
+                            placeholder="Ej: 20-12345678-3"
+                            required
+                        >
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="submit" class="btn btn-outline-primary w-100" id="btn-padron-consultar">
+                            Consultar padrón
+                        </button>
+                    </div>
+                </form>
+
+                <div id="padron-resultado" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+(() => {
+    const form = document.getElementById('form-padron-consulta');
+    if (!form) {
+        return;
+    }
+
+    const boton = document.getElementById('btn-padron-consultar');
+    const resultado = document.getElementById('padron-resultado');
+    const endpoint = {{ url_for('facturacion.consultar_padron') | tojson }};
+
+    const renderError = (mensaje) => {
+        resultado.innerHTML = `
+            <div class="alert alert-danger mb-0" role="alert">
+                ${mensaje}
+            </div>
+        `;
+    };
+
+    const renderOk = (data) => {
+        const condicion = data.condicion_iva || '-';
+        resultado.innerHTML = `
+            <div class="alert alert-success" role="alert">Consulta realizada correctamente.</div>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered align-middle mb-0">
+                    <tbody>
+                        <tr><th scope="row" class="w-25">CUIT</th><td>${data.cuit || '-'}</td></tr>
+                        <tr><th scope="row">Razón social</th><td>${data.razon_social || '-'}</td></tr>
+                        <tr><th scope="row">Condición IVA</th><td>${condicion}</td></tr>
+                        <tr><th scope="row">Tipo/Nro documento</th><td>${data.doc_tipo || '-'} / ${data.doc_nro || '-'}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        `;
+    };
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        boton.disabled = true;
+        resultado.innerHTML = '<div class="text-muted">Consultando padrón...</div>';
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                body: new FormData(form),
+            });
+            const payload = await response.json();
+
+            if (!response.ok || !payload.success) {
+                renderError(payload.error || 'No se pudo consultar el padrón ARCA.');
+                return;
+            }
+
+            renderOk(payload.data || {});
+        } catch (error) {
+            renderError('No se pudo completar la consulta por un error de red.');
+        } finally {
+            boton.disabled = false;
+        }
+    });
+})();
+</script>
+{% endblock %}
