@@ -143,25 +143,39 @@
     const resultado = document.getElementById('padron-resultado');
     const endpoint = {{ url_for('facturacion.consultar_padron') | tojson }};
 
+    const escapeHtml = (str) => {
+        const s = String(str ?? '');
+        return s
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;');
+    };
+
     const renderError = (mensaje) => {
         resultado.innerHTML = `
             <div class="alert alert-danger mb-0" role="alert">
-                ${mensaje}
+                ${escapeHtml(mensaje)}
             </div>
         `;
     };
 
     const renderOk = (data) => {
-        const condicion = data.condicion_iva || '-';
+        const condicion = escapeHtml(data.condicion_iva || '-');
+        const cuit = escapeHtml(data.cuit || '-');
+        const razonSocial = escapeHtml(data.razon_social || '-');
+        const docTipo = escapeHtml(data.doc_tipo || '-');
+        const docNro = escapeHtml(data.doc_nro || '-');
         resultado.innerHTML = `
             <div class="alert alert-success" role="alert">Consulta realizada correctamente.</div>
             <div class="table-responsive">
                 <table class="table table-sm table-bordered align-middle mb-0">
                     <tbody>
-                        <tr><th scope="row" class="w-25">CUIT</th><td>${data.cuit || '-'}</td></tr>
-                        <tr><th scope="row">Razón social</th><td>${data.razon_social || '-'}</td></tr>
+                        <tr><th scope="row" class="w-25">CUIT</th><td>${cuit}</td></tr>
+                        <tr><th scope="row">Razón social</th><td>${razonSocial}</td></tr>
                         <tr><th scope="row">Condición IVA</th><td>${condicion}</td></tr>
-                        <tr><th scope="row">Tipo/Nro documento</th><td>${data.doc_tipo || '-'} / ${data.doc_nro || '-'}</td></tr>
+                        <tr><th scope="row">Tipo/Nro documento</th><td>${docTipo} / ${docNro}</td></tr>
                     </tbody>
                 </table>
             </div>

@@ -11,6 +11,9 @@ TIPO_COMPROBANTE = {
     11: 'Factura C',
     12: 'Nota de Débito C',
     13: 'Nota de Crédito C',
+    51: 'Factura M',
+    52: 'Nota de Débito M',
+    53: 'Nota de Crédito M',
 }
 
 # Clase de comprobante por tipo
@@ -24,12 +27,15 @@ CLASE_POR_TIPO = {
     11: 'C',
     12: 'C',
     13: 'C',
+    51: 'M',
+    52: 'M',
+    53: 'M',
 }
 
 # Tipos de factura por clase (para seleccionar el tipo base)
-FACTURA_POR_CLASE = {'A': 1, 'B': 6, 'C': 11}
-NOTA_DEBITO_POR_CLASE = {'A': 2, 'B': 7, 'C': 12}
-NOTA_CREDITO_POR_CLASE = {'A': 3, 'B': 8, 'C': 13}
+FACTURA_POR_CLASE = {'A': 1, 'B': 6, 'C': 11, 'M': 51}
+NOTA_DEBITO_POR_CLASE = {'A': 2, 'B': 7, 'C': 12, 'M': 52}
+NOTA_CREDITO_POR_CLASE = {'A': 3, 'B': 8, 'C': 13, 'M': 53}
 
 # Alícuotas IVA — mapeo de porcentaje a ID ARCA
 ALICUOTA_IVA = {
@@ -48,6 +54,7 @@ ALICUOTA_IVA_INVERSO = {v: k for k, v in ALICUOTA_IVA.items()}
 TIPO_DOCUMENTO = {
     80: 'CUIT',
     86: 'CUIL',
+    87: 'CDI',
     96: 'DNI',
     99: 'Sin identificar / Otro',
 }
@@ -58,10 +65,14 @@ CONDICION_IVA = {
     4: 'IVA Sujeto Exento',
     5: 'Consumidor Final',
     6: 'Responsable Monotributo',
+    7: 'No Categorizado',
     8: 'Proveedor del Exterior',
     9: 'Cliente del Exterior',
     10: 'IVA Liberado',
     11: 'IVA Responsable Inscripto - Agente de Percepción',
+    13: 'Monotributista Social',
+    15: 'No Alcanzado',
+    16: 'Monotributo Trabajador Independiente Promovido',
 }
 
 # Concepto de factura

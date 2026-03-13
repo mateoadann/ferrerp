@@ -6,7 +6,7 @@ from decimal import Decimal
 from ..extensions import db
 from ..models import Empresa, Factura, FacturaDetalle, Venta
 from .arca_client import ArcaClient
-from .arca_constants import FACTURA_POR_CLASE, determinar_clase_comprobante
+from .arca_constants import CLASE_POR_TIPO, FACTURA_POR_CLASE, determinar_clase_comprobante
 from .arca_exceptions import ArcaAuthError, ArcaNetworkError, ArcaRechazoError, ArcaValidationError
 from .factura_builder import FacturaBuilder
 from .wsfe_service import WSFEService
@@ -252,7 +252,26 @@ class FacturacionService:
         db.session.add(factura)
         db.session.flush()
 
+        clase = CLASE_POR_TIPO.get(tipo_comprobante)
+        precios_con_iva = clase in ('B', 'M', 'C')
+
         for detalle in venta.detalles:
+            iva_porcentaje = Decimal(str(detalle.iva_porcentaje or 0))
+            subtotal_linea = Decimal(str(detalle.subtotal or 0))
+
+            if clase == 'C' or iva_porcentaje == 0:
+                iva_monto = Decimal('0.00')
+            elif precios_con_iva:
+                divisor = Decimal('1') + (iva_porcentaje / Decimal('100'))
+                neto = subtotal_linea / divisor
+                iva_monto = (subtotal_linea - neto).quantize(
+                    Decimal('0.01'),
+                )
+            else:
+                iva_monto = (subtotal_linea * iva_porcentaje / Decimal('100')).quantize(
+                    Decimal('0.01'),
+                )
+
             factura_det = FacturaDetalle(
                 factura_id=factura.id,
                 producto_id=detalle.producto_id,
@@ -263,7 +282,7 @@ class FacturacionService:
                 precio_unitario=detalle.precio_unitario,
                 subtotal=detalle.subtotal,
                 iva_porcentaje=detalle.iva_porcentaje,
-                iva_monto=Decimal('0'),
+                iva_monto=iva_monto,
             )
             db.session.add(factura_det)
 

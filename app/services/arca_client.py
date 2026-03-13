@@ -9,6 +9,11 @@ import time
 import unicodedata
 from pathlib import Path
 
+try:
+    from zeep.helpers import serialize_object as _zeep_serialize
+except ImportError:
+    _zeep_serialize = None
+
 from .arca_constants import (
     AMBIENTE_PRODUCCION,
     CONDICION_IVA,
@@ -238,7 +243,7 @@ class ArcaClient:
                 fcntl.flock(lock_fd, fcntl.LOCK_UN)
 
     def _crear_ws(self, servicio):
-        """Crea instancia ArcaWebService siguiendo el flujo documentado."""
+        """Crea instancia ArcaWebService siguiendo la firma documentada."""
         if servicio == 'wsfe':
             wsdl = self._wsdl_wsfe
         elif servicio == 'ws_sr_constancia_inscripcion':
@@ -256,19 +261,6 @@ class ArcaClient:
                 wsdl,
                 servicio,
             ),
-            lambda: self._arca_webservice_cls(
-                service=servicio,
-                wsdl=wsdl,
-                enable_logging=self.enable_logging,
-            ),
-            lambda: self._arca_webservice_cls(
-                service=servicio,
-                wsdl=wsdl,
-            ),
-            lambda: self._arca_webservice_cls(servicio, wsdl),
-            lambda: self._arca_webservice_cls(servicio),
-            lambda: self._arca_webservice_cls(wsdl),
-            lambda: self._arca_webservice_cls(),
         )
         errores = []
 
@@ -278,19 +270,16 @@ class ArcaClient:
 
             self._aplicar_configuracion_global()
             reintentar_por_ta = False
-            errores_intento = []
 
             for crear in intentos:
                 try:
                     return crear()
                 except Exception as exc:
                     mensaje = str(exc)
-                    errores_intento.append(mensaje)
+                    errores.append(mensaje)
                     if self._es_error_ta_ya_valido(mensaje):
                         reintentar_por_ta = True
                         break
-
-            errores.extend(errores_intento)
 
             if reintentar_por_ta:
                 continue
@@ -329,16 +318,7 @@ class ArcaClient:
 
             try:
                 self._aplicar_configuracion_global()
-                self._invocar_candidatos(
-                    ws,
-                    (
-                        'initialize_wsaa',
-                        'init_wsaa',
-                        'authenticate',
-                        'auth',
-                        'login',
-                    ),
-                )
+                ws.initialize_wsaa()
                 return
             except Exception as exc:
                 mensaje = str(exc)
@@ -371,10 +351,12 @@ class ArcaClient:
         cuit = getattr(ws, 'cuit', None) or self.cuit
         cuit_str = str(cuit or '')
 
+        cuit_int = int(cuit_str) if cuit_str else 0
+
         if isinstance(auth, dict):
             auth['Token'] = token
             auth['Sign'] = sign
-            auth['Cuit'] = cuit_str
+            auth['Cuit'] = cuit_int
             return auth
 
         update_method = getattr(auth, 'update', None)
@@ -384,7 +366,7 @@ class ArcaClient:
                     {
                         'Token': token,
                         'Sign': sign,
-                        'Cuit': cuit_str,
+                        'Cuit': cuit_int,
                     },
                 )
                 return auth
@@ -393,7 +375,7 @@ class ArcaClient:
 
         setattr(auth, 'Token', token)
         setattr(auth, 'Sign', sign)
-        setattr(auth, 'Cuit', cuit_str)
+        setattr(auth, 'Cuit', cuit_int)
         return auth
 
     def _send_request(self, ws, operacion, payload):
@@ -467,6 +449,50 @@ class ArcaClient:
                 return CONDICION_IVA.get(identificador), identificador
 
         return condicion_iva, None
+
+    @classmethod
+    def _inferir_condicion_iva_padron(cls, persona):
+        """Infiere condición IVA de la respuesta getPersona_v2.
+
+        La respuesta de getPersona_v2 no trae campos explícitos de condición IVA.
+        Se infiere según la presencia de datosRegimenGeneral o datosMonotributo.
+        """
+        # Primero intentar con campos explícitos como fallback
+        desc = cls._buscar(
+            persona,
+            ('descripcionCondicionIVA',),
+            ('datosGenerales', 'descripcionCondicionIVA'),
+            ('condicionIVA',),
+        )
+        cond_id = cls._buscar(
+            persona,
+            ('idCondicionIVA',),
+            ('datosGenerales', 'idCondicionIVA'),
+            ('condicionIVAId',),
+        )
+        if desc or cond_id:
+            return cls._normalizar_condicion_iva(desc, cond_id)
+
+        # Inferir desde estructura de getPersona_v2
+        datos_rg = cls._buscar(persona, ('datosRegimenGeneral',))
+        datos_mono = cls._buscar(persona, ('datosMonotributo',))
+
+        if datos_rg:
+            return CONDICION_IVA.get(1), 1  # Responsable Inscripto
+        if datos_mono:
+            return CONDICION_IVA.get(6), 6  # Monotributo
+
+        # Si tiene actividades pero no es RI ni Mono, probablemente Exento
+        actividades = cls._buscar(
+            persona,
+            ('datosRegimenGeneral', 'actividad'),
+            ('datosMonotributo', 'actividad'),
+            ('listActividades',),
+        )
+        if actividades:
+            return CONDICION_IVA.get(4), 4  # Exento
+
+        return CONDICION_IVA.get(5), 5  # Consumidor Final
 
     @classmethod
     def _mensaje_no_encontrado(cls, mensaje):
@@ -580,20 +606,7 @@ class ArcaClient:
             apellido = self._buscar(datos_generales, ('apellido',), default='')
             razon_social = ' '.join([str(apellido).strip(), str(nombre).strip()]).strip()
 
-        condicion_iva, condicion_iva_id = self._normalizar_condicion_iva(
-            self._buscar(
-                persona,
-                ('descripcionCondicionIVA',),
-                ('datosGenerales', 'descripcionCondicionIVA'),
-                ('condicionIVA',),
-            ),
-            self._buscar(
-                persona,
-                ('idCondicionIVA',),
-                ('datosGenerales', 'idCondicionIVA'),
-                ('condicionIVAId',),
-            ),
-        )
+        condicion_iva, condicion_iva_id = self._inferir_condicion_iva_padron(persona)
 
         doc_tipo = self._normalizar_doc_tipo(
             self._buscar(
@@ -653,6 +666,19 @@ class ArcaClient:
         if isinstance(valor, dict):
             return {k: self._to_python(v) for k, v in valor.items()}
 
+        # Intentar serialización nativa de zeep primero (maneja CompoundValue, etc.)
+        if _zeep_serialize is not None:
+            try:
+                serializado = _zeep_serialize(valor, dict)
+                if isinstance(serializado, dict):
+                    return {k: self._to_python(v) for k, v in serializado.items()}
+                if self._es_secuencia(serializado):
+                    return [self._to_python(item) for item in serializado]
+                return serializado
+            except Exception:
+                pass
+
+        # Fallback para cuando zeep no está disponible
         if hasattr(valor, '__values__'):
             return {k: self._to_python(v) for k, v in valor.__values__.items()}
 

@@ -14,6 +14,9 @@ SQLAlchemy==2.0.23
 marshmallow==3.20.1
 marshmallow-sqlalchemy==0.29.0
 
+# Facturación electrónica (ARCA)
+arca_arg
+
 # Utilidades
 python-dotenv==1.0.0
 email-validator==2.1.0

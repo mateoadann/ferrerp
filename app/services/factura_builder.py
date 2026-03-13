@@ -182,7 +182,7 @@ class FacturaBuilder:
                     'Para concepto servicios se requieren FchServDesde, FchServHasta y FchVtoPago.',
                 )
 
-        if self._data['CbteTipo'] in (2, 3, 7, 8, 12, 13) and not self._data['CbtesAsoc']:
+        if self._data['CbteTipo'] in (2, 3, 7, 8, 12, 13, 52, 53) and not self._data['CbtesAsoc']:
             raise ArcaValidationError('NC/ND requiere comprobante asociado.')
 
         if self._data['clase'] == 'C':
@@ -229,10 +229,10 @@ class FacturaBuilder:
             detalle['FchVtoPago'] = self._formatear_fecha(self._data['FchVtoPago'])
 
         if self._data['CbtesAsoc']:
-            detalle['CbtesAsoc'] = self._data['CbtesAsoc']
+            detalle['CbtesAsoc'] = {'CbteAsoc': self._data['CbtesAsoc']}
 
         if self._data['clase'] != 'C' and self._data['Iva']:
-            detalle['Iva'] = [
+            iva_items = [
                 {
                     'Id': item['Id'],
                     'BaseImp': float(_round2(item['BaseImp'])),
@@ -240,6 +240,7 @@ class FacturaBuilder:
                 }
                 for item in self._data['Iva']
             ]
+            detalle['Iva'] = {'AlicIva': iva_items}
 
         return {
             'FeCabReq': {
