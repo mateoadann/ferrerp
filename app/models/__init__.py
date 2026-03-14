@@ -15,7 +15,7 @@ from .orden_compra import OrdenCompra, OrdenCompraDetalle
 from .presupuesto import Presupuesto, PresupuestoDetalle
 from .producto import Producto
 from .proveedor import Proveedor
-from .tiendanube import SyncLog, TiendaNubeCredencial
+from .tiendanube import ProductoTiendaNube, SyncLog, TiendaNubeCredencial
 from .usuario import Usuario
 from .venta import Venta
 from .venta_detalle import VentaDetalle
@@ -31,6 +31,7 @@ __all__ = [
     'VentaDetalle',
     'TiendaNubeCredencial',
     'SyncLog',
+    'ProductoTiendaNube',
     'Devolucion',
     'DevolucionDetalle',
     'OrdenCompra',

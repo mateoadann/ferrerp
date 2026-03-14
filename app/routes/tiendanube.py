@@ -17,7 +17,15 @@ from flask_login import current_user, login_required
 
 from ..extensions import db
 from ..models import TiendaNubeCredencial
+from ..services.tiendanube_service import (
+    desvincular_producto,
+    listar_productos_disponibles,
+    listar_productos_vinculados,
+    vincular_producto,
+)
+from ..tasks.tiendanube_tasks import encolar_sync_completo, encolar_sync_masivo
 from ..utils.decorators import admin_required
+from ..utils.helpers import es_peticion_htmx, respuesta_htmx_redirect
 
 logger = logging.getLogger(__name__)
 
@@ -167,3 +175,150 @@ def desconectar():
 
     flash('Tienda Nube desconectada.', 'info')
     return redirect(url_for('tiendanube.configuracion'))
+
+
+# -------------------------------------------------------------------
+# Mapeo de productos
+# -------------------------------------------------------------------
+
+
+def _credencial_activa_o_redirigir():
+    """Verifica que la empresa tenga una credencial TN activa.
+
+    Returns:
+        TiendaNubeCredencial si está activa, o una respuesta de redirección.
+    """
+    credencial = TiendaNubeCredencial.query.filter_by(
+        empresa_id=current_user.empresa_id,
+        activo=True,
+    ).first()
+
+    if not credencial:
+        flash(
+            'Primero debés conectar tu tienda de Tienda Nube.',
+            'warning',
+        )
+        return None
+
+    return credencial
+
+
+def _render_productos(vinculados, disponibles):
+    """Renderiza la página o partial de productos según el tipo de request."""
+    if es_peticion_htmx():
+        return render_template(
+            'tiendanube/_tabla_productos.html',
+            vinculados=vinculados,
+            disponibles=disponibles,
+        )
+
+    return render_template(
+        'tiendanube/productos.html',
+        vinculados=vinculados,
+        disponibles=disponibles,
+    )
+
+
+@bp.route('/productos')
+@login_required
+@admin_required
+def productos():
+    """Página de mapeo de productos con Tienda Nube."""
+    credencial = _credencial_activa_o_redirigir()
+    if not credencial:
+        return redirect(url_for('tiendanube.configuracion'))
+
+    vinculados = listar_productos_vinculados(current_user.empresa_id)
+    disponibles = listar_productos_disponibles(current_user.empresa_id)
+
+    return render_template(
+        'tiendanube/productos.html',
+        vinculados=vinculados,
+        disponibles=disponibles,
+    )
+
+
+@bp.route('/productos/vincular', methods=['POST'])
+@login_required
+@admin_required
+def vincular():
+    """Vincula un producto local con Tienda Nube."""
+    producto_id = request.form.get('producto_id', type=int)
+
+    if not producto_id:
+        flash('No se indicó el producto a vincular.', 'danger')
+        if es_peticion_htmx():
+            return respuesta_htmx_redirect(url_for('tiendanube.productos'))
+        return redirect(url_for('tiendanube.productos'))
+
+    try:
+        vincular_producto(producto_id, current_user.empresa_id)
+        flash('Producto vinculado a Tienda Nube correctamente.', 'success')
+    except ValueError as e:
+        flash(str(e), 'danger')
+
+    if es_peticion_htmx():
+        vinculados = listar_productos_vinculados(current_user.empresa_id)
+        disponibles = listar_productos_disponibles(current_user.empresa_id)
+        return _render_productos(vinculados, disponibles)
+
+    return redirect(url_for('tiendanube.productos'))
+
+
+@bp.route('/productos/desvincular', methods=['POST'])
+@login_required
+@admin_required
+def desvincular():
+    """Desvincula un producto de Tienda Nube."""
+    producto_id = request.form.get('producto_id', type=int)
+
+    if not producto_id:
+        flash('No se indicó el producto a desvincular.', 'danger')
+        if es_peticion_htmx():
+            return respuesta_htmx_redirect(url_for('tiendanube.productos'))
+        return redirect(url_for('tiendanube.productos'))
+
+    try:
+        desvincular_producto(producto_id, current_user.empresa_id)
+        flash('Producto desvinculado de Tienda Nube.', 'success')
+    except ValueError as e:
+        flash(str(e), 'danger')
+
+    if es_peticion_htmx():
+        vinculados = listar_productos_vinculados(current_user.empresa_id)
+        disponibles = listar_productos_disponibles(current_user.empresa_id)
+        return _render_productos(vinculados, disponibles)
+
+    return redirect(url_for('tiendanube.productos'))
+
+
+@bp.route('/productos/sincronizar/<int:producto_id>', methods=['POST'])
+@login_required
+@admin_required
+def sincronizar_producto(producto_id):
+    """Encola la sincronización completa de un producto."""
+    try:
+        encolar_sync_completo(producto_id, current_user.empresa_id)
+        flash('Sincronización en cola.', 'success')
+    except ValueError as e:
+        flash(str(e), 'danger')
+
+    if es_peticion_htmx():
+        return respuesta_htmx_redirect(url_for('tiendanube.productos'))
+    return redirect(url_for('tiendanube.productos'))
+
+
+@bp.route('/productos/sincronizar-todo', methods=['POST'])
+@login_required
+@admin_required
+def sincronizar_todo():
+    """Encola la sincronización masiva de todos los productos vinculados."""
+    try:
+        encolar_sync_masivo(current_user.empresa_id)
+        flash('Sincronización masiva en cola.', 'success')
+    except ValueError as e:
+        flash(str(e), 'danger')
+
+    if es_peticion_htmx():
+        return respuesta_htmx_redirect(url_for('tiendanube.productos'))
+    return redirect(url_for('tiendanube.productos'))

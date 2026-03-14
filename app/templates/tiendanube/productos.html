@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Productos Tienda Nube - {{ app_name }}{% endblock %}
+{% block alerts %}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Productos Tienda Nube</h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('tiendanube.configuracion') }}" class="btn btn-outline-secondary">
+            <span class="material-symbols-rounded me-2">arrow_back</span>Configuración
+        </a>
+        <form method="POST" action="{{ url_for('tiendanube.sincronizar_todo') }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary"
+                    onclick="return confirm('¿Sincronizar todos los productos vinculados con Tienda Nube?')">
+                <span class="material-symbols-rounded me-2">sync</span>Sincronizar Todo
+            </button>
+        </form>
+    </div>
+</div>
+
+{% include 'components/alerts.html' %}
+
+<div id="tabla-productos-tn">
+    {% include 'tiendanube/_tabla_productos.html' %}
+</div>
+{% endblock %}

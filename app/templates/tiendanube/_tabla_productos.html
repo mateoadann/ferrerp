@@ -1,0 +1,139 @@
+<!-- Productos Vinculados -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Productos Vinculados</span>
+        <span class="badge badge-primary">{{ vinculados|length }}</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th class="text-end">Precio</th>
+                        <th class="text-end">Stock Local</th>
+                        <th class="text-center">Estado Sync</th>
+                        <th>Último Sync</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mapeo in vinculados %}
+                    <tr>
+                        <td><code class="table-code">{{ mapeo.producto.codigo }}</code></td>
+                        <td>{{ mapeo.producto.nombre }}</td>
+                        <td class="text-end fw-bold">{{ mapeo.producto.precio_venta|currency }}</td>
+                        <td class="text-end">
+                            {{ mapeo.producto.stock_actual|stock(mapeo.producto.unidad_medida) }}
+                            {{ mapeo.producto.unidad_medida_abrev }}
+                        </td>
+                        <td class="text-center">
+                            {% if mapeo.estado_sync == 'sincronizado' %}
+                            <span class="badge badge-success">Sincronizado</span>
+                            {% elif mapeo.estado_sync == 'error' %}
+                            <span class="badge badge-danger" title="{{ mapeo.ultimo_error or '' }}">Error</span>
+                            {% else %}
+                            <span class="badge badge-warning">Pendiente</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if mapeo.sincronizado_en %}
+                            <span class="text-muted small">{{ mapeo.sincronizado_en.strftime('%d/%m/%Y %H:%M') }}</span>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-icons">
+                                <form method="POST"
+                                      action="{{ url_for('tiendanube.sincronizar_producto', producto_id=mapeo.producto.id) }}"
+                                      class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="action-icon" title="Sincronizar">
+                                        <span class="material-symbols-rounded">sync</span>
+                                    </button>
+                                </form>
+                                <form method="POST"
+                                      action="{{ url_for('tiendanube.desvincular') }}"
+                                      class="d-inline"
+                                      hx-post="{{ url_for('tiendanube.desvincular') }}"
+                                      hx-target="#tabla-productos-tn"
+                                      hx-confirm="¿Desvincular este producto de Tienda Nube?">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="producto_id" value="{{ mapeo.producto.id }}">
+                                    <button type="submit" class="action-icon text-danger" title="Desvincular">
+                                        <span class="material-symbols-rounded">link_off</span>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            No hay productos vinculados a Tienda Nube
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Productos Disponibles -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Productos Disponibles para Vincular</span>
+        <span class="badge badge-secondary">{{ disponibles|length }}</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th class="text-end">Precio</th>
+                        <th class="text-end">Stock</th>
+                        <th class="text-center">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for producto in disponibles %}
+                    <tr>
+                        <td><code class="table-code">{{ producto.codigo }}</code></td>
+                        <td>{{ producto.nombre }}</td>
+                        <td class="text-end fw-bold">{{ producto.precio_venta|currency }}</td>
+                        <td class="text-end">
+                            {{ producto.stock_actual|stock(producto.unidad_medida) }}
+                            {{ producto.unidad_medida_abrev }}
+                        </td>
+                        <td class="text-center">
+                            <form method="POST"
+                                  action="{{ url_for('tiendanube.vincular') }}"
+                                  class="d-inline"
+                                  hx-post="{{ url_for('tiendanube.vincular') }}"
+                                  hx-target="#tabla-productos-tn"
+                                  hx-confirm="¿Vincular este producto con Tienda Nube?">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="producto_id" value="{{ producto.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-primary" title="Vincular">
+                                    <span class="material-symbols-rounded me-1">link</span>Vincular
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">
+                            Todos los productos activos ya están vinculados
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
