@@ -272,7 +272,15 @@ class FacturacionService:
 
     @staticmethod
     def _resolver_receptor_fiscal(cliente):
-        """Resuelve datos fiscales del receptor o consumidor final por defecto."""
+        """Resuelve datos fiscales del receptor o consumidor final por defecto.
+
+        Infiere DocTipo a partir del numero de documento cuando el campo
+        doc_tipo del cliente no fue asignado explicitamente (default 99).
+        Reglas ARCA:
+          - CUIT (11 digitos) → DocTipo=80
+          - DNI  (7-8 digitos) → DocTipo=96
+          - Sin documento      → DocTipo=99, DocNro=0
+        """
         if not cliente:
             return {
                 'doc_tipo': 99,
@@ -282,8 +290,18 @@ class FacturacionService:
             }
 
         doc_nro = ''.join(ch for ch in str(cliente.dni_cuit or '') if ch.isdigit())
+        doc_tipo = int(cliente.doc_tipo or 99)
+
+        # Si doc_tipo sigue en el default (99) pero hay documento cargado,
+        # inferir el tipo correcto segun la longitud del numero.
+        if doc_tipo == 99 and doc_nro:
+            if len(doc_nro) == 11:
+                doc_tipo = 80  # CUIT
+            elif len(doc_nro) in (7, 8):
+                doc_tipo = 96  # DNI
+
         return {
-            'doc_tipo': int(cliente.doc_tipo or 99),
+            'doc_tipo': doc_tipo,
             'doc_nro': int(doc_nro or 0),
             'condicion_iva_id': int(cliente.condicion_iva_id or 5),
             'nombre': cliente.nombre_fiscal,
