@@ -9,10 +9,16 @@
         <p class="text-muted mb-0">Comprobantes emitidos por ARCA</p>
     </div>
     {% if current_user.es_administrador %}
-    <a href="{{ url_for('facturacion.configuracion_arca') }}" class="btn btn-secondary">
-        <span class="material-symbols-rounded me-2">settings</span>
-        Configuración ARCA
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('facturacion.listar_facturadores') }}" class="btn btn-secondary">
+            <span class="material-symbols-rounded me-2">domain</span>
+            Administrar facturadores
+        </a>
+        <a href="{{ url_for('facturacion.configuracion_arca') }}" class="btn btn-secondary">
+            <span class="material-symbols-rounded me-2">settings</span>
+            Configuración ARCA
+        </a>
+    </div>
     {% endif %}
 </div>
 

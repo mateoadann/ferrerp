@@ -4,6 +4,7 @@ from .auth_forms import LoginForm
 from .caja_forms import AperturaCajaForm, CierreCajaForm, EgresoCajaForm
 from .cliente_forms import ClienteForm
 from .configuracion_forms import ConfiguracionArcaForm, ConfiguracionForm
+from .facturador_forms import FacturadorForm
 from .producto_forms import CategoriaForm, ProductoForm
 from .proveedor_forms import ProveedorForm
 from .usuario_forms import UsuarioEditForm, UsuarioForm
@@ -23,4 +24,5 @@ __all__ = [
     'UsuarioEditForm',
     'ConfiguracionForm',
     'ConfiguracionArcaForm',
+    'FacturadorForm',
 ]

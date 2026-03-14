@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from ..extensions import db
 from ..models import Empresa, Factura, FacturaDetalle, Venta
+from ..models.facturador import Facturador
 from .arca_client import ArcaClient
 from .arca_constants import CLASE_POR_TIPO, FACTURA_POR_CLASE, determinar_clase_comprobante
 from .arca_exceptions import ArcaAuthError, ArcaNetworkError, ArcaRechazoError, ArcaValidationError
@@ -23,16 +24,32 @@ class FacturacionService:
         self,
         venta_id,
         empresa_id,
+        facturador_id=None,
         tipo_comprobante=None,
-        punto_venta=None,
         concepto=1,
     ):
-        """Emite comprobante electronico para una venta completada."""
-        venta = self._obtener_venta_completada(venta_id, empresa_id)
-        empresa = self._validar_configuracion_empresa(empresa_id)
-        receptor = self._resolver_receptor_fiscal(venta.cliente)
+        """Emite comprobante electronico para una venta completada.
 
-        clase = self._determinar_clase(empresa.condicion_iva_id, receptor['condicion_iva_id'])
+        Si se provee facturador_id, usa el Facturador para la emision.
+        Si no, mantiene compatibilidad con la configuracion ARCA de Empresa
+        (periodo de transicion).
+        """
+        venta = self._obtener_venta_completada(venta_id, empresa_id)
+
+        if facturador_id is not None:
+            facturador = self._validar_facturador(facturador_id, empresa_id)
+            condicion_iva_emisor = facturador.condicion_iva_id
+            punto_venta = facturador.punto_venta
+            arca_client = self._crear_arca_client_desde_facturador(facturador)
+        else:
+            empresa = self._validar_configuracion_empresa(empresa_id)
+            facturador = None
+            condicion_iva_emisor = empresa.condicion_iva_id
+            punto_venta = empresa.punto_venta_arca
+            arca_client = self._crear_arca_client_desde_empresa(empresa)
+
+        receptor = self._resolver_receptor_fiscal(venta.cliente)
+        clase = self._determinar_clase(condicion_iva_emisor, receptor['condicion_iva_id'])
         tipo_cbte = int(tipo_comprobante or FACTURA_POR_CLASE.get(clase, 0))
         if not tipo_cbte:
             raise ArcaValidationError(
@@ -41,13 +58,7 @@ class FacturacionService:
 
         self._validar_no_duplicada(venta.id, empresa_id, tipo_cbte)
 
-        pv = int(punto_venta or empresa.punto_venta_arca)
-        arca_client = self.arca_client_cls(
-            cuit=empresa.cuit,
-            certificado=empresa.certificado_arca,
-            clave_privada=empresa.clave_privada_arca,
-            ambiente=empresa.ambiente_arca or 'testing',
-        )
+        pv = int(punto_venta)
         wsfe = self.wsfe_service_cls(arca_client)
 
         factura = None
@@ -66,7 +77,8 @@ class FacturacionService:
 
             factura = self._crear_factura_local(
                 venta=venta,
-                empresa=empresa,
+                empresa_id=empresa_id,
+                facturador_id=facturador.id if facturador else None,
                 tipo_comprobante=tipo_cbte,
                 punto_venta=pv,
                 numero_comprobante=numero_cbte,
@@ -115,6 +127,56 @@ class FacturacionService:
         finally:
             arca_client.close()
 
+    def probar_conexion(self, facturador):
+        """Prueba la conexion ARCA de un facturador.
+
+        Valida configuracion, crea ArcaClient, consulta ultimo comprobante
+        autorizado y retorna dict con el resultado.
+        """
+        if not facturador:
+            return {'success': False, 'error': 'Facturador no proporcionado.'}
+
+        if not facturador.activo:
+            return {'success': False, 'error': 'El facturador no está activo.'}
+
+        if not facturador.habilitado:
+            return {'success': False, 'error': 'El facturador no está habilitado.'}
+
+        if not facturador.configuracion_completa:
+            faltantes = ', '.join(facturador.campos_faltantes)
+            return {
+                'success': False,
+                'error': f'Configuración incompleta: {faltantes}',
+            }
+
+        arca_client = None
+        try:
+            arca_client = self._crear_arca_client_desde_facturador(facturador)
+            wsfe = self.wsfe_service_cls(arca_client)
+            # Consultar tipo 1 (Factura A) como prueba de conexión
+            ultimo = wsfe.ultimo_autorizado(facturador.punto_venta, 1)
+            return {
+                'success': True,
+                'ultimo_comprobante': int(ultimo),
+                'punto_venta': facturador.punto_venta,
+                'ambiente': facturador.ambiente,
+            }
+        except (ArcaAuthError, ArcaNetworkError, ArcaValidationError) as exc:
+            return {
+                'success': False,
+                'error': exc.mensaje,
+            }
+        except Exception as exc:
+            return {
+                'success': False,
+                'error': f'Error inesperado: {exc}',
+            }
+        finally:
+            if arca_client:
+                arca_client.close()
+
+    # -- Validaciones ----------------------------------------------------------
+
     @staticmethod
     def _obtener_venta_completada(venta_id, empresa_id):
         """Busca una venta completada perteneciente a la empresa."""
@@ -126,8 +188,29 @@ class FacturacionService:
         return venta
 
     @staticmethod
+    def _validar_facturador(facturador_id, empresa_id):
+        """Carga y valida un Facturador por ID y empresa."""
+        facturador = Facturador.query.filter_by(
+            id=facturador_id,
+            empresa_id=empresa_id,
+        ).first()
+        if not facturador:
+            raise ArcaValidationError('Facturador no encontrado para la empresa indicada.')
+        if not facturador.activo:
+            raise ArcaValidationError('El facturador no está activo.')
+        if not facturador.habilitado:
+            raise ArcaValidationError('El facturador no está habilitado para emitir.')
+
+        if not facturador.configuracion_completa:
+            faltantes = ', '.join(facturador.campos_faltantes)
+            raise ArcaValidationError(
+                f'Configuración ARCA del facturador incompleta: {faltantes}',
+            )
+        return facturador
+
+    @staticmethod
     def _validar_configuracion_empresa(empresa_id):
-        """Valida configuracion minima ARCA de la empresa."""
+        """Valida configuracion minima ARCA de la empresa (compatibilidad)."""
         empresa = Empresa.query.filter_by(id=empresa_id).first()
         if not empresa:
             raise ArcaValidationError('Empresa no encontrada.')
@@ -151,6 +234,28 @@ class FacturacionService:
                 f'Configuracion ARCA incompleta: {", ".join(faltantes)}',
             )
         return empresa
+
+    # -- Creación de ArcaClient ------------------------------------------------
+
+    def _crear_arca_client_desde_facturador(self, facturador):
+        """Crea ArcaClient a partir de un Facturador."""
+        return self.arca_client_cls(
+            cuit=facturador.cuit,
+            certificado=facturador.certificado,
+            clave_privada=facturador.clave_privada,
+            ambiente=facturador.ambiente or 'testing',
+        )
+
+    def _crear_arca_client_desde_empresa(self, empresa):
+        """Crea ArcaClient a partir de la Empresa (compatibilidad)."""
+        return self.arca_client_cls(
+            cuit=empresa.cuit,
+            certificado=empresa.certificado_arca,
+            clave_privada=empresa.clave_privada_arca,
+            ambiente=empresa.ambiente_arca or 'testing',
+        )
+
+    # -- Helpers ---------------------------------------------------------------
 
     @staticmethod
     def _resolver_receptor_fiscal(cliente):
@@ -216,7 +321,8 @@ class FacturacionService:
     def _crear_factura_local(
         self,
         venta,
-        empresa,
+        empresa_id,
+        facturador_id,
         tipo_comprobante,
         punto_venta,
         numero_comprobante,
@@ -228,7 +334,8 @@ class FacturacionService:
         det_req = request_data['FeDetReq']['FECAEDetRequest'][0]
         factura = Factura(
             venta_id=venta.id,
-            empresa_id=empresa.id,
+            empresa_id=empresa_id,
+            facturador_id=facturador_id,
             tipo_comprobante=tipo_comprobante,
             punto_venta=punto_venta,
             numero_comprobante=numero_comprobante,

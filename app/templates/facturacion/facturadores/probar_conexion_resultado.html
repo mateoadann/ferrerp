@@ -1,0 +1,22 @@
+{# Partial: Resultado de prueba de conexión ARCA para un facturador.
+   Variables esperadas: success (bool), error (str), ultimo_comprobante (str) #}
+
+{% if success %}
+<div class="alert alert-success d-flex align-items-center" role="alert">
+    <span class="material-symbols-rounded me-2">check_circle</span>
+    <div>
+        <strong>Conexión exitosa.</strong>
+        {% if ultimo_comprobante %}
+        Último comprobante autorizado: <code>{{ ultimo_comprobante }}</code>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="alert alert-danger d-flex align-items-center" role="alert">
+    <span class="material-symbols-rounded me-2">error</span>
+    <div>
+        <strong>Error de conexión.</strong>
+        {{ error or 'No se pudo conectar con ARCA.' }}
+    </div>
+</div>
+{% endif %}

@@ -5,7 +5,10 @@ from flask_login import current_user, login_required
 
 from ..extensions import db
 from ..forms.configuracion_forms import ConfiguracionArcaForm
+from ..forms.facturador_forms import FacturadorForm
 from ..models import Factura, Venta
+from ..models.facturador import Facturador
+from ..services.arca_constants import CONDICION_IVA
 from ..services.arca_exceptions import ArcaAuthError, ArcaNetworkError, ArcaValidationError
 from ..services.facturacion_service import FacturacionService
 from ..services.padron_service import PadronService
@@ -34,6 +37,11 @@ def _normalizar_ambiente_arca(ambiente):
     return ambiente
 
 
+# =============================================================================
+# Facturas — listado y detalle
+# =============================================================================
+
+
 @bp.route('/')
 @login_required
 @empresa_aprobada_required
@@ -57,17 +65,24 @@ def detalle(id):
     return render_template('facturacion/detalle.html', factura=factura)
 
 
+# =============================================================================
+# Emisión de facturas
+# =============================================================================
+
+
 @bp.route('/emitir/<int:venta_id>', methods=['POST'])
 @login_required
 @empresa_aprobada_required
 def emitir_desde_venta(venta_id):
     """Emite una factura electrónica para una venta."""
     venta = Venta.get_o_404(venta_id)
+    facturador_id = request.form.get('facturador_id', type=int)
 
     try:
         factura = FacturacionService().emitir_factura_desde_venta(
             venta_id=venta.id,
             empresa_id=current_user.empresa_id,
+            facturador_id=facturador_id,
         )
     except ArcaValidationError as exc:
         flash(f'No se pudo emitir la factura: {exc.mensaje}', 'danger')
@@ -111,8 +126,8 @@ def reintentar_emision(id):
         nueva_factura = FacturacionService().emitir_factura_desde_venta(
             venta_id=factura.venta_id,
             empresa_id=current_user.empresa_id,
+            facturador_id=factura.facturador_id,
             tipo_comprobante=factura.tipo_comprobante,
-            punto_venta=factura.punto_venta,
             concepto=factura.concepto,
         )
     except ArcaValidationError as exc:
@@ -138,12 +153,21 @@ def reintentar_emision(id):
     return redirect(url_for('facturacion.detalle', id=nueva_factura.id))
 
 
+# =============================================================================
+# Configuración ARCA (empresa) — retrocompatibilidad, redirige a facturadores
+# =============================================================================
+
+
 @bp.route('/configuracion-arca', methods=['GET', 'POST'])
 @login_required
 @empresa_aprobada_required
 @admin_required
 def configuracion_arca():
-    """Configuración ARCA de la empresa actual."""
+    """Configuración ARCA de la empresa actual.
+
+    Mantiene la página original para compatibilidad, pero muestra un aviso
+    de deprecación invitando a usar la gestión de facturadores.
+    """
     empresa = current_user.empresa
     form = ConfiguracionArcaForm()
 
@@ -189,7 +213,17 @@ def configuracion_arca():
         form.arca_habilitado.data = bool(empresa.arca_habilitado)
         form.inicio_actividades.data = empresa.inicio_actividades
 
-    return render_template('facturacion/configuracion_arca.html', form=form, empresa=empresa)
+    return render_template(
+        'facturacion/configuracion_arca.html',
+        form=form,
+        empresa=empresa,
+        deprecado=True,
+    )
+
+
+# =============================================================================
+# Padrón ARCA — consulta manual
+# =============================================================================
 
 
 @bp.route('/padron/consultar', methods=['POST'])
@@ -197,11 +231,26 @@ def configuracion_arca():
 @empresa_aprobada_required
 @admin_required
 def consultar_padron():
-    """Consulta manual de padrón ARCA por CUIT."""
+    """Consulta manual de padrón ARCA por CUIT.
+
+    Si se provee facturador_id, usa el facturador; de lo contrario
+    usa la empresa (compatibilidad).
+    """
     cuit_consulta = (request.form.get('cuit') or '').strip()
+    facturador_id = request.form.get('facturador_id', type=int)
+
+    if facturador_id:
+        emisor = Facturador.query.filter_by(
+            id=facturador_id,
+            empresa_id=current_user.empresa_id,
+        ).first()
+        if not emisor:
+            return jsonify({'success': False, 'error': 'Facturador no encontrado.'}), 404
+    else:
+        emisor = current_user.empresa
 
     try:
-        resultado = PadronService().consultar_cliente(cuit_consulta, current_user.empresa)
+        resultado = PadronService().consultar_cliente(cuit_consulta, emisor)
         if resultado.get('success'):
             return jsonify(
                 {
@@ -230,3 +279,193 @@ def consultar_padron():
         return jsonify(
             {'success': False, 'error': 'Error inesperado al consultar padrón ARCA.'}
         ), 500
+
+
+# =============================================================================
+# Facturadores — CRUD
+# =============================================================================
+
+
+@bp.route('/facturadores')
+@login_required
+@empresa_aprobada_required
+@admin_required
+def listar_facturadores():
+    """Listado de facturadores de la empresa actual."""
+    facturadores = (
+        Facturador.query_empresa().order_by(Facturador.activo.desc(), Facturador.nombre.asc()).all()
+    )
+    return render_template('facturacion/facturadores/index.html', facturadores=facturadores)
+
+
+@bp.route('/facturadores/nuevo', methods=['GET', 'POST'])
+@login_required
+@empresa_aprobada_required
+@admin_required
+def crear_facturador():
+    """Crear un nuevo facturador."""
+    if request.method == 'POST':
+        return _guardar_facturador(facturador=None)
+
+    form = FacturadorForm()
+    return render_template(
+        'facturacion/facturadores/form.html',
+        facturador=None,
+        form=form,
+        titulo='Nuevo Facturador',
+    )
+
+
+@bp.route('/facturadores/<int:id>/editar', methods=['GET', 'POST'])
+@login_required
+@empresa_aprobada_required
+@admin_required
+def editar_facturador(id):
+    """Editar un facturador existente."""
+    facturador = Facturador.get_o_404(id)
+
+    if request.method == 'POST':
+        return _guardar_facturador(facturador=facturador)
+
+    form = FacturadorForm(obj=facturador)
+    return render_template(
+        'facturacion/facturadores/form.html',
+        facturador=facturador,
+        form=form,
+        titulo='Editar Facturador',
+    )
+
+
+@bp.route('/facturadores/<int:id>/toggle', methods=['POST'])
+@login_required
+@empresa_aprobada_required
+@admin_required
+def toggle_facturador(id):
+    """Activa o desactiva un facturador."""
+    facturador = Facturador.get_o_404(id)
+    accion = request.form.get('accion')
+    facturador.activo = accion == 'activar'
+    db.session.commit()
+
+    estado = 'activado' if facturador.activo else 'desactivado'
+    flash(f'Facturador "{facturador.nombre}" {estado} correctamente.', 'success')
+    return redirect(url_for('facturacion.listar_facturadores'))
+
+
+@bp.route('/facturadores/<int:id>/probar-conexion', methods=['POST'])
+@login_required
+@empresa_aprobada_required
+@admin_required
+def probar_conexion_facturador(id):
+    """Prueba la conexión ARCA del facturador. Retorna JSON."""
+    facturador = Facturador.get_o_404(id)
+
+    resultado = FacturacionService().probar_conexion(facturador)
+    status_code = 200 if resultado.get('success') else 400
+    return jsonify(resultado), status_code
+
+
+@bp.route('/facturadores/<int:id>/padron', methods=['POST'])
+@login_required
+@empresa_aprobada_required
+@admin_required
+def consultar_padron_facturador(id):
+    """Consulta el CUIT propio del facturador en el padrón ARCA."""
+    facturador = Facturador.get_o_404(id)
+
+    if not facturador.cuit:
+        return jsonify({'success': False, 'error': 'El facturador no tiene CUIT configurado.'}), 400
+
+    try:
+        resultado = PadronService().consultar_cliente(facturador.cuit, facturador)
+        if resultado.get('success'):
+            return jsonify({'success': True, 'data': resultado.get('data') or {}})
+        return jsonify(
+            {
+                'success': False,
+                'error': resultado.get('error') or 'No se pudo consultar el padrón ARCA.',
+            }
+        )
+    except ArcaValidationError as exc:
+        return jsonify({'success': False, 'error': exc.mensaje}), 400
+    except (ArcaAuthError, ArcaNetworkError) as exc:
+        return jsonify({'success': False, 'error': exc.mensaje}), 502
+    except Exception:
+        return jsonify({'success': False, 'error': 'Error inesperado al consultar padrón.'}), 500
+
+
+# =============================================================================
+# Helpers internos para facturadores
+# =============================================================================
+
+
+def _guardar_facturador(facturador=None):
+    """Crea o actualiza un facturador usando WTForms con validación y CSRF."""
+    es_nuevo = facturador is None
+
+    if es_nuevo:
+        facturador = Facturador(empresa_id=current_user.empresa_id)
+
+    form = FacturadorForm(obj=facturador if not es_nuevo else None)
+    titulo = 'Nuevo Facturador' if es_nuevo else 'Editar Facturador'
+
+    if not form.validate_on_submit():
+        return render_template(
+            'facturacion/facturadores/form.html',
+            facturador=facturador,
+            form=form,
+            titulo=titulo,
+        )
+
+    # Campos de texto desde el formulario validado
+    facturador.nombre = form.nombre.data.strip()
+    facturador.razon_social = form.razon_social.data.strip()
+    facturador.domicilio_fiscal = (form.domicilio_fiscal.data or '').strip() or None
+    facturador.numero_iibb = (form.numero_iibb.data or '').strip() or None
+    facturador.email_fiscal = (form.email_fiscal.data or '').strip() or None
+
+    # CUIT — normalizar formato
+    try:
+        facturador.cuit = _normalizar_cuit(form.cuit.data)
+    except ValueError as exc:
+        form.cuit.errors.append(str(exc))
+        return render_template(
+            'facturacion/facturadores/form.html',
+            facturador=facturador,
+            form=form,
+            titulo=titulo,
+        )
+
+    # Condición IVA — id y texto descriptivo
+    facturador.condicion_iva_id = form.condicion_iva_id.data
+    facturador.condicion_iva = CONDICION_IVA.get(int(form.condicion_iva_id.data), '')
+
+    # Punto de venta
+    facturador.punto_venta = form.punto_venta.data
+
+    # Ambiente
+    facturador.ambiente = _normalizar_ambiente_arca(form.ambiente.data or 'testing')
+
+    # Habilitado
+    facturador.habilitado = bool(form.habilitado.data)
+
+    # Inicio de actividades
+    facturador.inicio_actividades = form.inicio_actividades.data
+
+    # Archivos: certificado y clave privada (FileField, procesados aparte)
+    cert_file = form.certificado.data
+    if cert_file and hasattr(cert_file, 'read'):
+        facturador.certificado = cert_file.read()
+
+    key_file = form.clave_privada.data
+    if key_file and hasattr(key_file, 'read'):
+        facturador.clave_privada = key_file.read()
+
+    if es_nuevo:
+        db.session.add(facturador)
+
+    db.session.commit()
+
+    accion = 'creado' if es_nuevo else 'actualizado'
+    flash(f'Facturador "{facturador.nombre}" {accion} correctamente.', 'success')
+    return redirect(url_for('facturacion.listar_facturadores'))

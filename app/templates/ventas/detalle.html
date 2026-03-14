@@ -25,10 +25,24 @@
         {% if venta.es_anulable %}
         <form method="POST" action="{{ url_for('facturacion.emitir_desde_venta', venta_id=venta.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% if facturadores is defined and facturadores|length > 1 %}
+            <div class="input-group">
+                <select name="facturador_id" class="form-select form-select-sm" style="max-width:200px;" required>
+                    {% for f in facturadores %}
+                    <option value="{{ f.id }}">{{ f.nombre }} (PV {{ '%05d'|format(f.punto_venta) }})</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-symbols-rounded me-2">receipt_long</span>
+                    Emitir factura
+                </button>
+            </div>
+            {% else %}
             <button type="submit" class="btn btn-primary">
                 <span class="material-symbols-rounded me-2">receipt_long</span>
                 Emitir factura
             </button>
+            {% endif %}
         </form>
         {% endif %}
         {% if venta.es_anulable and current_user.es_admin %}
