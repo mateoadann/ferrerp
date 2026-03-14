@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %}Tienda Nube - Configuración - {{ app_name }}{% endblock %}
+{% block alerts %}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Tienda Nube</h2>
+</div>
+
+<div class="row">
+    <div class="col-lg-3 mb-4">
+        <div class="list-group">
+            {% if current_user.es_administrador %}
+            <a href="{{ url_for('configuracion.index') }}" class="list-group-item list-group-item-action">General</a>
+            <a href="{{ url_for('configuracion.usuarios') }}" class="list-group-item list-group-item-action">Usuarios</a>
+            {% endif %}
+            <a href="{{ url_for('configuracion.categorias') }}" class="list-group-item list-group-item-action">Categorías</a>
+            <a href="{{ url_for('tiendanube.configuracion') }}" class="list-group-item list-group-item-action active">Tienda Nube</a>
+        </div>
+    </div>
+    <div class="col-lg-9">
+        {% include 'components/alerts.html' %}
+
+        <!-- Credenciales de la App -->
+        <div class="card mb-4">
+            <div class="card-header">Credenciales de la App</div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    Ingresá el App ID y App Secret de tu aplicación en Tienda Nube.
+                    Podés obtenerlos desde el
+                    <a href="https://partners.tiendanube.com" target="_blank" rel="noopener">
+                        Panel de Partners</a>.
+                </p>
+                <form method="POST" action="{{ url_for('tiendanube.guardar_credenciales') }}" class="row g-3">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="col-md-6">
+                        <label class="form-label">App ID *</label>
+                        <input type="text" name="tn_app_id" class="form-control"
+                               value="{{ credencial.tn_app_id if credencial else '' }}"
+                               placeholder="Ej: 12345" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">App Secret *</label>
+                        <input type="password" name="tn_app_secret" class="form-control"
+                               value="{{ credencial.tn_app_secret if credencial else '' }}"
+                               placeholder="Ej: abcdef1234567890" required>
+                    </div>
+                    <div class="col-12">
+                        <hr>
+                        <button type="submit" class="btn btn-primary">
+                            <span class="material-symbols-rounded me-2">save</span>Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Estado de Conexión -->
+        <div class="card">
+            <div class="card-header">Estado de Conexión</div>
+            <div class="card-body">
+                {% if credencial and credencial.activo %}
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="badge badge-success me-2">Conectada</span>
+                        <span class="text-muted">
+                            Tienda ID: <strong>{{ credencial.tienda_id_externo }}</strong>
+                        </span>
+                    </div>
+                    <form method="POST" action="{{ url_for('tiendanube.desconectar') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-danger"
+                                onclick="return confirm('¿Estás seguro de desconectar Tienda Nube?')">
+                            <span class="material-symbols-rounded me-2">link_off</span>Desconectar
+                        </button>
+                    </form>
+                {% elif credencial and credencial.tn_app_id %}
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="badge badge-secondary me-2">Desconectada</span>
+                        <span class="text-muted">Credenciales guardadas, falta autorizar.</span>
+                    </div>
+                    <a href="{{ url_for('tiendanube.conectar') }}" class="btn btn-primary">
+                        <span class="material-symbols-rounded me-2">link</span>Conectar con Tienda Nube
+                    </a>
+                {% else %}
+                    <div class="d-flex align-items-center">
+                        <span class="badge badge-secondary me-2">Sin configurar</span>
+                        <span class="text-muted">Guardá las credenciales de la app para comenzar.</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

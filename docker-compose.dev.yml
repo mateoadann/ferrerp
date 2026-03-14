@@ -13,6 +13,7 @@ services:
       - FLASK_DEBUG=1
       - SECRET_KEY=dev-secret-key
       - DATABASE_URL=postgresql://ferrerp:ferrerp123@db:5432/ferrerp_dev
+      - REDIS_URL=redis://redis:6379/0
       - APP_NAME=FerrERP (Dev)
     volumes:
       - .:/app
@@ -20,6 +21,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     command: flask run --host=0.0.0.0 --debug
     networks:
       - ferrerp_network
@@ -41,6 +44,39 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - ferrerp_network
+
+  # Redis para desarrollo
+  redis:
+    image: redis:7-alpine
+    container_name: ferrerp_redis_dev
+    ports:
+      - "6379:6379"
+    networks:
+      - ferrerp_network
+
+  # Worker RQ para desarrollo
+  worker:
+    build: .
+    container_name: ferrerp_worker_dev
+    environment:
+      - FLASK_APP=run.py
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - SECRET_KEY=dev-secret-key
+      - DATABASE_URL=postgresql://ferrerp:ferrerp123@db:5432/ferrerp_dev
+      - REDIS_URL=redis://redis:6379/0
+      - APP_NAME=FerrERP (Dev)
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: rq worker --url redis://redis:6379/0 tiendanube-sync tiendanube-webhooks
     networks:
       - ferrerp_network
 

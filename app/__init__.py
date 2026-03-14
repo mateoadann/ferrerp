@@ -10,7 +10,7 @@ from flask import Flask
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import config
-from .extensions import bcrypt, csrf, db, login_manager, migrate
+from .extensions import bcrypt, csrf, db, init_redis_rq, login_manager, migrate
 
 
 def create_app(config_name=None):
@@ -65,6 +65,7 @@ def init_extensions(app):
     login_manager.init_app(app)
     bcrypt.init_app(app)
     csrf.init_app(app)
+    init_redis_rq(app)
 
     # Configurar user_loader para Flask-Login
     from .models.usuario import Usuario
@@ -90,6 +91,7 @@ def register_blueprints(app):
         proveedores_bp,
         reportes_bp,
         superadmin_bp,
+        tiendanube_bp,
         ventas_bp,
     )
 
@@ -107,6 +109,7 @@ def register_blueprints(app):
     app.register_blueprint(configuracion_bp)
     app.register_blueprint(facturacion_bp)
     app.register_blueprint(superadmin_bp)
+    app.register_blueprint(tiendanube_bp)
 
 
 def register_commands(app):
