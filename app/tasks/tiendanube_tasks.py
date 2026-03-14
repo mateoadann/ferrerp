@@ -10,6 +10,7 @@ import logging
 from flask import current_app
 
 from ..services.tiendanube_service import (
+    importar_orden_tn,
     sincronizar_precio,
     sincronizar_producto_completo,
     sincronizar_stock,
@@ -241,6 +242,57 @@ def encolar_vincular_producto(producto_id, empresa_id):
         logger.exception(
             'Error en vinculación sincrónica — producto=%s empresa=%s',
             producto_id,
+            empresa_id,
+        )
+    return None
+
+
+# -------------------------------------------------------------------
+# Tareas de webhook — importación de órdenes
+# -------------------------------------------------------------------
+
+
+def encolar_importar_orden(tn_orden_id, empresa_id):
+    """Encola la importación/actualización de una orden de Tienda Nube.
+
+    Recibe el ID de la orden en TN y la empresa a la que pertenece.
+    Si Redis está disponible, encola en la cola 'tiendanube-webhooks'.
+    Si no, ejecuta la importación de forma sincrónica como fallback.
+
+    Args:
+        tn_orden_id: ID de la orden en Tienda Nube.
+        empresa_id: ID de la empresa local.
+
+    Returns:
+        Job de RQ o None si se ejecutó sincrónicamente.
+    """
+    queue = _obtener_queue('tiendanube-webhooks')
+
+    if queue:
+        logger.info(
+            'Encolando importación de orden TN — orden=%s empresa=%s',
+            tn_orden_id,
+            empresa_id,
+        )
+        return queue.enqueue(
+            importar_orden_tn,
+            tn_orden_id,
+            empresa_id,
+            job_timeout=120,
+        )
+
+    logger.warning(
+        'Redis no disponible — ejecutando importación de orden sincrónicamente '
+        'para orden=%s empresa=%s',
+        tn_orden_id,
+        empresa_id,
+    )
+    try:
+        importar_orden_tn(tn_orden_id, empresa_id)
+    except Exception:
+        logger.exception(
+            'Error en importación sincrónica de orden — orden=%s empresa=%s',
+            tn_orden_id,
             empresa_id,
         )
     return None

@@ -20,6 +20,27 @@
     <div class="col-lg-9">
         {% include 'components/alerts.html' %}
 
+        <!-- Navegación Tienda Nube -->
+        {% if credencial and credencial.activo %}
+        <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+                <a class="nav-link active" href="{{ url_for('tiendanube.configuracion') }}">
+                    <span class="material-symbols-rounded me-1">settings</span>Configuración
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('tiendanube.productos') }}">
+                    <span class="material-symbols-rounded me-1">inventory_2</span>Productos
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('tiendanube.ordenes') }}">
+                    <span class="material-symbols-rounded me-1">shopping_cart</span>Órdenes
+                </a>
+            </li>
+        </ul>
+        {% endif %}
+
         <!-- Credenciales de la App -->
         <div class="card mb-4">
             <div class="card-header">Credenciales de la App</div>

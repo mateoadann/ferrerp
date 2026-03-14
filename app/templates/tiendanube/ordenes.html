@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block title %}Órdenes Tienda Nube - {{ app_name }}{% endblock %}
+{% block alerts %}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Órdenes Tienda Nube</h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('tiendanube.configuracion') }}" class="btn btn-outline-secondary">
+            <span class="material-symbols-rounded me-2">arrow_back</span>Configuración
+        </a>
+    </div>
+</div>
+
+{% include 'components/alerts.html' %}
+
+<!-- Navegación Tienda Nube -->
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('tiendanube.configuracion') }}">
+            <span class="material-symbols-rounded me-1">settings</span>Configuración
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('tiendanube.productos') }}">
+            <span class="material-symbols-rounded me-1">inventory_2</span>Productos
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('tiendanube.ordenes') }}">
+            <span class="material-symbols-rounded me-1">shopping_cart</span>Órdenes
+        </a>
+    </li>
+</ul>
+
+<!-- Resumen -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="text-muted mb-1">Órdenes Importadas</h5>
+                <h2 class="mb-0">{{ total_ordenes }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="text-muted mb-1">Monto Total</h5>
+                <h2 class="mb-0">{{ monto_total|currency }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de órdenes -->
+<div class="card mb-4">
+    <div class="card-header">Órdenes</div>
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Nro. Venta</th>
+                    <th>Nro. Orden TN</th>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Forma Pago</th>
+                    <th>Estado</th>
+                    <th class="text-end">Total</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for venta in ventas.items %}
+                <tr>
+                    <td class="table-code">{{ venta.numero_completo }}</td>
+                    <td>
+                        {% if venta.tn_orden_id %}
+                        <span class="badge badge-info">#{{ venta.tn_orden_id }}</span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ venta.fecha|datetime }}</td>
+                    <td>{{ venta.cliente.nombre if venta.cliente else 'Consumidor Final' }}</td>
+                    <td>
+                        {% if venta.forma_pago == 'efectivo' %}
+                        <span class="badge badge-success">Efectivo</span>
+                        {% elif venta.forma_pago == 'tarjeta_debito' %}
+                        <span class="badge badge-info">Débito</span>
+                        {% elif venta.forma_pago == 'tarjeta_credito' %}
+                        <span class="badge badge-bordo">Crédito</span>
+                        {% elif venta.forma_pago == 'transferencia' %}
+                        <span class="badge badge-brown">Transfer.</span>
+                        {% elif venta.forma_pago == 'qr' %}
+                        <span class="badge badge-orange">QR</span>
+                        {% elif venta.forma_pago == 'cuenta_corriente' %}
+                        <span class="badge badge-warning">Cta. Cte.</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if venta.estado == 'completada' %}
+                        <span class="badge badge-success">Completada</span>
+                        {% elif venta.estado == 'anulada' %}
+                        <span class="badge badge-danger">Anulada</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end fw-bold">{{ venta.total|currency }}</td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="{{ url_for('ventas.detalle', id=venta.id) }}" class="action-icon" title="Ver detalle">
+                                <span class="material-symbols-rounded">visibility</span>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <span class="material-symbols-rounded">shopping_cart</span>
+                            <p>No hay órdenes importadas de Tienda Nube</p>
+                            <small class="text-muted">
+                                Las órdenes se importarán automáticamente cuando se reciban desde tu tienda online.
+                            </small>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Paginación -->
+{% if ventas.pages > 1 %}
+{% set pagination = ventas %}
+{% include 'components/pagination.html' %}
+{% endif %}
+
+<!-- Actividad reciente de sincronización -->
+{% if logs_recientes %}
+<div class="card">
+    <div class="card-header">Actividad Reciente de Sincronización</div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Recurso</th>
+                    <th>Estado</th>
+                    <th>Mensaje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs_recientes %}
+                <tr>
+                    <td class="text-nowrap">{{ log.created_at|datetime }}</td>
+                    <td>
+                        <span class="badge badge-secondary">{{ log.recurso }}</span>
+                    </td>
+                    <td>
+                        {% if log.estado == 'exitoso' %}
+                        <span class="badge badge-success">Exitoso</span>
+                        {% elif log.estado == 'error' %}
+                        <span class="badge badge-danger">Error</span>
+                        {% elif log.estado == 'pendiente' %}
+                        <span class="badge badge-warning">Pendiente</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted small">{{ log.mensaje or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

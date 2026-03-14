@@ -23,29 +23,38 @@ class Venta(EmpresaMixin, db.Model):
     total = db.Column(db.Numeric(12, 2), nullable=False)
     forma_pago = db.Column(
         db.Enum(
-            'efectivo', 'tarjeta_debito', 'tarjeta_credito',
-            'transferencia', 'qr', 'cuenta_corriente',
-            name='forma_pago'
+            'efectivo',
+            'tarjeta_debito',
+            'tarjeta_credito',
+            'transferencia',
+            'qr',
+            'cuenta_corriente',
+            name='forma_pago',
         ),
         nullable=False,
-        default='efectivo'
+        default='efectivo',
     )
     estado = db.Column(
-        db.Enum('completada', 'anulada', name='estado_venta'),
-        default='completada',
-        nullable=False
+        db.Enum('completada', 'anulada', name='estado_venta'), default='completada', nullable=False
     )
     motivo_anulacion = db.Column(db.Text)
     caja_id = db.Column(db.Integer, db.ForeignKey('cajas.id'), index=True)
     presupuesto_id = db.Column(db.Integer, db.ForeignKey('presupuestos.id'), index=True)
+    origen = db.Column(db.String(20), nullable=False, default='pos', index=True)
+    tn_orden_id = db.Column(db.BigInteger, nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=ahora_argentina)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            'empresa_id',
+            'tn_orden_id',
+            name='uq_ventas_empresa_tn_orden',
+        ),
+    )
 
     # Relaciones
     detalles = db.relationship(
-        'VentaDetalle',
-        backref='venta',
-        lazy='dynamic',
-        cascade='all, delete-orphan'
+        'VentaDetalle', backref='venta', lazy='dynamic', cascade='all, delete-orphan'
     )
     devoluciones = db.relationship('Devolucion', backref='venta', lazy='dynamic')
     presupuesto = db.relationship('Presupuesto', backref=db.backref('venta', uselist=False))
@@ -68,23 +77,29 @@ class Venta(EmpresaMixin, db.Model):
             'tarjeta_credito': 'Tarjeta Crédito',
             'transferencia': 'Transferencia',
             'qr': 'QR',
-            'cuenta_corriente': 'Cuenta Corriente'
+            'cuenta_corriente': 'Cuenta Corriente',
         }
         return opciones.get(self.forma_pago, self.forma_pago)
 
     @property
     def estado_display(self):
         """Retorna el estado en formato legible."""
-        opciones = {
-            'completada': 'Completada',
-            'anulada': 'Anulada'
-        }
+        opciones = {'completada': 'Completada', 'anulada': 'Anulada'}
         return opciones.get(self.estado, self.estado)
 
     @property
     def cantidad_items(self):
         """Retorna la cantidad total de items."""
         return sum(d.cantidad for d in self.detalles)
+
+    @property
+    def origen_display(self):
+        """Retorna el origen en formato legible."""
+        opciones = {
+            'pos': 'Punto de Venta',
+            'tiendanube': 'Tienda Nube',
+        }
+        return opciones.get(self.origen, self.origen)
 
     @property
     def es_anulable(self):
@@ -114,12 +129,17 @@ class Venta(EmpresaMixin, db.Model):
             'usuario_id': self.usuario_id,
             'usuario_nombre': self.usuario.nombre if self.usuario else None,
             'subtotal': float(self.subtotal) if self.subtotal else 0,
-            'descuento_porcentaje': float(self.descuento_porcentaje) if self.descuento_porcentaje else 0,
+            'descuento_porcentaje': float(self.descuento_porcentaje)
+            if self.descuento_porcentaje
+            else 0,
             'descuento_monto': float(self.descuento_monto) if self.descuento_monto else 0,
             'total': float(self.total) if self.total else 0,
             'forma_pago': self.forma_pago,
             'forma_pago_display': self.forma_pago_display,
             'estado': self.estado,
             'estado_display': self.estado_display,
-            'cantidad_items': self.cantidad_items
+            'origen': self.origen,
+            'origen_display': self.origen_display,
+            'tn_orden_id': self.tn_orden_id,
+            'cantidad_items': self.cantidad_items,
         }
