@@ -1,0 +1,15 @@
+<div class="list-group">
+    {% if current_user.es_administrador %}
+    <a href="{{ url_for('configuracion.index') }}"
+       class="list-group-item list-group-item-action{% if request.endpoint == 'configuracion.index' %} active{% endif %}">General</a>
+    <a href="{{ url_for('configuracion.usuarios') }}"
+       class="list-group-item list-group-item-action{% if request.endpoint == 'configuracion.usuarios' %} active{% endif %}">Usuarios</a>
+    {% endif %}
+    <a href="{{ url_for('configuracion.categorias') }}"
+       class="list-group-item list-group-item-action{% if request.endpoint == 'configuracion.categorias' %} active{% endif %}">Categorías</a>
+    {% if current_user.es_administrador %}
+    <a href="{{ url_for('tiendanube.configuracion') }}"
+       class="list-group-item list-group-item-action{% if request.endpoint and request.endpoint.startswith('tiendanube.') %} active{% endif %}">
+        <span class="material-symbols-rounded me-1" style="font-size: 18px; vertical-align: text-bottom;">storefront</span>Tienda Nube</a>
+    {% endif %}
+</div>

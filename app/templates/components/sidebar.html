@@ -74,7 +74,7 @@
         </a>
 
         <a href="{{ url_for('configuracion.categorias') }}"
-           class="nav-item {% if request.endpoint and request.endpoint.startswith('configuracion.') %}active{% endif %}">
+           class="nav-item {% if request.endpoint and (request.endpoint.startswith('configuracion.') or request.endpoint.startswith('tiendanube.')) %}active{% endif %}">
             <span class="material-symbols-rounded">settings</span>
             <span>Configuración</span>
         </a>

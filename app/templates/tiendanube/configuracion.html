@@ -8,14 +8,7 @@
 
 <div class="row">
     <div class="col-lg-3 mb-4">
-        <div class="list-group">
-            {% if current_user.es_administrador %}
-            <a href="{{ url_for('configuracion.index') }}" class="list-group-item list-group-item-action">General</a>
-            <a href="{{ url_for('configuracion.usuarios') }}" class="list-group-item list-group-item-action">Usuarios</a>
-            {% endif %}
-            <a href="{{ url_for('configuracion.categorias') }}" class="list-group-item list-group-item-action">Categorías</a>
-            <a href="{{ url_for('tiendanube.configuracion') }}" class="list-group-item list-group-item-action active">Tienda Nube</a>
-        </div>
+        {% include 'components/_config_sidebar.html' %}
     </div>
     <div class="col-lg-9">
         {% include 'components/alerts.html' %}
@@ -201,6 +194,156 @@
         {% endif %}
         {% endif %}
 
+        <!-- Guía de conexión paso a paso -->
+        {% set esta_conectado = credencial and credencial.activo %}
+        {% set tiene_credenciales = credencial and credencial.tn_app_id %}
+        <div class="card mb-4">
+            <div class="card-header p-0 border-0 bg-transparent">
+                <button class="btn w-100 d-flex align-items-center text-start px-3 py-2 {{ 'collapsed' if esta_conectado else '' }}"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#guiaConexion"
+                        aria-expanded="{{ 'false' if esta_conectado else 'true' }}"
+                        aria-controls="guiaConexion">
+                    <span class="material-symbols-rounded me-2 text-primary">help_outline</span>
+                    <strong>¿Cómo conecto mi Tienda Nube?</strong>
+                    <span class="material-symbols-rounded ms-auto guia-chevron">expand_more</span>
+                </button>
+            </div>
+            <div id="guiaConexion" class="collapse {{ '' if esta_conectado else 'show' }}">
+                <div class="card-body pt-2">
+                    {% if not esta_conectado %}
+                    <div class="alert alert-info d-flex align-items-start mb-3" role="alert">
+                        <span class="material-symbols-rounded me-2 mt-1">info</span>
+                        <span>
+                            Seguí estos pasos para conectar tu tienda online. Si ya tenés las
+                            credenciales, podés ir directo al <strong>Paso 3</strong>.
+                        </span>
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-3">
+                        <!-- Paso 1 -->
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <span class="guia-paso-numero badge rounded-circle bg-primary me-3 flex-shrink-0">1</span>
+                                <div>
+                                    <h6 class="mb-1">Crear cuenta de Partner en Tienda Nube</h6>
+                                    <p class="text-muted small mb-1">
+                                        Registrate gratis en el programa de Partners de Tienda Nube
+                                        para poder crear aplicaciones.
+                                    </p>
+                                    <a href="https://partners.nuvemshop.com.br" target="_blank" rel="noopener"
+                                       class="small">
+                                        <span class="material-symbols-rounded me-1" style="font-size: 16px;">open_in_new</span>Ir al Panel de Partners
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12"><hr class="my-0"></div>
+
+                        <!-- Paso 2 -->
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <span class="guia-paso-numero badge rounded-circle bg-primary me-3 flex-shrink-0">2</span>
+                                <div>
+                                    <h6 class="mb-1">Crear una aplicación privada</h6>
+                                    <p class="text-muted small mb-2">
+                                        En el panel de Partners, andá a
+                                        <strong>Aplicaciones → Crear aplicación</strong>.
+                                        Elegí tipo <strong>Privada</strong> (solo para tu tienda) y
+                                        usá el nombre que prefieras, por ejemplo "FerrERP".
+                                    </p>
+                                    <div class="bg-light rounded p-2 mb-2">
+                                        <span class="text-muted small d-block mb-1">
+                                            <strong>URL de redirección (callback):</strong> copiá y pegá esta URL en la configuración de la app
+                                        </span>
+                                        <div class="d-flex align-items-center">
+                                            <code class="user-select-all" id="callbackUrl">{{ request.host_url }}tiendanube/callback</code>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-secondary ms-2 guia-btn-copiar"
+                                                    data-copiar="callbackUrl"
+                                                    title="Copiar URL">
+                                                <span class="material-symbols-rounded" style="font-size: 16px;">content_copy</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p class="text-muted small mb-0">
+                                        Una vez creada, anotá el <strong>Client ID</strong> y el
+                                        <strong>Client Secret</strong> que te proporciona la plataforma.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12"><hr class="my-0"></div>
+
+                        <!-- Paso 3 -->
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <span class="guia-paso-numero badge rounded-circle {{ 'bg-success' if tiene_credenciales else 'bg-primary' }} me-3 flex-shrink-0">3</span>
+                                <div>
+                                    <h6 class="mb-1">Configurar en el sistema</h6>
+                                    <p class="text-muted small mb-0">
+                                        {% if tiene_credenciales and not esta_conectado %}
+                                        <span class="material-symbols-rounded text-success me-1" style="font-size: 16px; vertical-align: text-bottom;">check_circle</span>
+                                        <strong>Credenciales guardadas.</strong>
+                                        Hacé clic en "Conectar con Tienda Nube" en la sección
+                                        <em>Estado de Conexión</em> más abajo para autorizar el acceso.
+                                        {% elif esta_conectado %}
+                                        <span class="material-symbols-rounded text-success me-1" style="font-size: 16px; vertical-align: text-bottom;">check_circle</span>
+                                        <strong>¡Conectado!</strong> Tu tienda ya está vinculada al sistema.
+                                        {% else %}
+                                        Completá los campos <strong>App ID</strong> y
+                                        <strong>App Secret</strong> en el formulario de credenciales
+                                        más abajo y luego hacé clic en "Conectar con Tienda Nube".
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12"><hr class="my-0"></div>
+
+                        <!-- Paso 4 -->
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <span class="guia-paso-numero badge rounded-circle {{ 'bg-success' if esta_conectado else 'bg-secondary' }} me-3 flex-shrink-0">4</span>
+                                <div>
+                                    <h6 class="mb-1 {{ '' if esta_conectado else 'text-muted' }}">Después de conectar</h6>
+                                    <ul class="text-muted small mb-0 ps-3">
+                                        <li>Vinculá los productos del ERP con la tienda desde la pestaña <strong>Productos</strong>.</li>
+                                        <li>El stock se sincroniza automáticamente con cada venta, compra o ajuste de inventario.</li>
+                                        <li>Las órdenes de la tienda se importan automáticamente vía webhooks.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <style>
+            .guia-paso-numero {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 32px;
+                height: 32px;
+                min-width: 32px;
+                font-size: 14px;
+                line-height: 1;
+            }
+            .guia-chevron {
+                transition: transform 0.2s ease;
+            }
+            [aria-expanded="true"] .guia-chevron {
+                transform: rotate(180deg);
+            }
+        </style>
+
         <!-- Credenciales de la App -->
         <div class="card mb-4">
             <div class="card-header">Credenciales de la App</div>
@@ -272,4 +415,20 @@
 
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.guia-btn-copiar').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var targetId = this.getAttribute('data-copiar');
+        var texto = document.getElementById(targetId).textContent.trim();
+        navigator.clipboard.writeText(texto).then(function() {
+            var icono = btn.querySelector('.material-symbols-rounded');
+            icono.textContent = 'check';
+            setTimeout(function() { icono.textContent = 'content_copy'; }, 1500);
+        });
+    });
+});
+</script>
 {% endblock %}

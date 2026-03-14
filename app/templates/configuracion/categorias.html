@@ -12,13 +12,7 @@
 
 <div class="row">
     <div class="col-lg-3 mb-4">
-        <div class="list-group">
-            {% if current_user.es_administrador %}
-            <a href="{{ url_for('configuracion.index') }}" class="list-group-item list-group-item-action">General</a>
-            <a href="{{ url_for('configuracion.usuarios') }}" class="list-group-item list-group-item-action">Usuarios</a>
-            {% endif %}
-            <a href="{{ url_for('configuracion.categorias') }}" class="list-group-item list-group-item-action active">Categorías</a>
-        </div>
+        {% include 'components/_config_sidebar.html' %}
     </div>
 
     <div class="col-lg-9">
