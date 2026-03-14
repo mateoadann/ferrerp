@@ -1,5 +1,6 @@
 """Servicio de orquestacion para emitir factura electronica desde una venta."""
 
+import logging
 from datetime import datetime
 from decimal import Decimal
 
@@ -12,6 +13,8 @@ from .arca_constants import CLASE_POR_TIPO, FACTURA_POR_CLASE, determinar_clase_
 from .arca_exceptions import ArcaAuthError, ArcaNetworkError, ArcaRechazoError, ArcaValidationError
 from .factura_builder import FacturaBuilder
 from .wsfe_service import WSFEService
+
+logger = logging.getLogger(__name__)
 
 
 class FacturacionService:
@@ -117,15 +120,31 @@ class FacturacionService:
                     if not respuesta:
                         return factura
                 else:
+                    logger.warning(
+                        'ARCA rechazo factura id=%s venta=%s: %s',
+                        factura.id,
+                        venta_id,
+                        exc.mensaje,
+                    )
                     self._marcar_rechazada(factura, exc)
                     db.session.commit()
                     return factura
 
             self._marcar_autorizada(factura, respuesta)
             db.session.commit()
+            logger.info(
+                'Factura autorizada id=%s venta=%s CAE=%s',
+                factura.id,
+                venta_id,
+                factura.cae,
+            )
             return factura
 
         except (ArcaNetworkError, ArcaAuthError) as exc:
+            logger.exception(
+                'Error de red/autenticacion ARCA al emitir factura para venta %s',
+                venta_id,
+            )
             db.session.rollback()
             if factura:
                 self._guardar_estado_error(
@@ -133,6 +152,10 @@ class FacturacionService:
                 )
             raise
         except Exception:
+            logger.exception(
+                'Error inesperado al emitir factura para venta %s',
+                venta_id,
+            )
             db.session.rollback()
             if factura:
                 self._guardar_estado_error(factura.id, 'Error inesperado al emitir factura.')
@@ -175,11 +198,20 @@ class FacturacionService:
                 'ambiente': facturador.ambiente,
             }
         except (ArcaAuthError, ArcaNetworkError, ArcaValidationError) as exc:
+            logger.warning(
+                'Fallo al probar conexion del facturador %s: %s',
+                facturador.id,
+                exc.mensaje,
+            )
             return {
                 'success': False,
                 'error': exc.mensaje,
             }
         except Exception as exc:
+            logger.exception(
+                'Error inesperado al probar conexion del facturador %s',
+                facturador.id,
+            )
             return {
                 'success': False,
                 'error': f'Error inesperado: {exc}',
@@ -361,7 +393,19 @@ class FacturacionService:
         receptor,
         request_data,
     ):
-        """Crea factura local en estado pendiente y copia sus detalles."""
+        """Crea factura local en estado pendiente y copia sus detalles.
+
+        Si ya existe una factura rechazada (sin CAE) con el mismo numero
+        de comprobante, la elimina antes de insertar la nueva para evitar
+        UniqueViolation al reintentar.
+        """
+        self._limpiar_factura_rechazada(
+            empresa_id,
+            tipo_comprobante,
+            punto_venta,
+            numero_comprobante,
+        )
+
         det_req = request_data['FeDetReq']['FECAEDetRequest'][0]
         factura = Factura(
             venta_id=venta.id,
@@ -425,6 +469,40 @@ class FacturacionService:
             db.session.add(factura_det)
 
         return factura
+
+    @staticmethod
+    def _limpiar_factura_rechazada(empresa_id, tipo_comprobante, punto_venta, numero_comprobante):
+        """Elimina factura rechazada (sin CAE) que ocupe el mismo numero.
+
+        Cuando ARCA rechaza un comprobante se guarda localmente con
+        estado='rechazada'.  Al reintentar, ARCA devuelve el mismo ultimo
+        autorizado y el sistema calcula el mismo numero siguiente, lo que
+        provoca UniqueViolation.  Esta limpieza lo evita.
+        """
+        existente = Factura.query.filter_by(
+            empresa_id=empresa_id,
+            tipo_comprobante=tipo_comprobante,
+            punto_venta=punto_venta,
+            numero_comprobante=numero_comprobante,
+        ).first()
+
+        if existente is None:
+            return
+
+        if existente.estado != 'rechazada' or existente.cae:
+            return
+
+        logger.info(
+            'Eliminando factura rechazada id=%s (%s-%s) para reutilizar numero %s',
+            existente.id,
+            punto_venta,
+            numero_comprobante,
+            numero_comprobante,
+        )
+        # Borrar detalles asociados primero
+        FacturaDetalle.query.filter_by(factura_id=existente.id).delete()
+        db.session.delete(existente)
+        db.session.flush()
 
     def _reintentar_secuencia(
         self,

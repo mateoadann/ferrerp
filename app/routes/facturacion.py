@@ -97,6 +97,7 @@ def emitir_desde_venta(venta_id):
         flash(f'Error de conexión con ARCA: {exc.mensaje}', 'warning')
         return redirect(url_for('ventas.detalle', id=venta.id))
     except Exception:
+        logger.exception('Error al emitir factura para venta %s', venta_id)
         flash('Error inesperado al emitir la factura electrónica.', 'danger')
         return redirect(url_for('ventas.detalle', id=venta.id))
 
@@ -143,6 +144,11 @@ def reintentar_emision(id):
         flash(f'Error de conexión con ARCA: {exc.mensaje}', 'warning')
         return redirect(url_for('facturacion.detalle', id=factura.id))
     except Exception:
+        logger.exception(
+            'Error al reintentar emision de factura %s (venta %s)',
+            factura.id,
+            factura.venta_id,
+        )
         flash('Error inesperado al reintentar la emisión.', 'danger')
         return redirect(url_for('facturacion.detalle', id=factura.id))
 
@@ -299,6 +305,7 @@ def consultar_padron():
             {'success': False, 'error': f'Error de conexión con ARCA: {exc.mensaje}'}
         ), 503
     except Exception:
+        logger.exception('Error al consultar padron ARCA para CUIT %s', cuit_consulta)
         return jsonify(
             {'success': False, 'error': 'Error inesperado al consultar padrón ARCA.'}
         ), 500
@@ -414,6 +421,7 @@ def consultar_padron_facturador(id):
     except (ArcaAuthError, ArcaNetworkError) as exc:
         return jsonify({'success': False, 'error': exc.mensaje}), 502
     except Exception:
+        logger.exception('Error al consultar padron del facturador %s', id)
         return jsonify({'success': False, 'error': 'Error inesperado al consultar padrón.'}), 500
 
 
