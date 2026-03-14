@@ -41,13 +41,14 @@
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table mb-0">
-                        <thead>
+                         <thead>
                             <tr>
                                 <th>Nombre</th>
                                 <th>CUIT</th>
                                 <th>Razón Social</th>
                                 <th class="text-center">Pto. Venta</th>
                                 <th class="text-center">Ambiente</th>
+                                <th class="text-center">Certificado</th>
                                 <th class="text-center">Estado</th>
                                 <th class="text-center">Acciones</th>
                             </tr>
@@ -64,6 +65,24 @@
                                     <span class="badge badge-danger">Producción</span>
                                     {% else %}
                                     <span class="badge badge-secondary">Testing</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% set estado_cert = f.estado_certificado %}
+                                    {% if estado_cert == 'vencido' %}
+                                    <span class="badge badge-danger" title="Venció hace {{ (f.dias_para_vencimiento | abs) }} días">
+                                        Vencido
+                                    </span>
+                                    {% elif estado_cert == 'por_vencer' %}
+                                    <span class="badge badge-warning" title="Vence en {{ f.dias_para_vencimiento }} días">
+                                        Vence en {{ f.dias_para_vencimiento }} días
+                                    </span>
+                                    {% elif estado_cert == 'vigente' %}
+                                    <span class="badge badge-success" title="Vence en {{ f.dias_para_vencimiento }} días">
+                                        Vigente
+                                    </span>
+                                    {% else %}
+                                    <span class="badge badge-secondary">Sin certificado</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-center">
@@ -121,7 +140,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="7">
+                                <td colspan="8">
                                     <div class="empty-state">
                                         <span class="material-symbols-rounded">domain_add</span>
                                         <p>No hay facturadores configurados.</p>

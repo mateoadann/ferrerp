@@ -4,6 +4,9 @@ from ..extensions import db
 from ..utils.helpers import ahora_argentina
 from .mixins import EmpresaMixin
 
+# Umbral de días para considerar un certificado "por vencer"
+DIAS_ALERTA_VENCIMIENTO = 30
+
 
 class Facturador(EmpresaMixin, db.Model):
     """
@@ -31,7 +34,9 @@ class Facturador(EmpresaMixin, db.Model):
     punto_venta = db.Column(db.Integer, nullable=False)
     certificado = db.Column(db.LargeBinary)
     clave_privada = db.Column(db.LargeBinary)
-    certificado_vencimiento = db.Column(db.Date)  # Parsed from cert on upload
+    certificado_vencimiento = db.Column(db.DateTime, nullable=True)
+    certificado_emisor = db.Column(db.String(255), nullable=True)
+    certificado_sujeto = db.Column(db.String(255), nullable=True)
     ambiente = db.Column(db.String(20), default='testing')
     habilitado = db.Column(db.Boolean, default=False)
 
@@ -51,6 +56,53 @@ class Facturador(EmpresaMixin, db.Model):
             name='uq_facturador_empresa_cuit_pv',
         ),
     )
+
+    # ---------------------------------------------------------------
+    # Propiedades de estado del certificado
+    # ---------------------------------------------------------------
+
+    @property
+    def dias_para_vencimiento(self):
+        """Retorna los días hasta el vencimiento del certificado, o None."""
+        if self.certificado_vencimiento is None:
+            return None
+        ahora = ahora_argentina()
+        delta = self.certificado_vencimiento - ahora
+        return delta.days
+
+    @property
+    def certificado_vencido(self):
+        """Indica si el certificado ya expiró."""
+        dias = self.dias_para_vencimiento
+        if dias is None:
+            return False
+        return dias < 0
+
+    @property
+    def certificado_por_vencer(self):
+        """Indica si el certificado vence dentro del umbral de alerta (30 días)."""
+        dias = self.dias_para_vencimiento
+        if dias is None:
+            return False
+        return 0 <= dias <= DIAS_ALERTA_VENCIMIENTO
+
+    @property
+    def estado_certificado(self):
+        """Retorna el estado del certificado como string legible.
+
+        Valores posibles: 'vencido', 'por_vencer', 'vigente', 'sin_certificado'.
+        """
+        if self.certificado_vencimiento is None:
+            return 'sin_certificado'
+        if self.certificado_vencido:
+            return 'vencido'
+        if self.certificado_por_vencer:
+            return 'por_vencer'
+        return 'vigente'
+
+    # ---------------------------------------------------------------
+    # Propiedades de configuración
+    # ---------------------------------------------------------------
 
     @property
     def configuracion_completa(self):
@@ -123,6 +175,9 @@ class Facturador(EmpresaMixin, db.Model):
             'certificado_vencimiento': (
                 self.certificado_vencimiento.isoformat() if self.certificado_vencimiento else None
             ),
+            'certificado_emisor': self.certificado_emisor,
+            'certificado_sujeto': self.certificado_sujeto,
+            'estado_certificado': self.estado_certificado,
             'ambiente': self.ambiente,
             'habilitado': self.habilitado,
             'activo': self.activo,
