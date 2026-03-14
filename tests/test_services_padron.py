@@ -51,7 +51,7 @@ def _crear_empresa_arca_habilitada():
         nombre='Empresa Padrón',
         activa=True,
         aprobada=True,
-        cuit='20-12345678-3',
+        cuit='20-12345678-6',
         certificado_arca=b'cert',
         clave_privada_arca=b'key',
         ambiente_arca='testing',

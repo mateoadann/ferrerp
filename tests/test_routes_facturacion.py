@@ -174,7 +174,7 @@ def test_configuracion_arca_persiste_campos_y_archivos(app, client, admin):
     response = client.post(
         '/facturacion/configuracion-arca',
         data={
-            'cuit': '20-12345678-3',
+            'cuit': '20-12345678-6',
             'condicion_iva_id': '1',
             'condicion_iva': 'IVA Responsable Inscripto',
             'punto_venta_arca': '3',
@@ -191,7 +191,7 @@ def test_configuracion_arca_persiste_campos_y_archivos(app, client, admin):
     assert response.status_code == 302
 
     empresa = _db.session.get(Empresa, admin.empresa_id)
-    assert empresa.cuit == '20-12345678-3'
+    assert empresa.cuit == '20-12345678-6'
     assert empresa.condicion_iva_id == 1
     assert empresa.condicion_iva == 'IVA Responsable Inscripto'
     assert empresa.punto_venta_arca == 3

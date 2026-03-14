@@ -12,6 +12,8 @@ from wtforms import (
 )
 from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
+from ..utils.cuit import cuit_valido
+
 CONDICIONES_IVA_CHOICES = [
     (0, 'Seleccionar condición...'),
     (1, 'IVA Responsable Inscripto'),
@@ -57,7 +59,11 @@ class ConfiguracionForm(FlaskForm):
 
     cuit = StringField(
         'CUIT',
-        validators=[Optional(), Length(max=13, message='El CUIT no puede exceder 13 caracteres')],
+        validators=[
+            Optional(),
+            Length(max=13, message='El CUIT no puede exceder 13 caracteres'),
+            cuit_valido,
+        ],
         render_kw={'placeholder': 'XX-XXXXXXXX-X'},
     )
 
@@ -74,6 +80,7 @@ class ConfiguracionArcaForm(FlaskForm):
         validators=[
             Optional(),
             Length(max=13, message='El CUIT no puede exceder 13 caracteres'),
+            cuit_valido,
         ],
         render_kw={'placeholder': 'XX-XXXXXXXX-X'},
     )

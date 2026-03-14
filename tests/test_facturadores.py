@@ -84,7 +84,7 @@ def _crear_facturador(empresa_id, **kwargs):
     defaults = {
         'nombre': 'Sucursal Centro',
         'razon_social': 'Ferretería Test SA',
-        'cuit': '20-12345678-3',
+        'cuit': '20-12345678-6',
         'condicion_iva_id': 1,
         'condicion_iva': 'IVA Responsable Inscripto',
         'punto_venta': 1,
@@ -104,7 +104,7 @@ def _crear_facturador(empresa_id, **kwargs):
 FORM_DATA_VALIDO = {
     'nombre': 'Sucursal Norte',
     'razon_social': 'Ferretería Norte SRL',
-    'cuit': '27-98765432-1',
+    'cuit': '27-98765432-0',
     'condicion_iva_id': '1',
     'punto_venta': '2',
     'ambiente': 'testing',
@@ -126,7 +126,7 @@ class TestFacturadorModelo:
             empresa.id,
             nombre='Sucursal Sur',
             razon_social='FerreTest SRL',
-            cuit='30-71234567-8',
+            cuit='30-71234567-1',
             condicion_iva_id=6,
             condicion_iva='Responsable Monotributo',
             punto_venta=3,
@@ -139,7 +139,7 @@ class TestFacturadorModelo:
         assert guardado is not None
         assert guardado.nombre == 'Sucursal Sur'
         assert guardado.razon_social == 'FerreTest SRL'
-        assert guardado.cuit == '30-71234567-8'
+        assert guardado.cuit == '30-71234567-1'
         assert guardado.condicion_iva_id == 6
         assert guardado.punto_venta == 3
         assert guardado.domicilio_fiscal == 'Av. Siempreviva 742'
@@ -161,11 +161,11 @@ class TestFacturadorModelo:
         facturador = _crear_facturador(
             empresa.id,
             nombre='Central',
-            cuit='20-11111111-1',
+            cuit='20-11111111-2',
             punto_venta=5,
         )
 
-        esperado = '<Facturador Central (20-11111111-1) PV:5>'
+        esperado = '<Facturador Central (20-11111111-2) PV:5>'
         assert repr(facturador) == esperado
 
     def test_facturador_activo_default(self, app, empresa):
@@ -173,7 +173,7 @@ class TestFacturadorModelo:
         facturador = Facturador(
             nombre='Default Test',
             razon_social='Default SA',
-            cuit='20-22222222-2',
+            cuit='20-22222222-3',
             condicion_iva_id=1,
             punto_venta=1,
             empresa_id=empresa.id,
@@ -188,14 +188,14 @@ class TestFacturadorModelo:
         """Verificar unique constraint empresa_id + cuit + punto_venta."""
         _crear_facturador(
             empresa.id,
-            cuit='20-33333333-3',
+            cuit='20-33333333-4',
             punto_venta=1,
         )
 
         duplicado = Facturador(
             nombre='Duplicado',
             razon_social='Dup SA',
-            cuit='20-33333333-3',
+            cuit='20-33333333-4',
             condicion_iva_id=1,
             punto_venta=1,
             empresa_id=empresa.id,
@@ -266,13 +266,13 @@ class TestFacturadorModelo:
 
     def test_es_responsable_inscripto(self, app, empresa):
         """Verificar propiedad es_responsable_inscripto."""
-        ri = _crear_facturador(empresa.id, condicion_iva_id=1, cuit='20-11111111-1')
+        ri = _crear_facturador(empresa.id, condicion_iva_id=1, cuit='20-11111111-2')
         assert ri.es_responsable_inscripto is True
 
         agente = _crear_facturador(
             empresa.id,
             condicion_iva_id=11,
-            cuit='20-44444444-4',
+            cuit='20-44444444-5',
             punto_venta=2,
         )
         assert agente.es_responsable_inscripto is True
@@ -280,7 +280,7 @@ class TestFacturadorModelo:
         mono = _crear_facturador(
             empresa.id,
             condicion_iva_id=6,
-            cuit='20-55555555-5',
+            cuit='20-55555555-6',
             punto_venta=3,
         )
         assert mono.es_responsable_inscripto is False
@@ -293,7 +293,7 @@ class TestFacturadorModelo:
         ri = _crear_facturador(
             empresa.id,
             condicion_iva_id=1,
-            cuit='20-66666666-6',
+            cuit='20-66666666-7',
             punto_venta=2,
         )
         assert ri.es_monotributo is False
@@ -309,7 +309,7 @@ class TestFacturadorModelo:
         assert datos['id'] == facturador.id
         assert datos['empresa_id'] == empresa.id
         assert datos['nombre'] == 'Sucursal Centro'
-        assert datos['cuit'] == '20-12345678-3'
+        assert datos['cuit'] == '20-12345678-6'
         assert datos['punto_venta'] == 1
         assert datos['inicio_actividades'] == '2020-01-15'
         assert 'configuracion_completa' in datos
@@ -364,7 +364,7 @@ class TestFacturadorRutas:
         assert facturador is not None
         assert facturador.nombre == 'Sucursal Norte'
         assert facturador.razon_social == 'Ferretería Norte SRL'
-        assert facturador.cuit == '27-98765432-1'
+        assert facturador.cuit == '27-98765432-0'
         assert facturador.punto_venta == 2
 
     def test_crear_facturador_post_flash_success(self, app, client, admin):
@@ -586,7 +586,7 @@ class TestFacturadorForm:
                 data={
                     'nombre': 'Sucursal Test',
                     'razon_social': 'Test SRL',
-                    'cuit': '20-12345678-3',
+                    'cuit': '20-12345678-6',
                     'condicion_iva_id': 1,
                     'punto_venta': 1,
                     'ambiente': 'testing',
@@ -613,7 +613,7 @@ class TestFacturadorForm:
                 data={
                     'nombre': 'Test',
                     'razon_social': 'Test SA',
-                    'cuit': '20-12345678-3',
+                    'cuit': '20-12345678-6',
                     'condicion_iva_id': 1,
                     'punto_venta': 0,
                     'ambiente': 'testing',
@@ -630,7 +630,7 @@ class TestFacturadorForm:
                 data={
                     'nombre': 'Test',
                     'razon_social': 'Test SA',
-                    'cuit': '20-12345678-3',
+                    'cuit': '20-12345678-6',
                     'condicion_iva_id': 1,
                     'punto_venta': 1,
                     'ambiente': 'testing',

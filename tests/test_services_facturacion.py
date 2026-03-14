@@ -75,7 +75,7 @@ def _crear_empresa_valida():
         nombre='Empresa Facturacion',
         activa=True,
         aprobada=True,
-        cuit='20-12345678-3',
+        cuit='20-12345678-6',
         condicion_iva_id=1,
         punto_venta_arca=1,
         certificado_arca=b'cert',

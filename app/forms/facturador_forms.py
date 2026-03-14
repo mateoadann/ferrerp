@@ -13,6 +13,7 @@ from wtforms import (
 from wtforms.validators import DataRequired, Email, Length, NumberRange, Optional
 
 from ..services.arca_constants import CONDICION_IVA
+from ..utils.cuit import cuit_valido
 
 CONDICION_IVA_CHOICES = [(0, 'Seleccionar condición...')] + [
     (k, v) for k, v in CONDICION_IVA.items()
@@ -50,6 +51,7 @@ class FacturadorForm(FlaskForm):
         validators=[
             DataRequired(message='El CUIT es requerido'),
             Length(max=13, message='El CUIT no puede exceder 13 caracteres'),
+            cuit_valido,
         ],
         render_kw={'placeholder': 'XX-XXXXXXXX-X'},
     )
