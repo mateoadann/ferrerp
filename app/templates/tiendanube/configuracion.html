@@ -41,6 +41,166 @@
         </ul>
         {% endif %}
 
+        <!-- Dashboard de integración (solo cuando está conectado) -->
+        {% if stats %}
+        <div class="row mb-4">
+            <!-- Card: Productos Vinculados -->
+            <div class="col-md-6 col-xl-3 mb-3">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="material-symbols-rounded text-primary me-2">inventory_2</span>
+                            <h6 class="card-title mb-0">Productos Vinculados</h6>
+                        </div>
+                        <h3 class="mb-2">{{ stats.productos_vinculados }}</h3>
+                        <div class="d-flex flex-wrap gap-1">
+                            {% if stats.productos_sincronizados %}
+                            <span class="badge bg-success">
+                                {{ stats.productos_sincronizados }} sincronizado{{ 's' if stats.productos_sincronizados != 1 }}
+                            </span>
+                            {% endif %}
+                            {% if stats.productos_pendientes %}
+                            <span class="badge bg-warning text-dark">
+                                {{ stats.productos_pendientes }} pendiente{{ 's' if stats.productos_pendientes != 1 }}
+                            </span>
+                            {% endif %}
+                            {% if stats.productos_con_error %}
+                            <span class="badge bg-danger">
+                                {{ stats.productos_con_error }} con error
+                            </span>
+                            {% endif %}
+                            {% if stats.productos_vinculados == 0 %}
+                            <span class="text-muted small">Sin productos vinculados</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card: Órdenes Importadas -->
+            <div class="col-md-6 col-xl-3 mb-3">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="material-symbols-rounded text-info me-2">shopping_cart</span>
+                            <h6 class="card-title mb-0">Órdenes Importadas</h6>
+                        </div>
+                        <h3 class="mb-2">{{ stats.ordenes_importadas }}</h3>
+                        <div>
+                            {% if stats.ingresos_tn %}
+                            <span class="text-muted small">
+                                Total: <strong>${{ '{:,.2f}'.format(stats.ingresos_tn|float) }}</strong>
+                            </span>
+                            {% else %}
+                            <span class="text-muted small">Sin datos</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card: Último Sync -->
+            <div class="col-md-6 col-xl-3 mb-3">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="material-symbols-rounded text-success me-2">sync</span>
+                            <h6 class="card-title mb-0">Último Sync</h6>
+                        </div>
+                        {% if stats.ultimo_sync %}
+                        <h5 class="mb-1">{{ stats.ultimo_sync.strftime('%d/%m/%Y') }}</h5>
+                        <span class="text-muted small">{{ stats.ultimo_sync.strftime('%H:%M') }} hs</span>
+                        {% else %}
+                        <h5 class="text-muted mb-0">Sin datos</h5>
+                        <span class="text-muted small">Aún no se realizó ninguna sincronización</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card: Estado del Sistema -->
+            <div class="col-md-6 col-xl-3 mb-3">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="material-symbols-rounded text-secondary me-2">monitor_heart</span>
+                            <h6 class="card-title mb-0">Estado del Sistema</h6>
+                        </div>
+                        <div class="d-flex align-items-center mb-2">
+                            {% if stats.redis_disponible %}
+                            <span class="badge bg-success me-2">Redis OK</span>
+                            {% else %}
+                            <span class="badge bg-danger me-2">Redis no disponible</span>
+                            {% endif %}
+                        </div>
+                        <div>
+                            {% if stats.errores_recientes > 0 %}
+                            <span class="badge bg-danger">
+                                {{ stats.errores_recientes }} error{{ 'es' if stats.errores_recientes != 1 }} (24h)
+                            </span>
+                            {% else %}
+                            <span class="text-muted small">Sin errores en las últimas 24h</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actividad Reciente -->
+        {% if sync_logs_recientes %}
+        <div class="card mb-4">
+            <div class="card-header">Actividad Reciente</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Recurso</th>
+                                <th>Dirección</th>
+                                <th>Estado</th>
+                                <th>Mensaje</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in sync_logs_recientes %}
+                            <tr>
+                                <td class="text-nowrap small">
+                                    {{ log.created_at.strftime('%d/%m %H:%M') if log.created_at else '-' }}
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ log.recurso }}</span>
+                                </td>
+                                <td class="small">
+                                    {% if log.direccion == 'exportacion' %}
+                                    <span class="material-symbols-rounded" style="font-size: 16px;">arrow_upward</span> Exportación
+                                    {% else %}
+                                    <span class="material-symbols-rounded" style="font-size: 16px;">arrow_downward</span> Importación
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.estado == 'exitoso' %}
+                                    <span class="badge bg-success">Exitoso</span>
+                                    {% elif log.estado == 'error' %}
+                                    <span class="badge bg-danger">Error</span>
+                                    {% else %}
+                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                    {% endif %}
+                                </td>
+                                <td class="small text-truncate" style="max-width: 250px;" title="{{ log.mensaje or '' }}">
+                                    {{ log.mensaje[:80] if log.mensaje else '-' }}{{ '...' if log.mensaje and log.mensaje|length > 80 }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+
         <!-- Credenciales de la App -->
         <div class="card mb-4">
             <div class="card-header">Credenciales de la App</div>

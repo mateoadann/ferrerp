@@ -2,10 +2,12 @@
 
 import logging
 import secrets
+from datetime import timedelta
 
 import requests as http_requests
 from flask import (
     Blueprint,
+    current_app,
     flash,
     jsonify,
     redirect,
@@ -15,10 +17,10 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required
-from sqlalchemy import func
+from sqlalchemy import case, func
 
 from ..extensions import csrf, db
-from ..models import SyncLog, TiendaNubeCredencial, Venta
+from ..models import ProductoTiendaNube, SyncLog, TiendaNubeCredencial, Venta
 from ..services.tiendanube_client import TiendaNubeClient
 from ..services.tiendanube_service import (
     _crear_sync_log,
@@ -35,7 +37,12 @@ from ..tasks.tiendanube_tasks import (
     encolar_sync_masivo,
 )
 from ..utils.decorators import admin_required
-from ..utils.helpers import es_peticion_htmx, paginar_query, respuesta_htmx_redirect
+from ..utils.helpers import (
+    ahora_argentina,
+    es_peticion_htmx,
+    paginar_query,
+    respuesta_htmx_redirect,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +61,103 @@ def configuracion():
         empresa_id=current_user.empresa_id,
     ).first()
 
-    return render_template('tiendanube/configuracion.html', credencial=credencial)
+    stats = None
+    sync_logs_recientes = []
+
+    if credencial and credencial.activo:
+        empresa_id = current_user.empresa_id
+
+        # --- Estadísticas de productos vinculados ---
+        productos_stats = (
+            db.session.query(
+                func.count(ProductoTiendaNube.id),
+                func.count(
+                    case(
+                        (ProductoTiendaNube.estado_sync == 'sincronizado', 1),
+                    )
+                ),
+                func.count(
+                    case(
+                        (ProductoTiendaNube.estado_sync == 'error', 1),
+                    )
+                ),
+                func.count(
+                    case(
+                        (ProductoTiendaNube.estado_sync == 'pendiente', 1),
+                    )
+                ),
+            )
+            .filter(
+                ProductoTiendaNube.empresa_id == empresa_id,
+                ProductoTiendaNube.activo.is_(True),
+            )
+            .first()
+        )
+
+        # --- Estadísticas de órdenes importadas ---
+        ordenes_stats = (
+            db.session.query(
+                func.count(Venta.id),
+                func.coalesce(func.sum(Venta.total), 0),
+            )
+            .filter(
+                Venta.empresa_id == empresa_id,
+                Venta.origen == 'tiendanube',
+            )
+            .first()
+        )
+
+        # --- Último sync exitoso ---
+        ultimo_sync = (
+            db.session.query(func.max(SyncLog.created_at))
+            .filter(
+                SyncLog.empresa_id == empresa_id,
+                SyncLog.estado == 'exitoso',
+            )
+            .scalar()
+        )
+
+        # --- Errores recientes (últimas 24h) ---
+        hace_24h = ahora_argentina() - timedelta(hours=24)
+        errores_recientes = (
+            db.session.query(func.count(SyncLog.id))
+            .filter(
+                SyncLog.empresa_id == empresa_id,
+                SyncLog.estado == 'error',
+                SyncLog.created_at >= hace_24h,
+            )
+            .scalar()
+        ) or 0
+
+        # --- Estado de Redis ---
+        redis_disponible = current_app.extensions.get('redis', {}).get('available', False)
+
+        stats = {
+            'productos_vinculados': productos_stats[0] or 0,
+            'productos_sincronizados': productos_stats[1] or 0,
+            'productos_con_error': productos_stats[2] or 0,
+            'productos_pendientes': productos_stats[3] or 0,
+            'ordenes_importadas': ordenes_stats[0] or 0,
+            'ingresos_tn': ordenes_stats[1] or 0,
+            'ultimo_sync': ultimo_sync,
+            'errores_recientes': errores_recientes,
+            'redis_disponible': redis_disponible,
+        }
+
+        # --- Últimos 5 registros de sync ---
+        sync_logs_recientes = (
+            SyncLog.query.filter_by(empresa_id=empresa_id)
+            .order_by(SyncLog.created_at.desc())
+            .limit(5)
+            .all()
+        )
+
+    return render_template(
+        'tiendanube/configuracion.html',
+        credencial=credencial,
+        stats=stats,
+        sync_logs_recientes=sync_logs_recientes,
+    )
 
 
 @bp.route('/guardar-credenciales', methods=['POST'])

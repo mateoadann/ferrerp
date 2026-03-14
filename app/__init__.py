@@ -155,6 +155,285 @@ def register_commands(app):
         db.session.commit()
         print(f'Superadmin creado exitosamente: {email}')
 
+    # ------------------------------------------------------------------
+    # Comandos CLI de Tienda Nube
+    # ------------------------------------------------------------------
+
+    @app.cli.command('tn-status')
+    @click.option('--empresa-id', type=int, default=None, help='ID de la empresa (opcional)')
+    def tn_status(empresa_id):
+        """Muestra el estado de la integración Tienda Nube."""
+        from .models.empresa import Empresa
+        from .models.tiendanube import ProductoTiendaNube, SyncLog, TiendaNubeCredencial
+
+        if empresa_id:
+            cred = TiendaNubeCredencial.query.filter_by(empresa_id=empresa_id).first()
+            if not cred:
+                click.echo(
+                    click.style(
+                        f'La empresa {empresa_id} no tiene credenciales de Tienda Nube.',
+                        fg='red',
+                    )
+                )
+                return
+            credenciales = [cred]
+        else:
+            credenciales = TiendaNubeCredencial.query.all()
+            if not credenciales:
+                click.echo(
+                    click.style('No hay empresas con credenciales de Tienda Nube.', fg='yellow')
+                )
+                return
+
+        for cred in credenciales:
+            empresa = db.session.get(Empresa, cred.empresa_id)
+            nombre = empresa.nombre if empresa else '(desconocida)'
+
+            click.echo('')
+            click.echo(
+                click.style(
+                    f'=== Empresa: {nombre} (ID: {cred.empresa_id}) ===', fg='cyan', bold=True
+                )
+            )
+
+            # Estado de la conexión
+            estado = (
+                click.style('ACTIVA', fg='green')
+                if cred.activo
+                else click.style('INACTIVA', fg='red')
+            )
+            click.echo(f'  Conexión:      {estado}')
+            click.echo(f'  Tienda ID:     {cred.tienda_id_externo or "(sin configurar)"}')
+            tiene_token = 'Sí' if cred.access_token else 'No'
+            click.echo(f'  Access Token:  {tiene_token}')
+
+            # Productos vinculados
+            total_productos = ProductoTiendaNube.query.filter_by(
+                empresa_id=cred.empresa_id,
+            ).count()
+            activos = ProductoTiendaNube.query.filter_by(
+                empresa_id=cred.empresa_id,
+                activo=True,
+            ).count()
+            con_error = ProductoTiendaNube.query.filter_by(
+                empresa_id=cred.empresa_id,
+                estado_sync='error',
+            ).count()
+            click.echo(
+                f'  Productos:     {total_productos} total, {activos} activos, {con_error} con error'
+            )
+
+            # Último sync
+            ultimo_log = (
+                SyncLog.query.filter_by(
+                    empresa_id=cred.empresa_id,
+                )
+                .order_by(SyncLog.created_at.desc())
+                .first()
+            )
+            if ultimo_log:
+                click.echo(
+                    f'  Último sync:   {ultimo_log.created_at} [{ultimo_log.estado}] {ultimo_log.recurso}'
+                )
+            else:
+                click.echo('  Último sync:   (sin registros)')
+
+        # Estado de Redis
+        click.echo('')
+        redis_info = app.extensions.get('redis', {})
+        if redis_info.get('available'):
+            click.echo(click.style('  Redis: conectado', fg='green'))
+        else:
+            click.echo(click.style('  Redis: no disponible', fg='yellow'))
+
+        click.echo('')
+
+    @app.cli.command('tn-sync')
+    @click.option('--empresa-id', type=int, required=True, help='ID de la empresa')
+    def tn_sync(empresa_id):
+        """Ejecuta sincronización masiva de stock con Tienda Nube."""
+        from .models.empresa import Empresa
+        from .models.tiendanube import TiendaNubeCredencial
+        from .services.tiendanube_service import sincronizar_stock_masivo
+
+        # Validar empresa
+        empresa = db.session.get(Empresa, empresa_id)
+        if not empresa:
+            click.echo(click.style(f'No existe la empresa con ID {empresa_id}.', fg='red'))
+            return
+
+        # Validar credenciales activas
+        cred = TiendaNubeCredencial.query.filter_by(
+            empresa_id=empresa_id,
+            activo=True,
+        ).first()
+        if not cred:
+            click.echo(
+                click.style(
+                    f'La empresa "{empresa.nombre}" no tiene credenciales activas de Tienda Nube.',
+                    fg='red',
+                )
+            )
+            return
+
+        click.echo(f'Iniciando sincronización de stock para "{empresa.nombre}"...')
+
+        try:
+            resultado = sincronizar_stock_masivo(empresa_id)
+        except Exception as e:
+            click.echo(click.style(f'Error durante la sincronización: {e}', fg='red'))
+            return
+
+        # Mostrar resultados
+        click.echo('')
+        click.echo(click.style('Resultado de sincronización:', bold=True))
+        click.echo(f'  Total:    {resultado["total"]}')
+        click.echo(click.style(f'  Exitosos: {resultado["exitosos"]}', fg='green'))
+
+        if resultado['errores'] > 0:
+            click.echo(click.style(f'  Errores:  {resultado["errores"]}', fg='red'))
+            for detalle in resultado.get('detalle_errores', []):
+                click.echo(
+                    click.style(
+                        f'    - Producto {detalle["producto_id"]} '
+                        f'(TN: {detalle["tn_producto_id"]}): {detalle["error"]}',
+                        fg='red',
+                    )
+                )
+        else:
+            click.echo(click.style('  Errores:  0', fg='green'))
+
+        click.echo('')
+
+    @app.cli.command('tn-webhooks')
+    @click.option('--empresa-id', type=int, required=True, help='ID de la empresa')
+    @click.option(
+        '--action',
+        type=click.Choice(['registrar', 'eliminar', 'listar'], case_sensitive=False),
+        required=True,
+        help='Acción a ejecutar',
+    )
+    @click.option(
+        '--webhook-url', default=None, help='URL pública del endpoint webhook (para registrar)'
+    )
+    def tn_webhooks(empresa_id, action, webhook_url):
+        """Gestiona webhooks de Tienda Nube."""
+        from .models.empresa import Empresa
+        from .models.tiendanube import TiendaNubeCredencial
+        from .services.tiendanube_service import (
+            eliminar_webhooks_tn,
+            obtener_cliente_tn,
+            registrar_webhooks_tn,
+        )
+
+        # Validar empresa
+        empresa = db.session.get(Empresa, empresa_id)
+        if not empresa:
+            click.echo(click.style(f'No existe la empresa con ID {empresa_id}.', fg='red'))
+            return
+
+        # Validar credenciales activas
+        cred = TiendaNubeCredencial.query.filter_by(
+            empresa_id=empresa_id,
+            activo=True,
+        ).first()
+        if not cred:
+            click.echo(
+                click.style(
+                    f'La empresa "{empresa.nombre}" no tiene credenciales activas de Tienda Nube.',
+                    fg='red',
+                )
+            )
+            return
+
+        try:
+            if action == 'registrar':
+                if not webhook_url:
+                    click.echo(
+                        click.style(
+                            'Se requiere --webhook-url para registrar webhooks.',
+                            fg='red',
+                        )
+                    )
+                    return
+
+                click.echo(f'Registrando webhooks para "{empresa.nombre}"...')
+                creados = registrar_webhooks_tn(empresa_id, webhook_url=webhook_url)
+                click.echo(click.style(f'Webhooks registrados: {len(creados)}', fg='green'))
+                for wh in creados:
+                    click.echo(f'  - ID: {wh.get("id")}  Evento: {wh.get("event")}')
+
+            elif action == 'eliminar':
+                click.echo(f'Eliminando webhooks para "{empresa.nombre}"...')
+                eliminar_webhooks_tn(empresa_id)
+                click.echo(click.style('Webhooks eliminados correctamente.', fg='green'))
+
+            elif action == 'listar':
+                click.echo(f'Webhooks registrados para "{empresa.nombre}":')
+                client = obtener_cliente_tn(empresa_id)
+                webhooks = client.listar_webhooks()
+                if not webhooks:
+                    click.echo(click.style('  (sin webhooks registrados)', fg='yellow'))
+                else:
+                    for wh in webhooks:
+                        click.echo(
+                            f'  ID: {wh.get("id"):>6}  '
+                            f'Evento: {wh.get("event", "?"):<30}  '
+                            f'URL: {wh.get("url", "?")}'
+                        )
+
+        except Exception as e:
+            click.echo(click.style(f'Error: {e}', fg='red'))
+
+        click.echo('')
+
+    @app.cli.command('tn-logs')
+    @click.option('--empresa-id', type=int, default=None, help='ID de la empresa (opcional)')
+    @click.option(
+        '--limit', 'limite', type=int, default=20, help='Cantidad de registros (default: 20)'
+    )
+    def tn_logs(empresa_id, limite):
+        """Muestra los últimos registros de sincronización de Tienda Nube."""
+        from .models.tiendanube import SyncLog
+
+        query = SyncLog.query.order_by(SyncLog.created_at.desc())
+
+        if empresa_id:
+            query = query.filter_by(empresa_id=empresa_id)
+
+        logs = query.limit(limite).all()
+
+        if not logs:
+            click.echo(click.style('No hay registros de sincronización.', fg='yellow'))
+            return
+
+        click.echo('')
+        click.echo(
+            click.style(
+                f'{"ID":>6}  {"Empresa":>7}  {"Recurso":<12}  {"Dirección":<13}  '
+                f'{"Estado":<10}  {"Fecha":<20}  Mensaje',
+                bold=True,
+            )
+        )
+        click.echo('-' * 110)
+
+        for log in logs:
+            # Colorear el estado
+            if log.estado == 'exitoso':
+                estado = click.style(f'{log.estado:<10}', fg='green')
+            elif log.estado == 'error':
+                estado = click.style(f'{log.estado:<10}', fg='red')
+            else:
+                estado = click.style(f'{log.estado:<10}', fg='yellow')
+
+            fecha = log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else ''
+            mensaje = (log.mensaje or '')[:50]
+
+            click.echo(
+                f'{log.id:>6}  {log.empresa_id:>7}  {log.recurso:<12}  '
+                f'{log.direccion:<13}  {estado}  {fecha:<20}  {mensaje}'
+            )
+
 
 def register_template_context(app):
     """Registra variables y funciones globales para templates."""

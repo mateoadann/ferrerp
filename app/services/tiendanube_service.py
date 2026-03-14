@@ -639,7 +639,7 @@ def registrar_webhooks_tn(empresa_id, webhook_url=None):
         payload = {'event': evento, 'url': webhook_url}
 
         try:
-            resultado = client.crear_webhook(payload)
+            resultado = client.crear_webhook(evento, webhook_url)
             creados.append(resultado)
 
             _crear_sync_log(
@@ -875,7 +875,7 @@ def importar_orden_tn(tn_orden_id, empresa_id):
 
         usuario_admin = Usuario.query.filter_by(
             empresa_id=empresa_id,
-            rol='admin',
+            rol='administrador',
             activo=True,
         ).first()
 
