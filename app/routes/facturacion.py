@@ -1,5 +1,7 @@
 """Rutas de facturación."""
 
+import logging
+
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
@@ -12,8 +14,12 @@ from ..services.arca_constants import CONDICION_IVA
 from ..services.arca_exceptions import ArcaAuthError, ArcaNetworkError, ArcaValidationError
 from ..services.facturacion_service import FacturacionService
 from ..services.padron_service import PadronService
+from ..utils.certificado import extraer_info_certificado
+from ..utils.crypto import encriptar
 from ..utils.decorators import admin_required, empresa_aprobada_required
 from ..utils.helpers import paginar_query
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('facturacion', __name__, url_prefix='/facturacion')
 
@@ -165,10 +171,27 @@ def reintentar_emision(id):
 def configuracion_arca():
     """Configuración ARCA de la empresa actual.
 
-    Mantiene la página original para compatibilidad, pero muestra un aviso
-    de deprecación invitando a usar la gestión de facturadores.
+    Si la empresa ya tiene facturadores configurados, redirige al listado
+    de facturadores.  Mantiene la página original para empresas que aún
+    no migraron.
     """
     empresa = current_user.empresa
+
+    # Si ya tiene facturadores, redirigir
+    tiene_facturadores = (
+        Facturador.query.filter_by(
+            empresa_id=empresa.id,
+        ).first()
+        is not None
+    )
+
+    if tiene_facturadores:
+        flash(
+            'La configuración de facturación se gestiona desde Facturadores.',
+            'info',
+        )
+        return redirect(url_for('facturacion.listar_facturadores'))
+
     form = ConfiguracionArcaForm()
 
     if form.validate_on_submit():
@@ -195,10 +218,10 @@ def configuracion_arca():
         empresa.inicio_actividades = form.inicio_actividades.data
 
         if form.certificado_arca.data and form.certificado_arca.data.filename:
-            empresa.certificado_arca = form.certificado_arca.data.read()
+            empresa.certificado_arca = encriptar(form.certificado_arca.data.read())
 
         if form.clave_privada_arca.data and form.clave_privada_arca.data.filename:
-            empresa.clave_privada_arca = form.clave_privada_arca.data.read()
+            empresa.clave_privada_arca = encriptar(form.clave_privada_arca.data.read())
 
         db.session.commit()
         flash('Configuración ARCA actualizada correctamente.', 'success')
@@ -453,13 +476,26 @@ def _guardar_facturador(facturador=None):
     facturador.inicio_actividades = form.inicio_actividades.data
 
     # Archivos: certificado y clave privada (FileField, procesados aparte)
+    # Se encriptan antes de persistir en la DB (encryption at rest).
     cert_file = form.certificado.data
     if cert_file and hasattr(cert_file, 'read'):
-        facturador.certificado = cert_file.read()
+        cert_bytes = cert_file.read()
+
+        # Extraer info del certificado X.509 antes de encriptar
+        try:
+            info_cert = extraer_info_certificado(cert_bytes)
+            facturador.certificado_vencimiento = info_cert['vencimiento']
+            facturador.certificado_emisor = info_cert['emisor']
+            facturador.certificado_sujeto = info_cert['sujeto']
+        except (ValueError, Exception) as exc:
+            logger.warning('No se pudo extraer info del certificado: %s', exc)
+            # No bloquear la subida; el cert se guarda igual
+
+        facturador.certificado = encriptar(cert_bytes)
 
     key_file = form.clave_privada.data
     if key_file and hasattr(key_file, 'read'):
-        facturador.clave_privada = key_file.read()
+        facturador.clave_privada = encriptar(key_file.read())
 
     if es_nuevo:
         db.session.add(facturador)

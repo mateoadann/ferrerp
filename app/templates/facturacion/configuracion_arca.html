@@ -22,6 +22,16 @@
 
     <div class="col-lg-9">
         {% include 'components/alerts.html' %}
+
+        <div class="alert alert-warning d-flex align-items-start" role="alert">
+            <span class="material-symbols-rounded me-2">warning</span>
+            <div>
+                <strong>Esta configuración está obsoleta.</strong>
+                Use <a href="{{ url_for('facturacion.listar_facturadores') }}" class="alert-link">Facturadores</a>
+                para gestionar múltiples puntos de venta y credenciales ARCA.
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header">Datos fiscales y credenciales</div>
             <div class="card-body">

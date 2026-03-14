@@ -6,6 +6,7 @@ from decimal import Decimal
 from ..extensions import db
 from ..models import Empresa, Factura, FacturaDetalle, Venta
 from ..models.facturador import Facturador
+from ..utils.crypto import desencriptar
 from .arca_client import ArcaClient
 from .arca_constants import CLASE_POR_TIPO, FACTURA_POR_CLASE, determinar_clase_comprobante
 from .arca_exceptions import ArcaAuthError, ArcaNetworkError, ArcaRechazoError, ArcaValidationError
@@ -42,11 +43,23 @@ class FacturacionService:
             punto_venta = facturador.punto_venta
             arca_client = self._crear_arca_client_desde_facturador(facturador)
         else:
-            empresa = self._validar_configuracion_empresa(empresa_id)
-            facturador = None
-            condicion_iva_emisor = empresa.condicion_iva_id
-            punto_venta = empresa.punto_venta_arca
-            arca_client = self._crear_arca_client_desde_empresa(empresa)
+            # Preferir facturador_principal de la empresa si existe
+            empresa = Empresa.query.filter_by(id=empresa_id).first()
+            if not empresa:
+                raise ArcaValidationError('Empresa no encontrada.')
+
+            facturador = empresa.facturador_principal
+            if facturador and facturador.habilitado and facturador.configuracion_completa:
+                condicion_iva_emisor = facturador.condicion_iva_id
+                punto_venta = facturador.punto_venta
+                arca_client = self._crear_arca_client_desde_facturador(facturador)
+            else:
+                # Fallback: usar config ARCA legacy de la empresa
+                empresa = self._validar_configuracion_empresa(empresa_id)
+                facturador = None
+                condicion_iva_emisor = empresa.condicion_iva_id
+                punto_venta = empresa.punto_venta_arca
+                arca_client = self._crear_arca_client_desde_empresa(empresa)
 
         receptor = self._resolver_receptor_fiscal(venta.cliente)
         clase = self._determinar_clase(condicion_iva_emisor, receptor['condicion_iva_id'])
@@ -241,8 +254,8 @@ class FacturacionService:
         """Crea ArcaClient a partir de un Facturador."""
         return self.arca_client_cls(
             cuit=facturador.cuit,
-            certificado=facturador.certificado,
-            clave_privada=facturador.clave_privada,
+            certificado=desencriptar(facturador.certificado),
+            clave_privada=desencriptar(facturador.clave_privada),
             ambiente=facturador.ambiente or 'testing',
         )
 
@@ -250,8 +263,8 @@ class FacturacionService:
         """Crea ArcaClient a partir de la Empresa (compatibilidad)."""
         return self.arca_client_cls(
             cuit=empresa.cuit,
-            certificado=empresa.certificado_arca,
-            clave_privada=empresa.clave_privada_arca,
+            certificado=desencriptar(empresa.certificado_arca),
+            clave_privada=desencriptar(empresa.clave_privada_arca),
             ambiente=empresa.ambiente_arca or 'testing',
         )
 

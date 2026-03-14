@@ -18,16 +18,22 @@ class Empresa(db.Model):
     activa = db.Column(db.Boolean, default=True, nullable=False)
     aprobada = db.Column(db.Boolean, default=False, nullable=False)
 
-    # Datos fiscales ARCA
+    # DEPRECATED: Usar Facturador. Se mantiene por compatibilidad con migración.
     condicion_iva_id = db.Column(db.Integer, nullable=True)
+    # DEPRECATED: Usar Facturador. Se mantiene por compatibilidad con migración.
     condicion_iva = db.Column(db.String(100), nullable=True)
+    # DEPRECATED: Usar Facturador. Se mantiene por compatibilidad con migración.
     inicio_actividades = db.Column(db.Date, nullable=True)
 
-    # Configuración facturación electrónica ARCA
+    # DEPRECATED: Usar Facturador. Se mantiene por compatibilidad con migración.
     punto_venta_arca = db.Column(db.Integer, nullable=True)
+    # DEPRECATED: Usar Facturador. Se mantiene por compatibilidad con migración.
     certificado_arca = db.Column(db.LargeBinary, nullable=True)
+    # DEPRECATED: Usar Facturador. Se mantiene por compatibilidad con migración.
     clave_privada_arca = db.Column(db.LargeBinary, nullable=True)
+    # DEPRECATED: Usar Facturador. Se mantiene por compatibilidad con migración.
     ambiente_arca = db.Column(db.String(20), default='testing')
+    # DEPRECATED: Usar Facturador. Se mantiene por compatibilidad con migración.
     arca_habilitado = db.Column(db.Boolean, default=False)
 
     created_at = db.Column(db.DateTime, default=ahora_argentina)
@@ -35,6 +41,7 @@ class Empresa(db.Model):
 
     # Relaciones
     usuarios = db.relationship('Usuario', backref='empresa', lazy='dynamic')
+    facturadores = db.relationship('Facturador', backref='empresa', lazy='dynamic')
 
     def __repr__(self):
         return f'<Empresa {self.nombre}>'
@@ -48,6 +55,15 @@ class Empresa(db.Model):
     def es_monotributo(self):
         """Verifica si la empresa es Responsable Monotributo."""
         return self.condicion_iva_id == 6
+
+    @property
+    def facturador_principal(self):
+        """Retorna el primer Facturador activo de la empresa, o None.
+
+        Se usa como fallback para compatibilidad con código que antes
+        leía la configuración ARCA directamente de Empresa.
+        """
+        return self.facturadores.filter_by(activo=True).order_by(db.text('id')).first()
 
     def to_dict(self):
         """Convierte la empresa a diccionario."""
