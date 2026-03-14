@@ -203,7 +203,11 @@ class ArcaClient:
         return lock_fd
 
     def _inicializar_wsfe_si_hace_falta(self):
-        """Inicializa WSFE de forma lazy y thread-safe."""
+        """Inicializa WSFE de forma lazy y thread-safe.
+
+        La autenticación WSAA ocurre dentro del constructor de ArcaWebService,
+        por lo que no se necesita un paso adicional de autenticación.
+        """
         with self._lock:
             if self._wsfe is not None:
                 return self._wsfe
@@ -217,13 +221,16 @@ class ArcaClient:
                     return self._wsfe
 
                 self._wsfe = self._crear_ws('wsfe')
-                self._autenticar_ws_con_retry(self._wsfe)
                 return self._wsfe
             finally:
                 fcntl.flock(lock_fd, fcntl.LOCK_UN)
 
     def _inicializar_ws_constancia_si_hace_falta(self):
-        """Inicializa WS de padrón de forma lazy y thread-safe."""
+        """Inicializa WS de padrón de forma lazy y thread-safe.
+
+        La autenticación WSAA ocurre dentro del constructor de ArcaWebService,
+        por lo que no se necesita un paso adicional de autenticación.
+        """
         with self._lock:
             if self._ws_constancia is not None:
                 return self._ws_constancia
@@ -237,7 +244,6 @@ class ArcaClient:
                     return self._ws_constancia
 
                 self._ws_constancia = self._crear_ws('ws_sr_constancia_inscripcion')
-                self._autenticar_ws_con_retry(self._ws_constancia)
                 return self._ws_constancia
             finally:
                 fcntl.flock(lock_fd, fcntl.LOCK_UN)
@@ -300,37 +306,6 @@ class ArcaClient:
     @classmethod
     def _es_error_ta_ya_valido(cls, mensaje):
         return 'ya posee un ta valido' in cls._normalizar_texto(mensaje)
-
-    @staticmethod
-    def _invocar_candidatos(objeto, nombres):
-        for nombre in nombres:
-            metodo = getattr(objeto, nombre, None)
-            if callable(metodo):
-                return metodo()
-        return None
-
-    def _autenticar_ws_con_retry(self, ws):
-        """Inicializa WSAA y reintenta ante TA vigente (1s, 2s)."""
-        errores = []
-        for espera in (0, 1, 2):
-            if espera:
-                time.sleep(espera)
-
-            try:
-                self._aplicar_configuracion_global()
-                ws.initialize_wsaa()
-                return
-            except Exception as exc:
-                mensaje = str(exc)
-                errores.append(mensaje)
-                if self._es_error_ta_ya_valido(mensaje):
-                    continue
-                raise ArcaAuthError('Error autenticando contra WSAA.', detalle=mensaje) from exc
-
-        raise ArcaAuthError(
-            'No se pudo autenticar en WSAA luego de reintentos.',
-            detalle=' | '.join(errores),
-        )
 
     def _build_auth_request(self, ws):
         """Construye FEAuthRequest con token/sign/cuit del WS inicializado."""
