@@ -16,6 +16,7 @@ marshmallow-sqlalchemy==0.29.0
 
 # Facturación electrónica (ARCA)
 arca_arg
+cryptography>=41.0.0
 
 # Utilidades
 python-dotenv==1.0.0

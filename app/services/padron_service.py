@@ -2,6 +2,7 @@
 
 import re
 
+from ..utils.crypto import desencriptar
 from .arca_client import ArcaClient
 from .arca_exceptions import ArcaAuthError, ArcaNetworkError, ArcaValidationError
 
@@ -79,14 +80,14 @@ class PadronService:
         if es_facturador:
             self._validar_configuracion_facturador(facturador_o_empresa)
             cuit = facturador_o_empresa.cuit
-            certificado = facturador_o_empresa.certificado
-            clave_privada = facturador_o_empresa.clave_privada
+            certificado = desencriptar(facturador_o_empresa.certificado)
+            clave_privada = desencriptar(facturador_o_empresa.clave_privada)
             ambiente = facturador_o_empresa.ambiente or 'testing'
         else:
             self._validar_configuracion_empresa(facturador_o_empresa)
             cuit = facturador_o_empresa.cuit
-            certificado = facturador_o_empresa.certificado_arca
-            clave_privada = facturador_o_empresa.clave_privada_arca
+            certificado = desencriptar(facturador_o_empresa.certificado_arca)
+            clave_privada = desencriptar(facturador_o_empresa.clave_privada_arca)
             ambiente = facturador_o_empresa.ambiente_arca or 'testing'
 
         cuit_norm = self._normalizar_cuit(cuit_consulta)

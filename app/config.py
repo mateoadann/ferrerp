@@ -7,6 +7,9 @@ class Config:
 
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-cambiar-en-produccion')
 
+    # Encriptación de certificados ARCA (Fernet)
+    ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')
+
     # SQLAlchemy
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
@@ -33,7 +36,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         'DATABASE_URL',
-        'sqlite:///ferrerp_dev.db'  # SQLite por defecto para desarrollo facil
+        'sqlite:///ferrerp_dev.db',  # SQLite por defecto para desarrollo facil
     )
     SQLALCHEMY_ECHO = os.environ.get('SQLALCHEMY_ECHO', 'false').lower() == 'true'
 
@@ -43,8 +46,7 @@ class TestingConfig(Config):
 
     TESTING = True
     SQLALCHEMY_DATABASE_URI = os.environ.get(
-        'TEST_DATABASE_URL',
-        'postgresql://postgres:postgres@localhost:5432/ferrerp_test'
+        'TEST_DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/ferrerp_test'
     )
     WTF_CSRF_ENABLED = False
     LOGIN_DISABLED = False
@@ -67,5 +69,5 @@ config = {
     'development': DevelopmentConfig,
     'testing': TestingConfig,
     'production': ProductionConfig,
-    'default': DevelopmentConfig
+    'default': DevelopmentConfig,
 }

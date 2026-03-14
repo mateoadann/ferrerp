@@ -152,6 +152,128 @@ def register_commands(app):
         db.session.commit()
         print(f'Superadmin creado exitosamente: {email}')
 
+    @app.cli.command('actualizar-info-certs')
+    def actualizar_info_certs():
+        """Actualiza la info de certificados de facturadores existentes.
+
+        Lee cada certificado almacenado, extrae vencimiento, emisor y sujeto,
+        y actualiza los campos correspondientes. Útil para backfill después
+        de agregar los campos de info de certificado.
+        """
+        from .models.facturador import Facturador
+        from .utils.certificado import extraer_info_certificado
+        from .utils.crypto import desencriptar
+
+        facturadores = Facturador.query.filter(
+            Facturador.certificado.isnot(None),
+            Facturador.certificado_vencimiento.is_(None),
+        ).all()
+
+        if not facturadores:
+            print('No hay facturadores con certificados pendientes de procesar.')
+            return
+
+        print(f'Procesando {len(facturadores)} facturador(es)...')
+        actualizados = 0
+        errores = 0
+
+        for f in facturadores:
+            try:
+                cert_bytes = desencriptar(f.certificado)
+                info = extraer_info_certificado(cert_bytes)
+                f.certificado_vencimiento = info['vencimiento']
+                f.certificado_emisor = info['emisor']
+                f.certificado_sujeto = info['sujeto']
+                actualizados += 1
+                print(f'  OK: {f.nombre} ({f.cuit}) — vence {info["vencimiento"]}')
+            except Exception as exc:
+                errores += 1
+                print(f'  ERROR: {f.nombre} ({f.cuit}) — {exc}')
+
+        db.session.commit()
+        print(f'\nResultado: {actualizados} actualizados, {errores} con error.')
+
+    @app.cli.command('encrypt-certs')
+    @click.option(
+        '--dry-run',
+        is_flag=True,
+        help='Solo muestra qué se encriptaría sin modificar.',
+    )
+    def encrypt_certs(dry_run):
+        """Encripta certificados y claves privadas existentes sin encriptar.
+
+        Busca registros en Facturador y Empresa que tengan certificados/claves
+        sin el prefijo de encriptación y los encripta in-place.
+        Requiere ENCRYPTION_KEY configurada.
+        """
+        from .models import Empresa
+        from .models.facturador import Facturador
+        from .utils.crypto import PREFIJO_ENCRIPTADO, encriptar, obtener_fernet
+
+        if obtener_fernet() is None:
+            print('ERROR: ENCRYPTION_KEY no está configurada.')
+            print(
+                'Generar con: python -c '
+                '"from cryptography.fernet import Fernet; '
+                'print(Fernet.generate_key().decode())"'
+            )
+            return
+
+        total_encriptados = 0
+        total_ya_encriptados = 0
+
+        # Procesar Facturadores
+        facturadores = Facturador.query.all()
+        print(f'Revisando {len(facturadores)} facturador(es)...')
+
+        for fac in facturadores:
+            for campo in ('certificado', 'clave_privada'):
+                datos = getattr(fac, campo)
+                if not datos:
+                    continue
+                if datos.startswith(PREFIJO_ENCRIPTADO):
+                    total_ya_encriptados += 1
+                    continue
+                if dry_run:
+                    print(
+                        f'  [DRY-RUN] Facturador #{fac.id} '
+                        f'"{fac.nombre}": {campo} se encriptaría'
+                    )
+                else:
+                    setattr(fac, campo, encriptar(datos))
+                    print(f'  Facturador #{fac.id} ' f'"{fac.nombre}": {campo} encriptado')
+                total_encriptados += 1
+
+        # Procesar Empresas (campos deprecados)
+        empresas = Empresa.query.all()
+        print(f'Revisando {len(empresas)} empresa(s) (campos legacy)...')
+
+        for emp in empresas:
+            for campo in ('certificado_arca', 'clave_privada_arca'):
+                datos = getattr(emp, campo, None)
+                if not datos:
+                    continue
+                if datos.startswith(PREFIJO_ENCRIPTADO):
+                    total_ya_encriptados += 1
+                    continue
+                if dry_run:
+                    print(
+                        f'  [DRY-RUN] Empresa #{emp.id} ' f'"{emp.nombre}": {campo} se encriptaría'
+                    )
+                else:
+                    setattr(emp, campo, encriptar(datos))
+                    print(f'  Empresa #{emp.id} ' f'"{emp.nombre}": {campo} encriptado')
+                total_encriptados += 1
+
+        if not dry_run and total_encriptados > 0:
+            db.session.commit()
+
+        print('\nResumen:')
+        print(f'  Encriptados: {total_encriptados}')
+        print(f'  Ya encriptados: {total_ya_encriptados}')
+        if dry_run and total_encriptados > 0:
+            print('  (modo dry-run, no se modificó nada)')
+
 
 def register_template_context(app):
     """Registra variables y funciones globales para templates."""
@@ -178,12 +300,30 @@ def register_template_context(app):
         if current_user.is_authenticated and current_user.empresa:
             empresa_actual = current_user.empresa
 
+        # Alertas de certificados por vencer/vencidos
+        alertas_certs = []
+        if (
+            current_user.is_authenticated
+            and current_user.empresa_id is not None
+            and getattr(current_user, 'es_administrador', False)
+        ):
+            from .models.facturador import Facturador
+
+            facturadores_activos = Facturador.query.filter_by(
+                empresa_id=current_user.empresa_id,
+                activo=True,
+            ).all()
+            for f in facturadores_activos:
+                if f.estado_certificado in ('vencido', 'por_vencer'):
+                    alertas_certs.append(f)
+
         return {
             'app_name': app.config.get('APP_NAME', 'FerrERP'),
             'current_year': ahora_argentina().year,
             'get_config': get_config,
             'precios_con_iva': get_config('precios_con_iva', True),
             'empresa_actual': empresa_actual,
+            'alertas_certificados': alertas_certs,
         }
 
     # Filtros personalizados para Jinja2
