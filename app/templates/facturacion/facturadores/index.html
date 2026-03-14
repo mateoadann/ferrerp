@@ -1,0 +1,238 @@
+{% extends 'base.html' %}
+{% block title %}Facturadores - {{ app_name }}{% endblock %}
+{% block alerts %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{{ url_for('facturacion.index') }}">Facturación</a></li>
+                <li class="breadcrumb-item active">Facturadores</li>
+            </ol>
+        </nav>
+        <h2>Facturadores</h2>
+        <p class="text-muted mb-0">Entidades emisoras de comprobantes electrónicos</p>
+    </div>
+    {% if current_user.es_administrador %}
+    <a href="{{ url_for('facturacion.crear_facturador') }}" class="btn btn-primary">
+        <span class="material-symbols-rounded me-2">add</span>
+        Nuevo Facturador
+    </a>
+    {% endif %}
+</div>
+
+<div class="row">
+    <div class="col-lg-3 mb-4">
+        <div class="list-group">
+            {% if current_user.es_administrador %}
+            <a href="{{ url_for('configuracion.index') }}" class="list-group-item list-group-item-action">General</a>
+            <a href="{{ url_for('configuracion.usuarios') }}" class="list-group-item list-group-item-action">Usuarios</a>
+            <a href="{{ url_for('facturacion.configuracion_arca') }}" class="list-group-item list-group-item-action">ARCA</a>
+            <a href="{{ url_for('facturacion.listar_facturadores') }}" class="list-group-item list-group-item-action active">Facturadores</a>
+            {% endif %}
+            <a href="{{ url_for('configuracion.categorias') }}" class="list-group-item list-group-item-action">Categorías</a>
+        </div>
+    </div>
+
+    <div class="col-lg-9">
+        {% include 'components/alerts.html' %}
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                         <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>CUIT</th>
+                                <th>Razón Social</th>
+                                <th class="text-center">Pto. Venta</th>
+                                <th class="text-center">Ambiente</th>
+                                <th class="text-center">Certificado</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in facturadores %}
+                            <tr>
+                                <td class="fw-semibold">{{ f.nombre }}</td>
+                                <td class="table-code">{{ f.cuit }}</td>
+                                <td>{{ f.razon_social }}</td>
+                                <td class="text-center">{{ '%05d'|format(f.punto_venta) }}</td>
+                                <td class="text-center">
+                                    {% if f.ambiente == 'production' %}
+                                    <span class="badge badge-danger">Producción</span>
+                                    {% else %}
+                                    <span class="badge badge-secondary">Testing</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% set estado_cert = f.estado_certificado %}
+                                    {% if estado_cert == 'vencido' %}
+                                    <span class="badge badge-danger" title="Venció hace {{ (f.dias_para_vencimiento | abs) }} días">
+                                        Vencido
+                                    </span>
+                                    {% elif estado_cert == 'por_vencer' %}
+                                    <span class="badge badge-warning" title="Vence en {{ f.dias_para_vencimiento }} días">
+                                        Vence en {{ f.dias_para_vencimiento }} días
+                                    </span>
+                                    {% elif estado_cert == 'vigente' %}
+                                    <span class="badge badge-success" title="Vence en {{ f.dias_para_vencimiento }} días">
+                                        Vigente
+                                    </span>
+                                    {% else %}
+                                    <span class="badge badge-secondary">Sin certificado</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% set estado = f.estado_display %}
+                                    {% if estado == 'Activo' %}
+                                    <span class="badge badge-success">Activo</span>
+                                    {% elif estado == 'Incompleto' %}
+                                    <span class="badge badge-warning">Incompleto</span>
+                                    {% elif estado == 'Deshabilitado' %}
+                                    <span class="badge badge-secondary">Deshabilitado</span>
+                                    {% else %}
+                                    <span class="badge badge-danger">Inactivo</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="action-icons justify-content-center">
+                                        <a href="{{ url_for('facturacion.editar_facturador', id=f.id) }}"
+                                           class="action-icon" title="Editar">
+                                            <span class="material-symbols-rounded">edit</span>
+                                        </a>
+                                        <button type="button"
+                                                class="action-icon btn btn-link p-0 border-0 btn-probar-conexion"
+                                                data-facturador-id="{{ f.id }}"
+                                                title="Probar conexión ARCA"
+                                                {% if not f.configuracion_completa %}disabled{% endif %}>
+                                            <span class="material-symbols-rounded">wifi_tethering</span>
+                                        </button>
+                                        {% if f.activo %}
+                                        <form method="POST"
+                                              action="{{ url_for('facturacion.toggle_facturador', id=f.id) }}"
+                                              class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="accion" value="desactivar">
+                                            <button type="submit"
+                                                    class="action-icon btn btn-link p-0 border-0"
+                                                    title="Desactivar">
+                                                <span class="material-symbols-rounded text-danger">block</span>
+                                            </button>
+                                        </form>
+                                        {% else %}
+                                        <form method="POST"
+                                              action="{{ url_for('facturacion.toggle_facturador', id=f.id) }}"
+                                              class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="accion" value="activar">
+                                            <button type="submit"
+                                                    class="action-icon btn btn-link p-0 border-0"
+                                                    title="Activar">
+                                                <span class="material-symbols-rounded text-success">check_circle</span>
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8">
+                                    <div class="empty-state">
+                                        <span class="material-symbols-rounded">domain_add</span>
+                                        <p>No hay facturadores configurados.</p>
+                                        <p class="text-muted">Creá tu primer facturador para comenzar a emitir comprobantes electrónicos.</p>
+                                        {% if current_user.es_administrador %}
+                                        <a href="{{ url_for('facturacion.crear_facturador') }}" class="btn btn-primary mt-2">
+                                            <span class="material-symbols-rounded me-2">add</span>
+                                            Crear facturador
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resultado de prueba de conexión (AJAX) -->
+        <div id="conexion-resultado" class="mt-3"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+(() => {
+    const resultado = document.getElementById('conexion-resultado');
+    if (!resultado) return;
+
+    const escapeHtml = (str) => {
+        const s = String(str ?? '');
+        return s
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;');
+    };
+
+    document.querySelectorAll('.btn-probar-conexion').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const facturadorId = btn.dataset.facturadorId;
+            btn.disabled = true;
+            resultado.innerHTML = '<div class="text-muted">Probando conexión...</div>';
+
+            try {
+                const response = await fetch(
+                    {{ url_for('facturacion.probar_conexion_facturador', id=0) | tojson }}.replace('/0', '/' + facturadorId),
+                    {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': {{ csrf_token() | tojson }} },
+                    }
+                );
+                const data = await response.json();
+
+                if (data.success) {
+                    const ultimo = escapeHtml(data.ultimo_comprobante || '-');
+                    resultado.innerHTML = `
+                        <div class="alert alert-success d-flex align-items-center" role="alert">
+                            <span class="material-symbols-rounded me-2">check_circle</span>
+                            <div>
+                                <strong>Conexión exitosa.</strong>
+                                Último comprobante autorizado: <code>${ultimo}</code>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultado.innerHTML = `
+                        <div class="alert alert-danger d-flex align-items-center" role="alert">
+                            <span class="material-symbols-rounded me-2">error</span>
+                            <div>
+                                <strong>Error de conexión.</strong>
+                                ${escapeHtml(data.error || 'No se pudo conectar con ARCA.')}
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                resultado.innerHTML = `
+                    <div class="alert alert-danger" role="alert">
+                        Error de red al probar la conexión.
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

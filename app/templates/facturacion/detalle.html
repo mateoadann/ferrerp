@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}Factura {{ factura.numero_completo }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{{ url_for('facturacion.index') }}">Facturación</a></li>
+                <li class="breadcrumb-item active">{{ factura.numero_completo }}</li>
+            </ol>
+        </nav>
+        <h2>Factura {{ factura.numero_completo }}</h2>
+    </div>
+    <div class="d-flex gap-2">
+        {% if factura.estado in ('rechazada', 'error') %}
+        <form method="POST" action="{{ url_for('facturacion.reintentar_emision', id=factura.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-warning">
+                <span class="material-symbols-rounded me-2">restart_alt</span>
+                Reintentar emisión
+            </button>
+        </form>
+        {% endif %}
+        {% if factura.venta_id %}
+        <a href="{{ url_for('ventas.detalle', id=factura.venta_id) }}" class="btn btn-secondary">
+            <span class="material-symbols-rounded me-2">receipt_long</span>
+            Ver venta
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header">Detalle de comprobante</div>
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Descripción</th>
+                            <th class="text-center">Cantidad</th>
+                            <th class="text-end">P. Unitario</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in factura.detalles %}
+                        <tr>
+                            <td>{{ detalle.descripcion }}</td>
+                            <td class="text-center">{{ detalle.cantidad }}</td>
+                            <td class="text-end">{{ detalle.precio_unitario|currency }}</td>
+                            <td class="text-end fw-bold">{{ detalle.subtotal|currency }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">Sin líneas de detalle.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" class="text-end">Neto gravado:</td>
+                            <td class="text-end">{{ factura.imp_neto|currency }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="3" class="text-end">IVA:</td>
+                            <td class="text-end">{{ factura.imp_iva|currency }}</td>
+                        </tr>
+                        <tr class="table-light">
+                            <td colspan="3" class="text-end fw-bold">TOTAL:</td>
+                            <td class="text-end fw-bold">{{ factura.imp_total|currency }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        {% if factura.error_mensaje %}
+        <div class="alert alert-warning">
+            <span class="material-symbols-rounded me-2">warning</span>
+            <strong>Detalle de error:</strong> {{ factura.error_mensaje }}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">Información ARCA</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-6 text-muted">Estado:</dt>
+                    <dd class="col-6">{{ factura.estado_display }}</dd>
+
+                    <dt class="col-6 text-muted">Tipo:</dt>
+                    <dd class="col-6">{{ factura.tipo_comprobante_display }}</dd>
+
+                    <dt class="col-6 text-muted">Fecha:</dt>
+                    <dd class="col-6">{{ factura.fecha_emision|date }}</dd>
+
+                    <dt class="col-6 text-muted">CAE:</dt>
+                    <dd class="col-6">{{ factura.cae or '-' }}</dd>
+
+                    <dt class="col-6 text-muted">Vto. CAE:</dt>
+                    <dd class="col-6">{{ factura.cae_vencimiento|date if factura.cae_vencimiento else '-' }}</dd>
+
+                    <dt class="col-6 text-muted">Documento receptor:</dt>
+                    <dd class="col-6">{{ factura.doc_nro_receptor or '-' }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

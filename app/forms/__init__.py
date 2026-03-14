@@ -1,13 +1,14 @@
 """Formularios de la aplicación."""
 
 from .auth_forms import LoginForm
-from .producto_forms import ProductoForm, CategoriaForm
-from .cliente_forms import ClienteForm
-from .proveedor_forms import ProveedorForm
-from .venta_forms import VentaForm
 from .caja_forms import AperturaCajaForm, CierreCajaForm, EgresoCajaForm
-from .usuario_forms import UsuarioForm, UsuarioEditForm
-from .configuracion_forms import ConfiguracionForm
+from .cliente_forms import ClienteForm
+from .configuracion_forms import ConfiguracionArcaForm, ConfiguracionForm
+from .facturador_forms import FacturadorForm
+from .producto_forms import CategoriaForm, ProductoForm
+from .proveedor_forms import ProveedorForm
+from .usuario_forms import UsuarioEditForm, UsuarioForm
+from .venta_forms import VentaForm
 
 __all__ = [
     'LoginForm',
@@ -21,5 +22,7 @@ __all__ = [
     'EgresoCajaForm',
     'UsuarioForm',
     'UsuarioEditForm',
-    'ConfiguracionForm'
+    'ConfiguracionForm',
+    'ConfiguracionArcaForm',
+    'FacturadorForm',
 ]

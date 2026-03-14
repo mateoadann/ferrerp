@@ -16,6 +16,7 @@
             {% if current_user.es_administrador %}
             <a href="{{ url_for('configuracion.index') }}" class="list-group-item list-group-item-action">General</a>
             <a href="{{ url_for('configuracion.usuarios') }}" class="list-group-item list-group-item-action">Usuarios</a>
+            <a href="{{ url_for('facturacion.configuracion_arca') }}" class="list-group-item list-group-item-action">ARCA</a>
             {% endif %}
             <a href="{{ url_for('configuracion.categorias') }}" class="list-group-item list-group-item-action active">Categorías</a>
         </div>

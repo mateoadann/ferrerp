@@ -1,0 +1,590 @@
+"""Servicio de orquestacion para emitir factura electronica desde una venta."""
+
+import logging
+from datetime import datetime
+from decimal import Decimal
+
+from ..extensions import db
+from ..models import Empresa, Factura, FacturaDetalle, Venta
+from ..models.facturador import Facturador
+from ..utils.crypto import desencriptar
+from .arca_client import ArcaClient
+from .arca_constants import CLASE_POR_TIPO, FACTURA_POR_CLASE, determinar_clase_comprobante
+from .arca_exceptions import ArcaAuthError, ArcaNetworkError, ArcaRechazoError, ArcaValidationError
+from .factura_builder import FacturaBuilder
+from .wsfe_service import WSFEService
+
+logger = logging.getLogger(__name__)
+
+
+class FacturacionService:
+    """Coordina la emision de comprobantes ARCA a partir de ventas."""
+
+    def __init__(self, arca_client_cls=ArcaClient, wsfe_service_cls=WSFEService):
+        self.arca_client_cls = arca_client_cls
+        self.wsfe_service_cls = wsfe_service_cls
+
+    def emitir_factura_desde_venta(
+        self,
+        venta_id,
+        empresa_id,
+        facturador_id=None,
+        tipo_comprobante=None,
+        concepto=1,
+    ):
+        """Emite comprobante electronico para una venta completada.
+
+        Si se provee facturador_id, usa el Facturador para la emision.
+        Si no, mantiene compatibilidad con la configuracion ARCA de Empresa
+        (periodo de transicion).
+        """
+        venta = self._obtener_venta_completada(venta_id, empresa_id)
+
+        if facturador_id is not None:
+            facturador = self._validar_facturador(facturador_id, empresa_id)
+            condicion_iva_emisor = facturador.condicion_iva_id
+            punto_venta = facturador.punto_venta
+            arca_client = self._crear_arca_client_desde_facturador(facturador)
+        else:
+            # Preferir facturador_principal de la empresa si existe
+            empresa = Empresa.query.filter_by(id=empresa_id).first()
+            if not empresa:
+                raise ArcaValidationError('Empresa no encontrada.')
+
+            facturador = empresa.facturador_principal
+            if facturador and facturador.habilitado and facturador.configuracion_completa:
+                condicion_iva_emisor = facturador.condicion_iva_id
+                punto_venta = facturador.punto_venta
+                arca_client = self._crear_arca_client_desde_facturador(facturador)
+            else:
+                # Fallback: usar config ARCA legacy de la empresa
+                empresa = self._validar_configuracion_empresa(empresa_id)
+                facturador = None
+                condicion_iva_emisor = empresa.condicion_iva_id
+                punto_venta = empresa.punto_venta_arca
+                arca_client = self._crear_arca_client_desde_empresa(empresa)
+
+        receptor = self._resolver_receptor_fiscal(venta.cliente)
+        clase = self._determinar_clase(condicion_iva_emisor, receptor['condicion_iva_id'])
+        tipo_cbte = int(tipo_comprobante or FACTURA_POR_CLASE.get(clase, 0))
+        if not tipo_cbte:
+            raise ArcaValidationError(
+                f'No se pudo determinar tipo de comprobante para clase {clase}.'
+            )
+
+        self._validar_no_duplicada(venta.id, empresa_id, tipo_cbte)
+
+        pv = int(punto_venta)
+        wsfe = self.wsfe_service_cls(arca_client)
+
+        factura = None
+
+        try:
+            ultimo = wsfe.ultimo_autorizado(pv, tipo_cbte)
+            numero_cbte = int(ultimo) + 1
+            request_data = self._construir_request(
+                venta=venta,
+                tipo_comprobante=tipo_cbte,
+                punto_venta=pv,
+                numero_comprobante=numero_cbte,
+                concepto=concepto,
+                receptor=receptor,
+            )
+
+            factura = self._crear_factura_local(
+                venta=venta,
+                empresa_id=empresa_id,
+                facturador_id=facturador.id if facturador else None,
+                tipo_comprobante=tipo_cbte,
+                punto_venta=pv,
+                numero_comprobante=numero_cbte,
+                concepto=concepto,
+                receptor=receptor,
+                request_data=request_data,
+            )
+            db.session.commit()
+
+            try:
+                respuesta = wsfe.autorizar(request_data)
+            except ArcaRechazoError as exc:
+                if wsfe.es_error_secuencia(exc):
+                    respuesta = self._reintentar_secuencia(
+                        wsfe=wsfe,
+                        factura=factura,
+                        venta=venta,
+                        tipo_comprobante=tipo_cbte,
+                        punto_venta=pv,
+                        concepto=concepto,
+                        receptor=receptor,
+                    )
+                    if not respuesta:
+                        return factura
+                else:
+                    logger.warning(
+                        'ARCA rechazo factura id=%s venta=%s: %s',
+                        factura.id,
+                        venta_id,
+                        exc.mensaje,
+                    )
+                    self._marcar_rechazada(factura, exc)
+                    db.session.commit()
+                    return factura
+
+            self._marcar_autorizada(factura, respuesta)
+            db.session.commit()
+            logger.info(
+                'Factura autorizada id=%s venta=%s CAE=%s',
+                factura.id,
+                venta_id,
+                factura.cae,
+            )
+            return factura
+
+        except (ArcaNetworkError, ArcaAuthError) as exc:
+            logger.exception(
+                'Error de red/autenticacion ARCA al emitir factura para venta %s',
+                venta_id,
+            )
+            db.session.rollback()
+            if factura:
+                self._guardar_estado_error(
+                    factura.id, str(exc), detalle=getattr(exc, 'detalle', None)
+                )
+            raise
+        except Exception:
+            logger.exception(
+                'Error inesperado al emitir factura para venta %s',
+                venta_id,
+            )
+            db.session.rollback()
+            if factura:
+                self._guardar_estado_error(factura.id, 'Error inesperado al emitir factura.')
+            raise
+        finally:
+            arca_client.close()
+
+    def probar_conexion(self, facturador):
+        """Prueba la conexion ARCA de un facturador.
+
+        Valida configuracion, crea ArcaClient, consulta ultimo comprobante
+        autorizado y retorna dict con el resultado.
+        """
+        if not facturador:
+            return {'success': False, 'error': 'Facturador no proporcionado.'}
+
+        if not facturador.activo:
+            return {'success': False, 'error': 'El facturador no está activo.'}
+
+        if not facturador.habilitado:
+            return {'success': False, 'error': 'El facturador no está habilitado.'}
+
+        if not facturador.configuracion_completa:
+            faltantes = ', '.join(facturador.campos_faltantes)
+            return {
+                'success': False,
+                'error': f'Configuración incompleta: {faltantes}',
+            }
+
+        arca_client = None
+        try:
+            arca_client = self._crear_arca_client_desde_facturador(facturador)
+            wsfe = self.wsfe_service_cls(arca_client)
+            # Consultar tipo 1 (Factura A) como prueba de conexión
+            ultimo = wsfe.ultimo_autorizado(facturador.punto_venta, 1)
+            return {
+                'success': True,
+                'ultimo_comprobante': int(ultimo),
+                'punto_venta': facturador.punto_venta,
+                'ambiente': facturador.ambiente,
+            }
+        except (ArcaAuthError, ArcaNetworkError, ArcaValidationError) as exc:
+            logger.warning(
+                'Fallo al probar conexion del facturador %s: %s',
+                facturador.id,
+                exc.mensaje,
+            )
+            return {
+                'success': False,
+                'error': exc.mensaje,
+            }
+        except Exception as exc:
+            logger.exception(
+                'Error inesperado al probar conexion del facturador %s',
+                facturador.id,
+            )
+            return {
+                'success': False,
+                'error': f'Error inesperado: {exc}',
+            }
+        finally:
+            if arca_client:
+                arca_client.close()
+
+    # -- Validaciones ----------------------------------------------------------
+
+    @staticmethod
+    def _obtener_venta_completada(venta_id, empresa_id):
+        """Busca una venta completada perteneciente a la empresa."""
+        venta = Venta.query.filter_by(id=venta_id, empresa_id=empresa_id).first()
+        if not venta:
+            raise ArcaValidationError('Venta no encontrada para la empresa indicada.')
+        if venta.estado != 'completada':
+            raise ArcaValidationError('Solo se pueden facturar ventas completadas.')
+        return venta
+
+    @staticmethod
+    def _validar_facturador(facturador_id, empresa_id):
+        """Carga y valida un Facturador por ID y empresa."""
+        facturador = Facturador.query.filter_by(
+            id=facturador_id,
+            empresa_id=empresa_id,
+        ).first()
+        if not facturador:
+            raise ArcaValidationError('Facturador no encontrado para la empresa indicada.')
+        if not facturador.activo:
+            raise ArcaValidationError('El facturador no está activo.')
+        if not facturador.habilitado:
+            raise ArcaValidationError('El facturador no está habilitado para emitir.')
+
+        if not facturador.configuracion_completa:
+            faltantes = ', '.join(facturador.campos_faltantes)
+            raise ArcaValidationError(
+                f'Configuración ARCA del facturador incompleta: {faltantes}',
+            )
+        return facturador
+
+    @staticmethod
+    def _validar_configuracion_empresa(empresa_id):
+        """Valida configuracion minima ARCA de la empresa (compatibilidad)."""
+        empresa = Empresa.query.filter_by(id=empresa_id).first()
+        if not empresa:
+            raise ArcaValidationError('Empresa no encontrada.')
+
+        faltantes = []
+        if not empresa.arca_habilitado:
+            faltantes.append('arca_habilitado')
+        if not empresa.certificado_arca:
+            faltantes.append('certificado_arca')
+        if not empresa.clave_privada_arca:
+            faltantes.append('clave_privada_arca')
+        if not empresa.cuit:
+            faltantes.append('cuit')
+        if not empresa.condicion_iva_id:
+            faltantes.append('condicion_iva_id')
+        if not empresa.punto_venta_arca:
+            faltantes.append('punto_venta_arca')
+
+        if faltantes:
+            raise ArcaValidationError(
+                f'Configuracion ARCA incompleta: {", ".join(faltantes)}',
+            )
+        return empresa
+
+    # -- Creación de ArcaClient ------------------------------------------------
+
+    def _crear_arca_client_desde_facturador(self, facturador):
+        """Crea ArcaClient a partir de un Facturador."""
+        return self.arca_client_cls(
+            cuit=facturador.cuit,
+            certificado=desencriptar(facturador.certificado),
+            clave_privada=desencriptar(facturador.clave_privada),
+            ambiente=facturador.ambiente or 'testing',
+        )
+
+    def _crear_arca_client_desde_empresa(self, empresa):
+        """Crea ArcaClient a partir de la Empresa (compatibilidad)."""
+        return self.arca_client_cls(
+            cuit=empresa.cuit,
+            certificado=desencriptar(empresa.certificado_arca),
+            clave_privada=desencriptar(empresa.clave_privada_arca),
+            ambiente=empresa.ambiente_arca or 'testing',
+        )
+
+    # -- Helpers ---------------------------------------------------------------
+
+    @staticmethod
+    def _resolver_receptor_fiscal(cliente):
+        """Resuelve datos fiscales del receptor o consumidor final por defecto.
+
+        Infiere DocTipo a partir del numero de documento cuando el campo
+        doc_tipo del cliente no fue asignado explicitamente (default 99).
+        Reglas ARCA:
+          - CUIT (11 digitos) → DocTipo=80
+          - DNI  (7-8 digitos) → DocTipo=96
+          - Sin documento      → DocTipo=99, DocNro=0
+        """
+        if not cliente:
+            return {
+                'doc_tipo': 99,
+                'doc_nro': 0,
+                'condicion_iva_id': 5,
+                'nombre': 'Consumidor Final',
+            }
+
+        doc_nro = ''.join(ch for ch in str(cliente.dni_cuit or '') if ch.isdigit())
+        doc_tipo = int(cliente.doc_tipo or 99)
+
+        # Si doc_tipo sigue en el default (99) pero hay documento cargado,
+        # inferir el tipo correcto segun la longitud del numero.
+        if doc_tipo == 99 and doc_nro:
+            if len(doc_nro) == 11:
+                doc_tipo = 80  # CUIT
+            elif len(doc_nro) in (7, 8):
+                doc_tipo = 96  # DNI
+
+        return {
+            'doc_tipo': doc_tipo,
+            'doc_nro': int(doc_nro or 0),
+            'condicion_iva_id': int(cliente.condicion_iva_id or 5),
+            'nombre': cliente.nombre_fiscal,
+        }
+
+    @staticmethod
+    def _determinar_clase(condicion_iva_emisor_id, condicion_iva_receptor_id):
+        """Determina clase A/B/C validando combinaciones fiscales."""
+        try:
+            return determinar_clase_comprobante(condicion_iva_emisor_id, condicion_iva_receptor_id)
+        except ValueError as exc:
+            raise ArcaValidationError(str(exc)) from exc
+
+    @staticmethod
+    def _validar_no_duplicada(venta_id, empresa_id, tipo_comprobante):
+        """Impide facturar dos veces la misma venta con mismo tipo autorizado."""
+        factura = Factura.query.filter_by(
+            venta_id=venta_id,
+            empresa_id=empresa_id,
+            tipo_comprobante=tipo_comprobante,
+            estado='autorizada',
+        ).first()
+        if factura:
+            raise ArcaValidationError(
+                f'Ya existe factura autorizada para esta venta y tipo ({tipo_comprobante}).',
+            )
+
+    @staticmethod
+    def _construir_request(
+        venta,
+        tipo_comprobante,
+        punto_venta,
+        numero_comprobante,
+        concepto,
+        receptor,
+    ):
+        """Construye payload FECAESolicitar con FacturaBuilder."""
+        return FacturaBuilder.desde_venta(
+            venta=venta,
+            tipo_comprobante=tipo_comprobante,
+            punto_venta=punto_venta,
+            numero_comprobante=numero_comprobante,
+            concepto=concepto,
+            receptor=receptor,
+            precios_con_iva=True,
+        )
+
+    def _crear_factura_local(
+        self,
+        venta,
+        empresa_id,
+        facturador_id,
+        tipo_comprobante,
+        punto_venta,
+        numero_comprobante,
+        concepto,
+        receptor,
+        request_data,
+    ):
+        """Crea factura local en estado pendiente y copia sus detalles.
+
+        Si ya existe una factura rechazada (sin CAE) con el mismo numero
+        de comprobante, la elimina antes de insertar la nueva para evitar
+        UniqueViolation al reintentar.
+        """
+        self._limpiar_factura_rechazada(
+            empresa_id,
+            tipo_comprobante,
+            punto_venta,
+            numero_comprobante,
+        )
+
+        det_req = request_data['FeDetReq']['FECAEDetRequest'][0]
+        factura = Factura(
+            venta_id=venta.id,
+            empresa_id=empresa_id,
+            facturador_id=facturador_id,
+            tipo_comprobante=tipo_comprobante,
+            punto_venta=punto_venta,
+            numero_comprobante=numero_comprobante,
+            concepto=concepto,
+            fecha_emision=(venta.fecha.date() if hasattr(venta.fecha, 'date') else venta.fecha),
+            doc_tipo_receptor=receptor['doc_tipo'],
+            doc_nro_receptor=str(receptor['doc_nro']),
+            condicion_iva_receptor_id=receptor['condicion_iva_id'],
+            imp_total=Decimal(str(det_req['ImpTotal'])),
+            imp_neto=Decimal(str(det_req['ImpNeto'])),
+            imp_iva=Decimal(str(det_req['ImpIVA'])),
+            imp_tot_conc=Decimal(str(det_req['ImpTotConc'])),
+            imp_op_ex=Decimal(str(det_req['ImpOpEx'])),
+            imp_trib=Decimal(str(det_req['ImpTrib'])),
+            mon_id=det_req['MonId'],
+            mon_cotiz=Decimal(str(det_req['MonCotiz'])),
+            estado='pendiente',
+            arca_request=request_data,
+        )
+
+        db.session.add(factura)
+        db.session.flush()
+
+        clase = CLASE_POR_TIPO.get(tipo_comprobante)
+        precios_con_iva = clase in ('B', 'M', 'C')
+
+        for detalle in venta.detalles:
+            iva_porcentaje = Decimal(str(detalle.iva_porcentaje or 0))
+            subtotal_linea = Decimal(str(detalle.subtotal or 0))
+
+            if clase == 'C' or iva_porcentaje == 0:
+                iva_monto = Decimal('0.00')
+            elif precios_con_iva:
+                divisor = Decimal('1') + (iva_porcentaje / Decimal('100'))
+                neto = subtotal_linea / divisor
+                iva_monto = (subtotal_linea - neto).quantize(
+                    Decimal('0.01'),
+                )
+            else:
+                iva_monto = (subtotal_linea * iva_porcentaje / Decimal('100')).quantize(
+                    Decimal('0.01'),
+                )
+
+            factura_det = FacturaDetalle(
+                factura_id=factura.id,
+                producto_id=detalle.producto_id,
+                descripcion=detalle.producto.nombre
+                if detalle.producto
+                else f'Producto #{detalle.producto_id}',
+                cantidad=detalle.cantidad,
+                precio_unitario=detalle.precio_unitario,
+                subtotal=detalle.subtotal,
+                iva_porcentaje=detalle.iva_porcentaje,
+                iva_monto=iva_monto,
+            )
+            db.session.add(factura_det)
+
+        return factura
+
+    @staticmethod
+    def _limpiar_factura_rechazada(empresa_id, tipo_comprobante, punto_venta, numero_comprobante):
+        """Elimina factura rechazada (sin CAE) que ocupe el mismo numero.
+
+        Cuando ARCA rechaza un comprobante se guarda localmente con
+        estado='rechazada'.  Al reintentar, ARCA devuelve el mismo ultimo
+        autorizado y el sistema calcula el mismo numero siguiente, lo que
+        provoca UniqueViolation.  Esta limpieza lo evita.
+        """
+        existente = Factura.query.filter_by(
+            empresa_id=empresa_id,
+            tipo_comprobante=tipo_comprobante,
+            punto_venta=punto_venta,
+            numero_comprobante=numero_comprobante,
+        ).first()
+
+        if existente is None:
+            return
+
+        if existente.estado != 'rechazada' or existente.cae:
+            return
+
+        logger.info(
+            'Eliminando factura rechazada id=%s (%s-%s) para reutilizar numero %s',
+            existente.id,
+            punto_venta,
+            numero_comprobante,
+            numero_comprobante,
+        )
+        # Borrar detalles asociados primero
+        FacturaDetalle.query.filter_by(factura_id=existente.id).delete()
+        db.session.delete(existente)
+        db.session.flush()
+
+    def _reintentar_secuencia(
+        self,
+        wsfe,
+        factura,
+        venta,
+        tipo_comprobante,
+        punto_venta,
+        concepto,
+        receptor,
+    ):
+        """Reintenta una unica vez cuando ARCA devuelve error de secuencia 10016."""
+        ultimo = wsfe.ultimo_autorizado(punto_venta, tipo_comprobante)
+        nuevo_numero = int(ultimo) + 1
+
+        nuevo_request = self._construir_request(
+            venta=venta,
+            tipo_comprobante=tipo_comprobante,
+            punto_venta=punto_venta,
+            numero_comprobante=nuevo_numero,
+            concepto=concepto,
+            receptor=receptor,
+        )
+
+        factura.numero_comprobante = nuevo_numero
+        factura.arca_request = nuevo_request
+        db.session.commit()
+
+        try:
+            return wsfe.autorizar(nuevo_request)
+        except ArcaRechazoError as exc:
+            self._marcar_rechazada(factura, exc)
+            db.session.commit()
+            return None
+
+    @staticmethod
+    def _marcar_autorizada(factura, respuesta):
+        """Actualiza factura local como autorizada por ARCA."""
+        factura.estado = 'autorizada'
+        factura.cae = respuesta.get('cae')
+        factura.cae_vencimiento = FacturacionService._parsear_fecha(
+            respuesta.get('cae_vencimiento')
+        )
+        factura.error_codigo = None
+        factura.error_mensaje = None
+        factura.arca_response = respuesta.get('raw') or respuesta
+
+    @staticmethod
+    def _marcar_rechazada(factura, exc):
+        """Actualiza factura local como rechazada por ARCA."""
+        factura.estado = 'rechazada'
+        factura.error_codigo = str(exc.codigo or '') or None
+        factura.error_mensaje = exc.mensaje
+        factura.arca_response = (
+            exc.detalle if isinstance(exc.detalle, dict) else {'detalle': exc.detalle}
+        )
+
+    @staticmethod
+    def _guardar_estado_error(factura_id, mensaje, detalle=None):
+        """Persistencia best-effort del estado error ante fallas de red/autenticacion."""
+        factura = Factura.query.filter_by(id=factura_id).first()
+        if not factura:
+            return
+
+        factura.estado = 'error'
+        factura.error_mensaje = mensaje
+        if detalle is not None:
+            factura.arca_response = {'detalle': detalle}
+        db.session.commit()
+
+    @staticmethod
+    def _parsear_fecha(valor):
+        """Parsea fechas devueltas por ARCA en varios formatos."""
+        if not valor:
+            return None
+        if hasattr(valor, 'year'):
+            return valor
+
+        texto = str(valor)
+        for formato in ('%Y%m%d', '%Y-%m-%d'):
+            try:
+                return datetime.strptime(texto, formato).date()
+            except ValueError:
+                continue
+        return None

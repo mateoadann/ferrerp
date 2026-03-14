@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}Facturación Electrónica - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>Facturación Electrónica</h2>
+        <p class="text-muted mb-0">Comprobantes emitidos por ARCA</p>
+    </div>
+    {% if current_user.es_administrador %}
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('facturacion.listar_facturadores') }}" class="btn btn-secondary">
+            <span class="material-symbols-rounded me-2">domain</span>
+            Administrar facturadores
+        </a>
+        <a href="{{ url_for('facturacion.configuracion_arca') }}" class="btn btn-secondary">
+            <span class="material-symbols-rounded me-2">settings</span>
+            Configuración ARCA
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Comprobante</th>
+                    <th>Tipo</th>
+                    <th>Fecha</th>
+                    <th>Venta</th>
+                    <th class="text-end">Total</th>
+                    <th>Estado</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for factura in facturas.items %}
+                <tr>
+                    <td class="table-code">{{ factura.numero_completo }}</td>
+                    <td>{{ factura.tipo_comprobante_display }}</td>
+                    <td>{{ factura.fecha_emision|date }}</td>
+                    <td>
+                        {% if factura.venta %}
+                        <a href="{{ url_for('ventas.detalle', id=factura.venta_id) }}">{{ factura.venta.numero_completo }}</a>
+                        {% else %}
+                        <span class="text-muted">Sin venta asociada</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end fw-bold">{{ factura.imp_total|currency }}</td>
+                    <td>
+                        {% if factura.estado == 'autorizada' %}
+                        <span class="badge badge-success">Autorizada</span>
+                        {% elif factura.estado == 'rechazada' %}
+                        <span class="badge badge-danger">Rechazada</span>
+                        {% elif factura.estado == 'error' %}
+                        <span class="badge badge-warning">Error</span>
+                        {% else %}
+                        <span class="badge badge-secondary">Pendiente</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-icons justify-content-center">
+                            <a href="{{ url_for('facturacion.detalle', id=factura.id) }}" class="action-icon" title="Ver detalle">
+                                <span class="material-symbols-rounded">visibility</span>
+                            </a>
+                            {% if factura.estado in ('rechazada', 'error') %}
+                            <form method="POST" action="{{ url_for('facturacion.reintentar_emision', id=factura.id) }}" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="action-icon btn btn-link p-0 border-0" title="Reintentar emisión">
+                                    <span class="material-symbols-rounded text-warning">restart_alt</span>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <span class="material-symbols-rounded">receipt</span>
+                            <p>No hay facturas emitidas todavía.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if facturas.pages > 1 %}
+{% set pagination = facturas %}
+{% include 'components/pagination.html' %}
+{% endif %}
+{% endblock %}

@@ -56,6 +56,29 @@
                 </div>
                 {% endif %}
 
+                {% if alertas_certificados %}
+                <div class="alert alert-warning alert-dismissible fade show d-flex align-items-start mx-3 mt-3" role="alert">
+                    <span class="material-symbols-rounded me-2 mt-1">warning</span>
+                    <div>
+                        <strong>Certificados ARCA requieren atención:</strong>
+                        <ul class="mb-0 mt-1">
+                            {% for f in alertas_certificados %}
+                            <li>
+                                <strong>{{ f.nombre }}</strong> ({{ f.cuit }}):
+                                {% if f.certificado_vencido %}
+                                <span class="text-danger">Certificado vencido hace {{ (f.dias_para_vencimiento | abs) }} días.</span>
+                                {% else %}
+                                <span class="text-warning">Vence en {{ f.dias_para_vencimiento }} días.</span>
+                                {% endif %}
+                                <a href="{{ url_for('facturacion.editar_facturador', id=f.id) }}">Renovar</a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+                {% endif %}
+
                 {% block content %}{% endblock %}
             </div>
         </main>

@@ -6,10 +6,14 @@ Exporta todos los modelos para facilitar su uso.
 from .caja import Caja, MovimientoCaja
 from .categoria import Categoria
 from .cliente import Cliente
+from .comprobante_asociado import ComprobanteAsociado
 from .configuracion import Configuracion
 from .cuenta_corriente import MovimientoCuentaCorriente
 from .devolucion import Devolucion, DevolucionDetalle
 from .empresa import Empresa
+from .factura import Factura
+from .factura_detalle import FacturaDetalle
+from .facturador import Facturador
 from .movimiento_stock import MovimientoStock
 from .orden_compra import OrdenCompra, OrdenCompraDetalle
 from .presupuesto import Presupuesto, PresupuestoDetalle
@@ -38,5 +42,9 @@ __all__ = [
     'MovimientoCuentaCorriente',
     'Configuracion',
     'Presupuesto',
-    'PresupuestoDetalle'
+    'PresupuestoDetalle',
+    'Factura',
+    'Facturador',
+    'FacturaDetalle',
+    'ComprobanteAsociado',
 ]

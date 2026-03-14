@@ -1,0 +1,430 @@
+{% extends 'base.html' %}
+{% block title %}{{ titulo }} - {{ app_name }}{% endblock %}
+{% block alerts %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{{ url_for('facturacion.index') }}">Facturación</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('facturacion.listar_facturadores') }}">Facturadores</a></li>
+                <li class="breadcrumb-item active">{{ titulo }}</li>
+            </ol>
+        </nav>
+        <h2>{{ titulo }}</h2>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-3 mb-4">
+        <div class="list-group">
+            {% if current_user.es_administrador %}
+            <a href="{{ url_for('configuracion.index') }}" class="list-group-item list-group-item-action">General</a>
+            <a href="{{ url_for('configuracion.usuarios') }}" class="list-group-item list-group-item-action">Usuarios</a>
+            <a href="{{ url_for('facturacion.configuracion_arca') }}" class="list-group-item list-group-item-action">ARCA</a>
+            <a href="{{ url_for('facturacion.listar_facturadores') }}" class="list-group-item list-group-item-action active">Facturadores</a>
+            {% endif %}
+            <a href="{{ url_for('configuracion.categorias') }}" class="list-group-item list-group-item-action">Categorías</a>
+        </div>
+    </div>
+
+    <div class="col-lg-9">
+        {% include 'components/alerts.html' %}
+
+        {# ── Indicador de completitud (solo en edición) ── #}
+        {% if facturador %}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Estado de configuración</span>
+                {% if facturador.configuracion_completa %}
+                <span class="badge badge-success">Completa</span>
+                {% else %}
+                <span class="badge badge-warning">Incompleta</span>
+                {% endif %}
+            </div>
+            <div class="card-body py-2">
+                <div class="row g-2">
+                    {% set checks = [
+                        (facturador.cuit, 'CUIT'),
+                        (facturador.razon_social, 'Razón social'),
+                        (facturador.condicion_iva_id, 'Condición IVA'),
+                        (facturador.punto_venta, 'Punto de venta'),
+                        (facturador.certificado, 'Certificado digital'),
+                        (facturador.clave_privada, 'Clave privada'),
+                    ] %}
+                    {% for valor, label in checks %}
+                    <div class="col-md-4 col-6">
+                        {% if valor %}
+                        <span class="text-success d-flex align-items-center gap-1 small">
+                            <span class="material-symbols-rounded" style="font-size:18px;">check_circle</span>
+                            {{ label }}
+                        </span>
+                        {% else %}
+                        <span class="text-danger d-flex align-items-center gap-1 small">
+                            <span class="material-symbols-rounded" style="font-size:18px;">cancel</span>
+                            {{ label }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data">
+            {{ form.hidden_tag() }}
+
+            {# ── Sección 1: Datos del facturador ── #}
+            <div class="card mb-4">
+                <div class="card-header">Datos del facturador</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label">{{ form.nombre.label.text }} *</label>
+                            {{ form.nombre(class="form-control" + (" is-invalid" if form.nombre.errors else "")) }}
+                            {% for error in form.nombre.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                            <small class="text-muted">Nombre interno para identificar este facturador.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Sección 2: Datos fiscales ── #}
+            <div class="card mb-4">
+                <div class="card-header">Datos fiscales</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.razon_social.label.text }} *</label>
+                            {{ form.razon_social(class="form-control" + (" is-invalid" if form.razon_social.errors else ""), id="razon_social") }}
+                            {% for error in form.razon_social.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.cuit.label.text }} *</label>
+                            {{ form.cuit(class="form-control" + (" is-invalid" if form.cuit.errors else "")) }}
+                            {% for error in form.cuit.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.condicion_iva_id.label.text }} *</label>
+                            {{ form.condicion_iva_id(class="form-select" + (" is-invalid" if form.condicion_iva_id.errors else ""), id="condicion_iva_id") }}
+                            {% for error in form.condicion_iva_id.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.domicilio_fiscal.label.text }}</label>
+                            {{ form.domicilio_fiscal(class="form-control" + (" is-invalid" if form.domicilio_fiscal.errors else "")) }}
+                            {% for error in form.domicilio_fiscal.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.numero_iibb.label.text }}</label>
+                            {{ form.numero_iibb(class="form-control" + (" is-invalid" if form.numero_iibb.errors else "")) }}
+                            {% for error in form.numero_iibb.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.email_fiscal.label.text }}</label>
+                            {{ form.email_fiscal(class="form-control" + (" is-invalid" if form.email_fiscal.errors else "")) }}
+                            {% for error in form.email_fiscal.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.inicio_actividades.label.text }}</label>
+                            {{ form.inicio_actividades(class="form-control" + (" is-invalid" if form.inicio_actividades.errors else "")) }}
+                            {% for error in form.inicio_actividades.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Sección 3: Configuración ARCA ── #}
+            <div class="card mb-4">
+                <div class="card-header">Configuración ARCA</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.punto_venta.label.text }} *</label>
+                            {{ form.punto_venta(class="form-control" + (" is-invalid" if form.punto_venta.errors else "")) }}
+                            {% for error in form.punto_venta.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                            <small class="text-muted">Número autorizado en ARCA para facturación electrónica.</small>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.ambiente.label.text }} *</label>
+                            {{ form.ambiente(class="form-select" + (" is-invalid" if form.ambiente.errors else ""), id="ambiente") }}
+                            {% for error in form.ambiente.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        {# Banner de advertencia para producción #}
+                        <div class="col-12" id="alerta-produccion" style="display:none;">
+                            <div class="alert alert-danger d-flex align-items-start mb-0" role="alert">
+                                <span class="material-symbols-rounded me-2 flex-shrink-0">warning</span>
+                                <div>
+                                    <strong>Ambiente de producción</strong><br>
+                                    Las facturas emitidas en producción son <strong>legalmente válidas</strong>
+                                    y no pueden eliminarse. Asegurate de tener los datos correctos antes de emitir.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.certificado.label.text }}</label>
+                            {{ form.certificado(class="form-control" + (" is-invalid" if form.certificado.errors else "")) }}
+                            {% for error in form.certificado.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                            {% if facturador and facturador.certificado %}
+                            <small class="text-success d-block mt-1">
+                                <span class="material-symbols-rounded" style="font-size:16px;">verified</span>
+                                Certificado cargado
+                                {% if facturador.certificado_vencimiento %}
+                                (vence: {{ facturador.certificado_vencimiento.strftime('%d/%m/%Y') }})
+                                {% endif %}
+                                — subí un nuevo archivo para reemplazarlo.
+                            </small>
+                            {% else %}
+                            <small class="text-muted d-block mt-1">
+                                Archivo .crt o .pem generado desde el portal ARCA.
+                            </small>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.clave_privada.label.text }}</label>
+                            {{ form.clave_privada(class="form-control" + (" is-invalid" if form.clave_privada.errors else "")) }}
+                            {% for error in form.clave_privada.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                            {% if facturador and facturador.clave_privada %}
+                            <small class="text-success d-block mt-1">
+                                <span class="material-symbols-rounded" style="font-size:16px;">verified</span>
+                                Clave privada cargada — subí un nuevo archivo para reemplazarla.
+                            </small>
+                            {% else %}
+                            <small class="text-muted d-block mt-1">
+                                Archivo .key generado con openssl al crear el CSR.
+                            </small>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check">
+                                {{ form.habilitado(class="form-check-input", id="habilitado") }}
+                                <label class="form-check-label" for="habilitado">
+                                    {{ form.habilitado.label.text }}
+                                </label>
+                            </div>
+                            <small class="text-muted d-block mt-1 ms-4">
+                                Solo habilitá cuando el certificado y la clave estén correctamente configurados.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Sección 4: Consulta de padrón (solo edición) ── #}
+            {% if facturador %}
+            <div class="card mb-4">
+                <div class="card-header">Consulta de padrón por CUIT</div>
+                <div class="card-body">
+                    <div id="form-padron-consulta" class="row g-3">
+                        <div class="col-md-6">
+                            <label for="padron_cuit" class="form-label">CUIT a consultar</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="padron_cuit"
+                                   placeholder="Ej: 20-12345678-3"
+                                   value="{{ facturador.cuit or '' }}">
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="button" class="btn btn-outline-primary w-100" id="btn-padron-consultar">
+                                <span class="material-symbols-rounded me-2">search</span>
+                                Consultar
+                            </button>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="button" class="btn btn-outline-secondary w-100 d-none" id="btn-autocompletar">
+                                <span class="material-symbols-rounded me-2">auto_fix</span>
+                                Auto-completar
+                            </button>
+                        </div>
+                    </div>
+                    <div id="padron-resultado" class="mt-3"></div>
+                </div>
+            </div>
+            {% endif %}
+
+            {# ── Botones ── #}
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-symbols-rounded me-2">save</span>
+                    Guardar facturador
+                </button>
+                <a href="{{ url_for('facturacion.listar_facturadores') }}" class="btn btn-secondary">
+                    Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+(() => {
+    // ── Alerta de producción ──
+    const ambienteSelect = document.getElementById('ambiente');
+    const alertaProduccion = document.getElementById('alerta-produccion');
+
+    const toggleAlerta = () => {
+        if (ambienteSelect && alertaProduccion) {
+            alertaProduccion.style.display = ambienteSelect.value === 'production' ? '' : 'none';
+        }
+    };
+    toggleAlerta();
+    if (ambienteSelect) ambienteSelect.addEventListener('change', toggleAlerta);
+
+    // ── Consulta de padrón (solo en edición) ──
+    const btnConsultar = document.getElementById('btn-padron-consultar');
+    if (!btnConsultar) return;
+
+    const inputCuit = document.getElementById('padron_cuit');
+    const resultado = document.getElementById('padron-resultado');
+    const btnAutocompletar = document.getElementById('btn-autocompletar');
+    const endpoint = {{ url_for('facturacion.consultar_padron') | tojson }};
+    const csrfToken = {{ csrf_token() | tojson }};
+
+    let padronData = null;
+
+    const escapeHtml = (str) => {
+        const s = String(str ?? '');
+        return s
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;');
+    };
+
+    const renderError = (mensaje) => {
+        resultado.innerHTML = `
+            <div class="alert alert-danger mb-0" role="alert">
+                ${escapeHtml(mensaje)}
+            </div>
+        `;
+        btnAutocompletar.classList.add('d-none');
+    };
+
+    const renderOk = (data) => {
+        const condicion = escapeHtml(data.condicion_iva || '-');
+        const cuit = escapeHtml(data.cuit || '-');
+        const razonSocial = escapeHtml(data.razon_social || '-');
+        const docTipo = escapeHtml(data.doc_tipo || '-');
+        const docNro = escapeHtml(data.doc_nro || '-');
+        resultado.innerHTML = `
+            <div class="alert alert-success" role="alert">Consulta realizada correctamente.</div>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered align-middle mb-0">
+                    <tbody>
+                        <tr><th scope="row" class="w-25">CUIT</th><td>${cuit}</td></tr>
+                        <tr><th scope="row">Razón social</th><td>${razonSocial}</td></tr>
+                        <tr><th scope="row">Condición IVA</th><td>${condicion}</td></tr>
+                        <tr><th scope="row">Tipo/Nro documento</th><td>${docTipo} / ${docNro}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        `;
+        padronData = data;
+        btnAutocompletar.classList.remove('d-none');
+    };
+
+    btnConsultar.addEventListener('click', async () => {
+        const cuit = inputCuit.value.trim();
+        if (!cuit) {
+            renderError('Ingresá un CUIT para consultar.');
+            return;
+        }
+
+        btnConsultar.disabled = true;
+        resultado.innerHTML = '<div class="text-muted">Consultando padrón...</div>';
+
+        try {
+            const formData = new FormData();
+            formData.append('cuit', cuit);
+            formData.append('csrf_token', csrfToken);
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                body: formData,
+            });
+            const payload = await response.json();
+
+            if (!response.ok || !payload.success) {
+                renderError(payload.error || 'No se pudo consultar el padrón ARCA.');
+                return;
+            }
+
+            renderOk(payload.data || {});
+        } catch (error) {
+            renderError('No se pudo completar la consulta por un error de red.');
+        } finally {
+            btnConsultar.disabled = false;
+        }
+    });
+
+    // ── Auto-completar datos del padrón ──
+    btnAutocompletar.addEventListener('click', () => {
+        if (!padronData) return;
+
+        const razonSocialInput = document.getElementById('razon_social');
+        const condicionIvaSelect = document.getElementById('condicion_iva_id');
+
+        if (padronData.razon_social && razonSocialInput) {
+            razonSocialInput.value = padronData.razon_social;
+        }
+
+        if (padronData.condicion_iva_id && condicionIvaSelect) {
+            const opcion = condicionIvaSelect.querySelector(
+                `option[value="${padronData.condicion_iva_id}"]`
+            );
+            if (opcion) {
+                condicionIvaSelect.value = padronData.condicion_iva_id;
+            }
+        }
+
+        resultado.innerHTML += `
+            <div class="alert alert-info mt-2 mb-0" role="alert">
+                <span class="material-symbols-rounded me-2" style="font-size:18px;">auto_fix</span>
+                Datos auto-completados. Verificá que sean correctos antes de guardar.
+            </div>
+        `;
+        btnAutocompletar.classList.add('d-none');
+    });
+})();
+</script>
+{% endblock %}
