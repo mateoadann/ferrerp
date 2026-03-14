@@ -21,12 +21,15 @@ services:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-cambiar-en-produccion}
       - DATABASE_URL=postgresql://ferrerp:${DB_PASSWORD:-ferrerp123}@db:5432/ferrerp
+      - REDIS_URL=redis://redis:6379/0
       - APP_NAME=FerrERP
     volumes:
       - app_static:/app/app/static:ro
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     restart: unless-stopped
     networks:
       - ferrerp_network
@@ -46,6 +49,35 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - ferrerp_network
+
+  # Redis para colas y cache liviano
+  redis:
+    image: redis:7-alpine
+    container_name: ferrerp_redis
+    restart: unless-stopped
+    networks:
+      - ferrerp_network
+
+  # Worker RQ para procesos asincrónicos
+  worker:
+    build: .
+    container_name: ferrerp_worker
+    environment:
+      - FLASK_APP=run.py
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-cambiar-en-produccion}
+      - DATABASE_URL=postgresql://ferrerp:${DB_PASSWORD:-ferrerp123}@db:5432/ferrerp
+      - REDIS_URL=redis://redis:6379/0
+      - APP_NAME=FerrERP
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: rq worker --url redis://redis:6379/0 tiendanube-sync tiendanube-webhooks
     restart: unless-stopped
     networks:
       - ferrerp_network

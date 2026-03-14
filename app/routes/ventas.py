@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from flask import (
     Blueprint,
+    current_app,
     flash,
     jsonify,
     make_response,
@@ -26,10 +27,12 @@ from ..models import (
     MovimientoCuentaCorriente,
     MovimientoStock,
     Producto,
+    ProductoTiendaNube,
     Venta,
     VentaDetalle,
 )
 from ..services import venta_service
+from ..tasks.tiendanube_tasks import encolar_sync_stock
 from ..utils.decorators import admin_required, caja_abierta_required, empresa_aprobada_required
 from ..utils.helpers import ahora_argentina, generar_numero_venta, paginar_query
 
@@ -104,7 +107,7 @@ def punto_de_venta():
                     flash(
                         f'Stock insuficiente para "{producto.nombre}". '
                         f'Disponible: {producto.stock_actual}',
-                        'danger'
+                        'danger',
                     )
                     return redirect(url_for('ventas.punto_de_venta'))
 
@@ -117,7 +120,7 @@ def punto_de_venta():
                     cantidad=cantidad,
                     precio_unitario=precio,
                     iva_porcentaje=producto.iva_porcentaje,
-                    subtotal=item_subtotal
+                    subtotal=item_subtotal,
                 )
                 venta.detalles.append(detalle)
 
@@ -150,11 +153,13 @@ def punto_de_venta():
 
             # Actualizar referencia en movimientos de stock
             for detalle in venta.detalles:
-                mov = MovimientoStock.query.filter_by(
-                    producto_id=detalle.producto_id,
-                    referencia_tipo='venta',
-                    referencia_id=None
-                ).order_by(MovimientoStock.id.desc()).first()
+                mov = (
+                    MovimientoStock.query.filter_by(
+                        producto_id=detalle.producto_id, referencia_tipo='venta', referencia_id=None
+                    )
+                    .order_by(MovimientoStock.id.desc())
+                    .first()
+                )
                 if mov:
                     mov.referencia_id = venta.id
 
@@ -165,7 +170,7 @@ def punto_de_venta():
                     flash(
                         f'El cliente excedería su límite de crédito. '
                         f'Disponible: ${cliente.credito_disponible:.2f}',
-                        'danger'
+                        'danger',
                     )
                     return redirect(url_for('ventas.punto_de_venta'))
 
@@ -196,13 +201,28 @@ def punto_de_venta():
                     forma_pago=forma_pago,
                     referencia_tipo='venta',
                     referencia_id=venta.id,
-                    usuario_id=current_user.id
+                    usuario_id=current_user.id,
                 )
                 db.session.add(movimiento_caja)
 
             db.session.commit()
 
-            flash(f'Venta #{venta.numero_completo} registrada. Total: ${venta.total:.2f}', 'success')
+            # Sincronizar stock con Tienda Nube para productos vinculados
+            try:
+                for detalle in venta.detalles:
+                    mapeo = ProductoTiendaNube.query.filter_by(
+                        producto_id=detalle.producto_id,
+                        empresa_id=current_user.empresa_id,
+                        activo=True,
+                    ).first()
+                    if mapeo:
+                        encolar_sync_stock(detalle.producto_id, current_user.empresa_id)
+            except Exception as e:
+                current_app.logger.error(f'Error al encolar sync TN (venta): {e}')
+
+            flash(
+                f'Venta #{venta.numero_completo} registrada. Total: ${venta.total:.2f}', 'success'
+            )
 
             session['limpiar_carrito'] = True
 
@@ -222,10 +242,7 @@ def punto_de_venta():
     limpiar_carrito = session.pop('limpiar_carrito', False)
 
     return render_template(
-        'ventas/punto_venta.html',
-        form=form,
-        clientes=clientes,
-        limpiar_carrito=limpiar_carrito
+        'ventas/punto_venta.html', form=form, clientes=clientes, limpiar_carrito=limpiar_carrito
     )
 
 
@@ -269,7 +286,7 @@ def historial():
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
         estado_filtro=estado,
-        cliente_id=cliente_id
+        cliente_id=cliente_id,
     )
 
 
@@ -342,6 +359,19 @@ def anular(id):
 
         db.session.commit()
 
+        # Sincronizar stock con Tienda Nube para productos vinculados
+        try:
+            for detalle in venta.detalles:
+                mapeo = ProductoTiendaNube.query.filter_by(
+                    producto_id=detalle.producto_id,
+                    empresa_id=current_user.empresa_id,
+                    activo=True,
+                ).first()
+                if mapeo:
+                    encolar_sync_stock(detalle.producto_id, current_user.empresa_id)
+        except Exception as e:
+            current_app.logger.error(f'Error al encolar sync TN (anulación venta): {e}')
+
         flash(f'Venta #{venta.numero_completo} anulada correctamente.', 'success')
         return redirect(url_for('ventas.historial'))
 
@@ -366,9 +396,7 @@ def pdf(id):
 
     response = make_response(pdf_bytes)
     response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = (
-        f'inline; filename=venta_{venta.numero_completo}.pdf'
-    )
+    response.headers['Content-Disposition'] = f'inline; filename=venta_{venta.numero_completo}.pdf'
     return response
 
 
@@ -381,15 +409,20 @@ def buscar_producto():
     if len(q) < 2:
         return render_template('ventas/_resultados_busqueda.html', productos=[])
 
-    productos = Producto.query_empresa().filter(
-        Producto.activo == True,
-        Producto.stock_actual > 0,
-        db.or_(
-            Producto.codigo.ilike(f'%{q}%'),
-            Producto.nombre.ilike(f'%{q}%'),
-            Producto.codigo_barras.ilike(f'%{q}%')
+    productos = (
+        Producto.query_empresa()
+        .filter(
+            Producto.activo == True,
+            Producto.stock_actual > 0,
+            db.or_(
+                Producto.codigo.ilike(f'%{q}%'),
+                Producto.nombre.ilike(f'%{q}%'),
+                Producto.codigo_barras.ilike(f'%{q}%'),
+            ),
         )
-    ).limit(10).all()
+        .limit(10)
+        .all()
+    )
 
     return render_template('ventas/_resultados_busqueda.html', productos=productos)
 

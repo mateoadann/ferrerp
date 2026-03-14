@@ -2,12 +2,13 @@
 
 from decimal import Decimal
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from ..extensions import db
 from ..forms.producto_forms import AjusteStockForm
-from ..models import MovimientoStock, Producto
+from ..models import MovimientoStock, Producto, ProductoTiendaNube
+from ..tasks.tiendanube_tasks import encolar_sync_stock
 from ..utils.decorators import empresa_aprobada_required
 from ..utils.helpers import es_peticion_htmx, paginar_query
 
@@ -123,6 +124,18 @@ def ajuste():
 
         db.session.add(movimiento)
         db.session.commit()
+
+        # Sincronizar stock con Tienda Nube si está vinculado
+        try:
+            mapeo = ProductoTiendaNube.query.filter_by(
+                producto_id=producto.id,
+                empresa_id=current_user.empresa_id,
+                activo=True,
+            ).first()
+            if mapeo:
+                encolar_sync_stock(producto.id, current_user.empresa_id)
+        except Exception as e:
+            current_app.logger.error(f'Error al encolar sync TN (ajuste stock): {e}')
 
         def _fmt(valor):
             if producto.unidad_medida in ('unidad', 'par'):

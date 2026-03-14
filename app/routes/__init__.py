@@ -15,6 +15,7 @@ from .productos import bp as productos_bp
 from .proveedores import bp as proveedores_bp
 from .reportes import bp as reportes_bp
 from .superadmin import bp as superadmin_bp
+from .tiendanube import bp as tiendanube_bp
 from .ventas import bp as ventas_bp
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     'configuracion_bp',
     'facturacion_bp',
     'superadmin_bp',
+    'tiendanube_bp',
 ]

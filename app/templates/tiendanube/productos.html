@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Productos Tienda Nube - {{ app_name }}{% endblock %}
+{% block alerts %}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Productos Tienda Nube</h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('tiendanube.configuracion') }}" class="btn btn-outline-secondary">
+            <span class="material-symbols-rounded me-2">arrow_back</span>Configuración
+        </a>
+        <form method="POST" action="{{ url_for('tiendanube.sincronizar_todo') }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary"
+                    onclick="return confirm('¿Sincronizar todos los productos vinculados con Tienda Nube?')">
+                <span class="material-symbols-rounded me-2">sync</span>Sincronizar Todo
+            </button>
+        </form>
+    </div>
+</div>
+
+{% include 'components/alerts.html' %}
+
+<!-- Navegación Tienda Nube -->
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('tiendanube.configuracion') }}">
+            <span class="material-symbols-rounded me-1">settings</span>Configuración
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('tiendanube.productos') }}">
+            <span class="material-symbols-rounded me-1">inventory_2</span>Productos
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('tiendanube.ordenes') }}">
+            <span class="material-symbols-rounded me-1">shopping_cart</span>Órdenes
+        </a>
+    </li>
+</ul>
+
+<div id="tabla-productos-tn">
+    {% include 'tiendanube/_tabla_productos.html' %}
+</div>
+{% endblock %}

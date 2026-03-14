@@ -2,14 +2,36 @@
 
 from datetime import datetime
 from decimal import Decimal
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, make_response
-from flask_login import login_required, current_user
+
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
+from flask_login import current_user, login_required
 
 from ..extensions import db
-from ..models import OrdenCompra, OrdenCompraDetalle, Producto, Proveedor, MovimientoStock
+from ..models import (
+    MovimientoStock,
+    OrdenCompra,
+    OrdenCompraDetalle,
+    Producto,
+    ProductoTiendaNube,
+    Proveedor,
+)
 from ..services import orden_compra_service
+from ..tasks.tiendanube_tasks import encolar_sync_stock
 from ..utils.decorators import empresa_aprobada_required
-from ..utils.helpers import ahora_argentina, es_peticion_htmx, generar_numero_orden_compra, paginar_query
+from ..utils.helpers import (
+    ahora_argentina,
+    generar_numero_orden_compra,
+    paginar_query,
+)
 
 bp = Blueprint('compras', __name__, url_prefix='/compras')
 
@@ -40,7 +62,7 @@ def index():
         ordenes=ordenes,
         proveedores=proveedores,
         estado_filtro=estado,
-        proveedor_id=proveedor_id
+        proveedor_id=proveedor_id,
     )
 
 
@@ -134,7 +156,7 @@ def nueva():
         'compras/orden_form.html',
         proveedores=proveedores,
         productos=productos,
-        productos_data=productos_data
+        productos_data=productos_data,
     )
 
 
@@ -156,9 +178,7 @@ def pdf(id):
 
     response = make_response(pdf_bytes)
     response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = (
-        f'inline; filename=orden_compra_{orden.numero}.pdf'
-    )
+    response.headers['Content-Disposition'] = f'inline; filename=orden_compra_{orden.numero}.pdf'
     return response
 
 
@@ -189,10 +209,7 @@ def recibir(id):
 
         if errores_exceso:
             productos_txt = ', '.join(errores_exceso)
-            flash(
-                f'Debes indicar un motivo del exceso para: {productos_txt}.',
-                'danger'
-            )
+            flash(f'Debes indicar un motivo del exceso para: {productos_txt}.', 'danger')
             return redirect(url_for('compras.recibir', id=id))
 
         # Procesar cantidades recibidas
@@ -210,7 +227,9 @@ def recibir(id):
 
                 # Actualizar stock del producto
                 producto = detalle.producto
-                stock_anterior, stock_posterior = producto.actualizar_stock(cantidad_decimal, 'compra')
+                stock_anterior, stock_posterior = producto.actualizar_stock(
+                    cantidad_decimal, 'compra'
+                )
 
                 # Registrar movimiento de stock
                 motivo = f'Recepción de orden #{orden.numero}'
@@ -231,9 +250,30 @@ def recibir(id):
                 )
                 db.session.add(movimiento)
 
+        # Recolectar IDs de productos que recibieron stock para sync posterior
+        productos_recibidos = [
+            detalle.producto_id
+            for detalle in orden.detalles
+            if request.form.get(f'cantidad_{detalle.id}', type=float)
+            and request.form.get(f'cantidad_{detalle.id}', type=float) > 0
+        ]
+
         # Actualizar estado de la orden
         orden.actualizar_estado()
         db.session.commit()
+
+        # Sincronizar stock con Tienda Nube para productos vinculados
+        try:
+            for producto_id in productos_recibidos:
+                mapeo = ProductoTiendaNube.query.filter_by(
+                    producto_id=producto_id,
+                    empresa_id=current_user.empresa_id,
+                    activo=True,
+                ).first()
+                if mapeo:
+                    encolar_sync_stock(producto_id, current_user.empresa_id)
+        except Exception as e:
+            current_app.logger.error(f'Error al encolar sync TN (recepción compra): {e}')
 
         flash('Recepción de mercadería registrada correctamente.', 'success')
         return redirect(url_for('compras.detalle', id=id))
@@ -264,24 +304,28 @@ def cancelar(id):
 def sugerencia():
     """Sugerencia de compra basada en stock mínimo."""
     # Productos bajo stock mínimo
-    productos_bajo_stock = Producto.query_empresa().filter(
-        Producto.activo == True,
-        Producto.stock_actual < Producto.stock_minimo,
-        Producto.proveedor_id.isnot(None)
-    ).order_by(Producto.proveedor_id, Producto.nombre).all()
+    productos_bajo_stock = (
+        Producto.query_empresa()
+        .filter(
+            Producto.activo == True,
+            Producto.stock_actual < Producto.stock_minimo,
+            Producto.proveedor_id.isnot(None),
+        )
+        .order_by(Producto.proveedor_id, Producto.nombre)
+        .all()
+    )
 
     # Agrupar por proveedor
     sugerencias = {}
     for producto in productos_bajo_stock:
         if producto.proveedor_id not in sugerencias:
-            sugerencias[producto.proveedor_id] = {
-                'proveedor': producto.proveedor,
-                'productos': []
+            sugerencias[producto.proveedor_id] = {'proveedor': producto.proveedor, 'productos': []}
+        sugerencias[producto.proveedor_id]['productos'].append(
+            {
+                'producto': producto,
+                'cantidad_sugerida': producto.stock_minimo - producto.stock_actual,
             }
-        sugerencias[producto.proveedor_id]['productos'].append({
-            'producto': producto,
-            'cantidad_sugerida': producto.stock_minimo - producto.stock_actual
-        })
+        )
 
     return render_template('compras/sugerencia.html', sugerencias=sugerencias)
 
@@ -341,5 +385,8 @@ def generar_orden_sugerencia():
     orden.total = Decimal('0')
     db.session.commit()
 
-    flash(f'Orden #{orden.numero} creada desde sugerencia con {items_agregados} producto(s).', 'success')
+    flash(
+        f'Orden #{orden.numero} creada desde sugerencia con {items_agregados} producto(s).',
+        'success',
+    )
     return redirect(url_for('compras.detalle', id=orden.id))

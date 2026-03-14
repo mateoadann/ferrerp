@@ -1,0 +1,434 @@
+{% extends 'base.html' %}
+{% block title %}Tienda Nube - Configuración - {{ app_name }}{% endblock %}
+{% block alerts %}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Tienda Nube</h2>
+</div>
+
+<div class="row">
+    <div class="col-lg-3 mb-4">
+        {% include 'components/_config_sidebar.html' %}
+    </div>
+    <div class="col-lg-9">
+        {% include 'components/alerts.html' %}
+
+        <!-- Navegación Tienda Nube -->
+        {% if credencial and credencial.activo %}
+        <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+                <a class="nav-link active" href="{{ url_for('tiendanube.configuracion') }}">
+                    <span class="material-symbols-rounded me-1">settings</span>Configuración
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('tiendanube.productos') }}">
+                    <span class="material-symbols-rounded me-1">inventory_2</span>Productos
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('tiendanube.ordenes') }}">
+                    <span class="material-symbols-rounded me-1">shopping_cart</span>Órdenes
+                </a>
+            </li>
+        </ul>
+        {% endif %}
+
+        <!-- Dashboard de integración (solo cuando está conectado) -->
+        {% if stats %}
+        <div class="row mb-4">
+            <!-- Card: Productos Vinculados -->
+            <div class="col-md-6 col-xl-3 mb-3">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="material-symbols-rounded text-primary me-2">inventory_2</span>
+                            <h6 class="card-title mb-0">Productos Vinculados</h6>
+                        </div>
+                        <h3 class="mb-2">{{ stats.productos_vinculados }}</h3>
+                        <div class="d-flex flex-wrap gap-1">
+                            {% if stats.productos_sincronizados %}
+                            <span class="badge bg-success">
+                                {{ stats.productos_sincronizados }} sincronizado{{ 's' if stats.productos_sincronizados != 1 }}
+                            </span>
+                            {% endif %}
+                            {% if stats.productos_pendientes %}
+                            <span class="badge bg-warning text-dark">
+                                {{ stats.productos_pendientes }} pendiente{{ 's' if stats.productos_pendientes != 1 }}
+                            </span>
+                            {% endif %}
+                            {% if stats.productos_con_error %}
+                            <span class="badge bg-danger">
+                                {{ stats.productos_con_error }} con error
+                            </span>
+                            {% endif %}
+                            {% if stats.productos_vinculados == 0 %}
+                            <span class="text-muted small">Sin productos vinculados</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card: Órdenes Importadas -->
+            <div class="col-md-6 col-xl-3 mb-3">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="material-symbols-rounded text-info me-2">shopping_cart</span>
+                            <h6 class="card-title mb-0">Órdenes Importadas</h6>
+                        </div>
+                        <h3 class="mb-2">{{ stats.ordenes_importadas }}</h3>
+                        <div>
+                            {% if stats.ingresos_tn %}
+                            <span class="text-muted small">
+                                Total: <strong>${{ '{:,.2f}'.format(stats.ingresos_tn|float) }}</strong>
+                            </span>
+                            {% else %}
+                            <span class="text-muted small">Sin datos</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card: Último Sync -->
+            <div class="col-md-6 col-xl-3 mb-3">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="material-symbols-rounded text-success me-2">sync</span>
+                            <h6 class="card-title mb-0">Último Sync</h6>
+                        </div>
+                        {% if stats.ultimo_sync %}
+                        <h5 class="mb-1">{{ stats.ultimo_sync.strftime('%d/%m/%Y') }}</h5>
+                        <span class="text-muted small">{{ stats.ultimo_sync.strftime('%H:%M') }} hs</span>
+                        {% else %}
+                        <h5 class="text-muted mb-0">Sin datos</h5>
+                        <span class="text-muted small">Aún no se realizó ninguna sincronización</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card: Estado del Sistema -->
+            <div class="col-md-6 col-xl-3 mb-3">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="material-symbols-rounded text-secondary me-2">monitor_heart</span>
+                            <h6 class="card-title mb-0">Estado del Sistema</h6>
+                        </div>
+                        <div class="d-flex align-items-center mb-2">
+                            {% if stats.redis_disponible %}
+                            <span class="badge bg-success me-2">Redis OK</span>
+                            {% else %}
+                            <span class="badge bg-danger me-2">Redis no disponible</span>
+                            {% endif %}
+                        </div>
+                        <div>
+                            {% if stats.errores_recientes > 0 %}
+                            <span class="badge bg-danger">
+                                {{ stats.errores_recientes }} error{{ 'es' if stats.errores_recientes != 1 }} (24h)
+                            </span>
+                            {% else %}
+                            <span class="text-muted small">Sin errores en las últimas 24h</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actividad Reciente -->
+        {% if sync_logs_recientes %}
+        <div class="card mb-4">
+            <div class="card-header">Actividad Reciente</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Recurso</th>
+                                <th>Dirección</th>
+                                <th>Estado</th>
+                                <th>Mensaje</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in sync_logs_recientes %}
+                            <tr>
+                                <td class="text-nowrap small">
+                                    {{ log.created_at.strftime('%d/%m %H:%M') if log.created_at else '-' }}
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ log.recurso }}</span>
+                                </td>
+                                <td class="small">
+                                    {% if log.direccion == 'exportacion' %}
+                                    <span class="material-symbols-rounded" style="font-size: 16px;">arrow_upward</span> Exportación
+                                    {% else %}
+                                    <span class="material-symbols-rounded" style="font-size: 16px;">arrow_downward</span> Importación
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.estado == 'exitoso' %}
+                                    <span class="badge bg-success">Exitoso</span>
+                                    {% elif log.estado == 'error' %}
+                                    <span class="badge bg-danger">Error</span>
+                                    {% else %}
+                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                    {% endif %}
+                                </td>
+                                <td class="small text-truncate" style="max-width: 250px;" title="{{ log.mensaje or '' }}">
+                                    {{ log.mensaje[:80] if log.mensaje else '-' }}{{ '...' if log.mensaje and log.mensaje|length > 80 }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+
+        <!-- Guía de conexión paso a paso -->
+        {% set esta_conectado = credencial and credencial.activo %}
+        {% set tiene_credenciales = credencial and credencial.tn_app_id %}
+        <div class="card mb-4">
+            <div class="card-header p-0 border-0 bg-transparent">
+                <button class="btn w-100 d-flex align-items-center text-start px-3 py-2 {{ 'collapsed' if esta_conectado else '' }}"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#guiaConexion"
+                        aria-expanded="{{ 'false' if esta_conectado else 'true' }}"
+                        aria-controls="guiaConexion">
+                    <span class="material-symbols-rounded me-2 text-primary">help_outline</span>
+                    <strong>¿Cómo conecto mi Tienda Nube?</strong>
+                    <span class="material-symbols-rounded ms-auto guia-chevron">expand_more</span>
+                </button>
+            </div>
+            <div id="guiaConexion" class="collapse {{ '' if esta_conectado else 'show' }}">
+                <div class="card-body pt-2">
+                    {% if not esta_conectado %}
+                    <div class="alert alert-info d-flex align-items-start mb-3" role="alert">
+                        <span class="material-symbols-rounded me-2 mt-1">info</span>
+                        <span>
+                            Seguí estos pasos para conectar tu tienda online. Si ya tenés las
+                            credenciales, podés ir directo al <strong>Paso 3</strong>.
+                        </span>
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-3">
+                        <!-- Paso 1 -->
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <span class="guia-paso-numero badge rounded-circle bg-primary me-3 flex-shrink-0">1</span>
+                                <div>
+                                    <h6 class="mb-1">Crear cuenta de Partner en Tienda Nube</h6>
+                                    <p class="text-muted small mb-1">
+                                        Registrate gratis en el programa de Partners de Tienda Nube
+                                        para poder crear aplicaciones.
+                                    </p>
+                                    <a href="https://partners.nuvemshop.com.br" target="_blank" rel="noopener"
+                                       class="small">
+                                        <span class="material-symbols-rounded me-1" style="font-size: 16px;">open_in_new</span>Ir al Panel de Partners
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12"><hr class="my-0"></div>
+
+                        <!-- Paso 2 -->
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <span class="guia-paso-numero badge rounded-circle bg-primary me-3 flex-shrink-0">2</span>
+                                <div>
+                                    <h6 class="mb-1">Crear una aplicación privada</h6>
+                                    <p class="text-muted small mb-2">
+                                        En el panel de Partners, andá a
+                                        <strong>Aplicaciones → Crear aplicación</strong>.
+                                        Elegí tipo <strong>Privada</strong> (solo para tu tienda) y
+                                        usá el nombre que prefieras, por ejemplo "FerrERP".
+                                    </p>
+                                    <div class="bg-light rounded p-2 mb-2">
+                                        <span class="text-muted small d-block mb-1">
+                                            <strong>URL de redirección (callback):</strong> copiá y pegá esta URL en la configuración de la app
+                                        </span>
+                                        <div class="d-flex align-items-center">
+                                            <code class="user-select-all" id="callbackUrl">{{ request.host_url }}tiendanube/callback</code>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-secondary ms-2 guia-btn-copiar"
+                                                    data-copiar="callbackUrl"
+                                                    title="Copiar URL">
+                                                <span class="material-symbols-rounded" style="font-size: 16px;">content_copy</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p class="text-muted small mb-0">
+                                        Una vez creada, anotá el <strong>Client ID</strong> y el
+                                        <strong>Client Secret</strong> que te proporciona la plataforma.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12"><hr class="my-0"></div>
+
+                        <!-- Paso 3 -->
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <span class="guia-paso-numero badge rounded-circle {{ 'bg-success' if tiene_credenciales else 'bg-primary' }} me-3 flex-shrink-0">3</span>
+                                <div>
+                                    <h6 class="mb-1">Configurar en el sistema</h6>
+                                    <p class="text-muted small mb-0">
+                                        {% if tiene_credenciales and not esta_conectado %}
+                                        <span class="material-symbols-rounded text-success me-1" style="font-size: 16px; vertical-align: text-bottom;">check_circle</span>
+                                        <strong>Credenciales guardadas.</strong>
+                                        Hacé clic en "Conectar con Tienda Nube" en la sección
+                                        <em>Estado de Conexión</em> más abajo para autorizar el acceso.
+                                        {% elif esta_conectado %}
+                                        <span class="material-symbols-rounded text-success me-1" style="font-size: 16px; vertical-align: text-bottom;">check_circle</span>
+                                        <strong>¡Conectado!</strong> Tu tienda ya está vinculada al sistema.
+                                        {% else %}
+                                        Completá los campos <strong>App ID</strong> y
+                                        <strong>App Secret</strong> en el formulario de credenciales
+                                        más abajo y luego hacé clic en "Conectar con Tienda Nube".
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12"><hr class="my-0"></div>
+
+                        <!-- Paso 4 -->
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <span class="guia-paso-numero badge rounded-circle {{ 'bg-success' if esta_conectado else 'bg-secondary' }} me-3 flex-shrink-0">4</span>
+                                <div>
+                                    <h6 class="mb-1 {{ '' if esta_conectado else 'text-muted' }}">Después de conectar</h6>
+                                    <ul class="text-muted small mb-0 ps-3">
+                                        <li>Vinculá los productos del ERP con la tienda desde la pestaña <strong>Productos</strong>.</li>
+                                        <li>El stock se sincroniza automáticamente con cada venta, compra o ajuste de inventario.</li>
+                                        <li>Las órdenes de la tienda se importan automáticamente vía webhooks.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <style>
+            .guia-paso-numero {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 32px;
+                height: 32px;
+                min-width: 32px;
+                font-size: 14px;
+                line-height: 1;
+            }
+            .guia-chevron {
+                transition: transform 0.2s ease;
+            }
+            [aria-expanded="true"] .guia-chevron {
+                transform: rotate(180deg);
+            }
+        </style>
+
+        <!-- Credenciales de la App -->
+        <div class="card mb-4">
+            <div class="card-header">Credenciales de la App</div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    Ingresá el App ID y App Secret de tu aplicación en Tienda Nube.
+                    Podés obtenerlos desde el
+                    <a href="https://partners.tiendanube.com" target="_blank" rel="noopener">
+                        Panel de Partners</a>.
+                </p>
+                <form method="POST" action="{{ url_for('tiendanube.guardar_credenciales') }}" class="row g-3">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="col-md-6">
+                        <label class="form-label">App ID *</label>
+                        <input type="text" name="tn_app_id" class="form-control"
+                               value="{{ credencial.tn_app_id if credencial else '' }}"
+                               placeholder="Ej: 12345" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">App Secret *</label>
+                        <input type="password" name="tn_app_secret" class="form-control"
+                               value="{{ credencial.tn_app_secret if credencial else '' }}"
+                               placeholder="Ej: abcdef1234567890" required>
+                    </div>
+                    <div class="col-12">
+                        <hr>
+                        <button type="submit" class="btn btn-primary">
+                            <span class="material-symbols-rounded me-2">save</span>Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Estado de Conexión -->
+        <div class="card">
+            <div class="card-header">Estado de Conexión</div>
+            <div class="card-body">
+                {% if credencial and credencial.activo %}
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="badge badge-success me-2">Conectada</span>
+                        <span class="text-muted">
+                            Tienda ID: <strong>{{ credencial.tienda_id_externo }}</strong>
+                        </span>
+                    </div>
+                    <form method="POST" action="{{ url_for('tiendanube.desconectar') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-danger"
+                                onclick="return confirm('¿Estás seguro de desconectar Tienda Nube?')">
+                            <span class="material-symbols-rounded me-2">link_off</span>Desconectar
+                        </button>
+                    </form>
+                {% elif credencial and credencial.tn_app_id %}
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="badge badge-secondary me-2">Desconectada</span>
+                        <span class="text-muted">Credenciales guardadas, falta autorizar.</span>
+                    </div>
+                    <a href="{{ url_for('tiendanube.conectar') }}" class="btn btn-primary">
+                        <span class="material-symbols-rounded me-2">link</span>Conectar con Tienda Nube
+                    </a>
+                {% else %}
+                    <div class="d-flex align-items-center">
+                        <span class="badge badge-secondary me-2">Sin configurar</span>
+                        <span class="text-muted">Guardá las credenciales de la app para comenzar.</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.guia-btn-copiar').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var targetId = this.getAttribute('data-copiar');
+        var texto = document.getElementById(targetId).textContent.trim();
+        navigator.clipboard.writeText(texto).then(function() {
+            var icono = btn.querySelector('.material-symbols-rounded');
+            icono.textContent = 'check';
+            setTimeout(function() { icono.textContent = 'content_copy'; }, 1500);
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -22,6 +22,10 @@ class Config:
     APP_NAME = os.environ.get('APP_NAME', 'FerrERP')
     ITEMS_PER_PAGE = int(os.environ.get('ITEMS_PER_PAGE', 20))
 
+    # Redis / RQ
+    REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+    RQ_QUEUES = ['tiendanube-sync', 'tiendanube-webhooks']
+
     # WTForms
     WTF_CSRF_ENABLED = True
     WTF_CSRF_TIME_LIMIT = 3600  # 1 hora
@@ -33,7 +37,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         'DATABASE_URL',
-        'sqlite:///ferrerp_dev.db'  # SQLite por defecto para desarrollo facil
+        'sqlite:///ferrerp_dev.db',  # SQLite por defecto para desarrollo facil
     )
     SQLALCHEMY_ECHO = os.environ.get('SQLALCHEMY_ECHO', 'false').lower() == 'true'
 
@@ -43,11 +47,11 @@ class TestingConfig(Config):
 
     TESTING = True
     SQLALCHEMY_DATABASE_URI = os.environ.get(
-        'TEST_DATABASE_URL',
-        'postgresql://postgres:postgres@localhost:5432/ferrerp_test'
+        'TEST_DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/ferrerp_test'
     )
     WTF_CSRF_ENABLED = False
     LOGIN_DISABLED = False
+    REDIS_URL = os.environ.get('TEST_REDIS_URL', 'redis://localhost:6379/1')
 
 
 class ProductionConfig(Config):
@@ -67,5 +71,5 @@ config = {
     'development': DevelopmentConfig,
     'testing': TestingConfig,
     'production': ProductionConfig,
-    'default': DevelopmentConfig
+    'default': DevelopmentConfig,
 }
