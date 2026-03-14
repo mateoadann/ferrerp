@@ -13,6 +13,7 @@ from .devolucion import Devolucion, DevolucionDetalle
 from .empresa import Empresa
 from .factura import Factura
 from .factura_detalle import FacturaDetalle
+from .facturador import Facturador
 from .movimiento_stock import MovimientoStock
 from .orden_compra import OrdenCompra, OrdenCompraDetalle
 from .presupuesto import Presupuesto, PresupuestoDetalle
@@ -43,6 +44,7 @@ __all__ = [
     'Presupuesto',
     'PresupuestoDetalle',
     'Factura',
+    'Facturador',
     'FacturaDetalle',
     'ComprobanteAsociado',
 ]

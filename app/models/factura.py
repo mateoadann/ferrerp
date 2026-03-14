@@ -21,6 +21,12 @@ class Factura(EmpresaMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     venta_id = db.Column(db.Integer, db.ForeignKey('ventas.id'), nullable=True, index=True)
+    facturador_id = db.Column(
+        db.Integer,
+        db.ForeignKey('facturadores.id'),
+        nullable=True,
+        index=True,
+    )
 
     # Datos del comprobante
     tipo_comprobante = db.Column(db.Integer, nullable=False)
@@ -67,6 +73,7 @@ class Factura(EmpresaMixin, db.Model):
     updated_at = db.Column(db.DateTime, default=ahora_argentina, onupdate=ahora_argentina)
 
     # Relaciones
+    # facturador: backref definido en Facturador.facturas
     detalles = db.relationship(
         'FacturaDetalle',
         backref='factura',
