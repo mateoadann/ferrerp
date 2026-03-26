@@ -309,8 +309,10 @@
                 <th class="col-codigo">Código</th>
                 <th>Descripción</th>
                 <th class="col-cantidad">Cant.</th>
+                {% if not sin_precios %}
                 <th class="col-precio">P. Unitario</th>
                 <th class="col-subtotal">Subtotal</th>
+                {% endif %}
             </tr>
         </thead>
         <tbody>
@@ -319,13 +321,16 @@
                 <td class="col-codigo">{{ detalle.producto.codigo }}</td>
                 <td>{{ detalle.producto.nombre }}</td>
                 <td class="col-cantidad">{{ detalle.cantidad|stock(detalle.producto.unidad_medida) }}</td>
+                {% if not sin_precios %}
                 <td class="col-precio">${{ '{:,.2f}'.format(detalle.precio_unitario) }}</td>
                 <td class="col-subtotal">${{ '{:,.2f}'.format(detalle.subtotal) }}</td>
+                {% endif %}
             </tr>
             {% endfor %}
         </tbody>
     </table>
 
+    {% if not sin_precios %}
     <!-- Totales -->
     <div class="totales-section">
         <div class="totales-box">
@@ -394,6 +399,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Footer -->
     <div class="footer">
