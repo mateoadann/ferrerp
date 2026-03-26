@@ -101,6 +101,7 @@ def nuevo():
             direccion=form.direccion.data,
             limite_credito=form.limite_credito.data or 0,
             notas=form.notas.data,
+            fecha_nacimiento=form.fecha_nacimiento.data,
             activo=form.activo.data,
             empresa_id=current_user.empresa_id,
         )
@@ -130,6 +131,7 @@ def editar(id):
         cliente.direccion = form.direccion.data
         cliente.limite_credito = form.limite_credito.data or 0
         cliente.notas = form.notas.data
+        cliente.fecha_nacimiento = form.fecha_nacimiento.data
         cliente.activo = form.activo.data
 
         db.session.commit()
