@@ -1,8 +1,8 @@
 """Formularios de configuración."""
 
 from flask_wtf import FlaskForm
-from wtforms import StringField, DecimalField, BooleanField, SubmitField
-from wtforms.validators import DataRequired, Optional, Length, NumberRange
+from wtforms import BooleanField, StringField, SubmitField, TextAreaField
+from wtforms.validators import DataRequired, Length, Optional
 
 
 class ConfiguracionForm(FlaskForm):
@@ -45,5 +45,21 @@ class ConfiguracionForm(FlaskForm):
     )
 
     precios_con_iva = BooleanField('Precios incluyen IVA', default=False)
+
+    mensaje_cumpleanos = TextAreaField(
+        'Mensaje de cumpleaños (WhatsApp)',
+        validators=[
+            Optional(),
+            Length(
+                max=500,
+                message='El mensaje no puede superar los 500 caracteres.',
+            ),
+        ],
+        render_kw={
+            'rows': 3,
+            'placeholder': '¡Feliz cumpleaños {cliente}! Te saluda {negocio}.',
+            'class': 'form-control',
+        },
+    )
 
     submit = SubmitField('Guardar Configuración')
