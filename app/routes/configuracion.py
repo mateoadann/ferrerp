@@ -30,6 +30,13 @@ def index():
         form.telefono.data = Configuracion.get('telefono', default='')
         form.cuit.data = Configuracion.get('cuit', default='')
         form.precios_con_iva.data = Configuracion.get('precios_con_iva', default=False)
+        form.mensaje_cumpleanos.data = Configuracion.get(
+            'mensaje_cumpleanos',
+            default=(
+                '¡Feliz cumpleaños {cliente}! Te saluda {negocio}.'
+                ' ¡Que tengas un gran día!'
+            ),
+        )
 
     if form.validate_on_submit():
         Configuracion.set('nombre_negocio', form.nombre_negocio.data, 'string')
@@ -37,6 +44,9 @@ def index():
         Configuracion.set('telefono', form.telefono.data, 'string')
         Configuracion.set('cuit', form.cuit.data, 'string')
         Configuracion.set('precios_con_iva', form.precios_con_iva.data, 'boolean')
+        Configuracion.set(
+            'mensaje_cumpleanos', form.mensaje_cumpleanos.data, 'string'
+        )
 
         flash('Configuración guardada correctamente.', 'success')
         return redirect(url_for('configuracion.index'))

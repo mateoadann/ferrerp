@@ -1,5 +1,6 @@
 """Modelo de Cliente."""
 
+from datetime import date
 from decimal import Decimal
 
 from ..extensions import db
@@ -21,6 +22,7 @@ class Cliente(EmpresaMixin, db.Model):
     limite_credito = db.Column(db.Numeric(12, 2), default=0, nullable=False)
     saldo_cuenta_corriente = db.Column(db.Numeric(12, 2), default=0, nullable=False)
     notas = db.Column(db.Text)
+    fecha_nacimiento = db.Column(db.Date, nullable=True)
     activo = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=ahora_argentina)
 
@@ -40,6 +42,17 @@ class Cliente(EmpresaMixin, db.Model):
     def credito_disponible(self):
         """Calcula el crédito disponible."""
         return self.limite_credito - self.saldo_cuenta_corriente
+
+    @property
+    def es_cumpleanos_hoy(self):
+        """Verifica si hoy es el cumpleaños del cliente."""
+        if self.fecha_nacimiento is None:
+            return False
+        hoy = date.today()
+        return (
+            self.fecha_nacimiento.month == hoy.month
+            and self.fecha_nacimiento.day == hoy.day
+        )
 
     def puede_comprar_a_credito(self, monto):
         """
@@ -88,6 +101,11 @@ class Cliente(EmpresaMixin, db.Model):
             'limite_credito': float(self.limite_credito) if self.limite_credito else 0,
             'saldo_cuenta_corriente': float(self.saldo_cuenta_corriente) if self.saldo_cuenta_corriente else 0,
             'tiene_deuda': self.tiene_deuda,
+            'fecha_nacimiento': (
+                self.fecha_nacimiento.isoformat()
+                if self.fecha_nacimiento
+                else None
+            ),
             'credito_disponible': float(self.credito_disponible),
             'activo': self.activo
         }

@@ -4,7 +4,7 @@ Ejecutar con: flask seed
 """
 
 import random
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 from app import create_app
@@ -16,6 +16,7 @@ from app.models import (
     Configuracion,
     Empresa,
     MovimientoCaja,
+    MovimientoCuentaCorriente,
     MovimientoStock,
     Presupuesto,
     PresupuestoDetalle,
@@ -44,6 +45,7 @@ def run_seeds():
     Producto.query.delete()
     Categoria.query.delete()
     Proveedor.query.delete()
+    MovimientoCuentaCorriente.query.delete()
     Cliente.query.delete()
     Configuracion.query.delete()
     Usuario.query.delete()
@@ -126,16 +128,16 @@ def seed_usuarios(empresa_id):
     """Crea usuarios de prueba."""
     print('  - Usuarios...')
 
-    # Owner
-    owner = Usuario(
+    # Administrador
+    admin = Usuario(
         email='admin@ferreteria.com',
         nombre='Administrador',
-        rol='owner',
+        rol='administrador',
         activo=True,
         empresa_id=empresa_id,
     )
-    owner.set_password('admin123')
-    db.session.add(owner)
+    admin.set_password('Tecnicia')
+    db.session.add(admin)
 
     # Vendedor 1
     vendedor1 = Usuario(
@@ -145,7 +147,7 @@ def seed_usuarios(empresa_id):
         activo=True,
         empresa_id=empresa_id,
     )
-    vendedor1.set_password('vendedor123')
+    vendedor1.set_password('Tecnicia')
     db.session.add(vendedor1)
 
     # Vendedor 2
@@ -156,7 +158,7 @@ def seed_usuarios(empresa_id):
         activo=True,
         empresa_id=empresa_id,
     )
-    vendedor2.set_password('vendedor123')
+    vendedor2.set_password('Tecnicia')
     db.session.add(vendedor2)
 
 
@@ -673,6 +675,10 @@ def seed_clientes(empresa_id):
     """Crea clientes de prueba."""
     print('  - Clientes...')
 
+    hoy = date.today()
+
+    # fecha_nacimiento: algunos cumplen hoy (para probar el feature),
+    # otros en distintas fechas del año, y algunos sin fecha (None).
     clientes = [
         (
             'Carlos Rodriguez',
@@ -681,6 +687,7 @@ def seed_clientes(empresa_id):
             'carlos@email.com',
             'Calle Falsa 123',
             50000,
+            date(1985, hoy.month, hoy.day),  # cumple hoy
         ),
         (
             'Muebleria San Jose',
@@ -689,6 +696,7 @@ def seed_clientes(empresa_id):
             'muebleria@email.com',
             'Av. Libertador 456',
             100000,
+            date(1990, hoy.month, hoy.day),  # cumple hoy
         ),
         (
             'Constructora Norte',
@@ -697,6 +705,7 @@ def seed_clientes(empresa_id):
             'constructora@email.com',
             'Ruta 9 Km 12',
             200000,
+            date(1978, 3, 15),
         ),
         (
             'Pedro Martinez',
@@ -705,6 +714,7 @@ def seed_clientes(empresa_id):
             'pedro@email.com',
             'San Martin 789',
             30000,
+            date(1992, 8, 22),
         ),
         (
             'Electricidad Total',
@@ -713,8 +723,17 @@ def seed_clientes(empresa_id):
             'electotal@email.com',
             'Av. Edison 321',
             80000,
+            date(1970, 12, 1),
         ),
-        ('Ana Gomez', '27-44556677-8', '011-4555-1006', 'ana@email.com', 'Belgrano 654', 25000),
+        (
+            'Ana Gomez',
+            '27-44556677-8',
+            '011-4555-1006',
+            'ana@email.com',
+            'Belgrano 654',
+            25000,
+            None,  # sin fecha de nacimiento
+        ),
         (
             'Pinturerias Sur',
             '30-77889900-2',
@@ -722,6 +741,7 @@ def seed_clientes(empresa_id):
             'pintsur@email.com',
             'Rivadavia 987',
             150000,
+            None,  # sin fecha de nacimiento
         ),
         (
             'Roberto Sanchez',
@@ -730,10 +750,11 @@ def seed_clientes(empresa_id):
             'roberto@email.com',
             'Mitre 147',
             20000,
+            date(1988, 6, 10),
         ),
     ]
 
-    for nombre, dni_cuit, telefono, email, direccion, limite_credito in clientes:
+    for nombre, dni_cuit, telefono, email, direccion, limite_credito, fecha_nac in clientes:
         cliente = Cliente(
             nombre=nombre,
             dni_cuit=dni_cuit,
@@ -742,6 +763,7 @@ def seed_clientes(empresa_id):
             direccion=direccion,
             limite_credito=Decimal(str(limite_credito)),
             saldo_cuenta_corriente=Decimal('0'),
+            fecha_nacimiento=fecha_nac,
             activo=True,
             empresa_id=empresa_id,
         )

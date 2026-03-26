@@ -4,6 +4,17 @@
 <div class="page-header">
     <h2>Clientes</h2>
     <div class="d-flex gap-2">
+        {% if cumpleanos_hoy > 0 %}
+        <button type="button" class="btn btn-outline-info"
+                data-bs-toggle="modal" data-bs-target="#modalCumpleanos"
+                hx-get="{{ url_for('clientes.cumpleanos') }}"
+                hx-target="#modalCumpleanosBody"
+                hx-trigger="click"
+                hx-swap="innerHTML">
+            <span class="material-symbols-rounded me-2">cake</span>
+            Cumpleaños ({{ cumpleanos_hoy }})
+        </button>
+        {% endif %}
         <a href="{{ url_for('clientes.deudores') }}" class="btn btn-outline-warning">
             <span class="material-symbols-rounded me-2">account_balance_wallet</span>
             Ver Deudores
@@ -79,4 +90,7 @@
         {% if clientes.pages > 1 %}{% set pagination = clientes %}{% include 'components/pagination.html' %}{% endif %}
     </div>
 </div>
+{% if cumpleanos_hoy > 0 %}
+{% include 'clientes/_modal_cumpleanos.html' %}
+{% endif %}
 {% endblock %}

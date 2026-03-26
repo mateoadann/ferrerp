@@ -2,10 +2,11 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <title>Remito {{ venta.numero_completo }}</title>
     <style>
         @page {
             size: A4;
-            margin: 2cm 1.5cm;
+            margin: 1cm 1.5cm;
             @bottom-center {
                 content: "Página " counter(page) " de " counter(pages);
                 font-size: 9px;
@@ -31,9 +32,8 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #333;
+            margin-bottom: 8px;
+            padding-bottom: 0;
         }
 
         .header-left {
@@ -46,7 +46,7 @@
         }
 
         .logo-text {
-            font-size: 28px;
+            font-size: 22px;
             font-weight: bold;
             color: #333;
             letter-spacing: 1px;
@@ -60,10 +60,10 @@
         }
 
         .venta-titulo {
-            font-size: 22px;
+            font-size: 18px;
             font-weight: bold;
             color: #333;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
 
         .venta-numero {
@@ -79,12 +79,12 @@
 
         /* Aviso no válido como factura */
         .aviso-no-factura {
-            border: 2px solid #333;
-            border-radius: 6px;
-            padding: 10px 15px;
+            border: 1.5px solid #333;
+            border-radius: 4px;
+            padding: 5px 10px;
             text-align: center;
-            margin-bottom: 20px;
-            font-size: 12px;
+            margin-bottom: 10px;
+            font-size: 10px;
             font-weight: bold;
             color: #333;
             text-transform: uppercase;
@@ -95,34 +95,35 @@
         .info-section {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 20px;
-            gap: 20px;
+            margin-bottom: 10px;
+            gap: 15px;
         }
 
         .info-box {
             width: 48%;
-            border-radius: 6px;
-            padding: 12px 15px;
+            border-radius: 4px;
+            padding: 6px 10px;
             border-left: 3px solid #999;
         }
 
         .info-box-label {
-            font-size: 9px;
+            font-size: 8px;
             font-weight: bold;
             text-transform: uppercase;
             color: #555;
             letter-spacing: 0.5px;
-            margin-bottom: 6px;
+            margin-bottom: 3px;
         }
 
         .info-box p {
-            margin: 2px 0;
-            font-size: 10px;
+            margin: 1px 0;
+            font-size: 9px;
             color: #555;
+            line-height: 1.3;
         }
 
         .info-box .nombre {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: bold;
             color: #333;
         }
@@ -251,17 +252,14 @@
                 {% if config_negocio.cuit %}CUIT: {{ config_negocio.cuit }}<br>{% endif %}
                 {% if config_negocio.direccion %}{{ config_negocio.direccion }}<br>{% endif %}
                 {% if config_negocio.telefono %}Tel: {{ config_negocio.telefono }}{% endif %}
-                {% if config_negocio.email %} | {{ config_negocio.email }}{% endif %}
             </div>
         </div>
         <div class="header-right">
-            <div class="venta-titulo">COMPROBANTE DE VENTA</div>
+            <div class="venta-titulo">REMITO</div>
             <div class="venta-numero">#{{ venta.numero_completo }}</div>
             <div class="venta-fecha">
                 Fecha: {{ venta.fecha.strftime('%d/%m/%Y %H:%M') }}
-            </div>
-            <div style="margin-top: 6px;">
-                <span class="estado-badge estado-{{ venta.estado }}">
+                <span class="estado-badge estado-{{ venta.estado }}" style="margin-left: 6px;">
                     {{ venta.estado_display }}
                 </span>
             </div>
@@ -285,12 +283,7 @@
                 {% if venta.cliente.telefono %}
                 <p>Tel: {{ venta.cliente.telefono }}</p>
                 {% endif %}
-                {% if venta.cliente.email %}
-                <p>{{ venta.cliente.email }}</p>
-                {% endif %}
-                {% if venta.cliente.direccion %}
-                <p>{{ venta.cliente.direccion }}</p>
-                {% endif %}
+                {# email y direccion ocultos para ahorrar espacio #}
             {% else %}
                 <p class="nombre">Consumidor Final</p>
             {% endif %}
@@ -316,8 +309,10 @@
                 <th class="col-codigo">Código</th>
                 <th>Descripción</th>
                 <th class="col-cantidad">Cant.</th>
+                {% if not sin_precios %}
                 <th class="col-precio">P. Unitario</th>
                 <th class="col-subtotal">Subtotal</th>
+                {% endif %}
             </tr>
         </thead>
         <tbody>
@@ -326,13 +321,16 @@
                 <td class="col-codigo">{{ detalle.producto.codigo }}</td>
                 <td>{{ detalle.producto.nombre }}</td>
                 <td class="col-cantidad">{{ detalle.cantidad|stock(detalle.producto.unidad_medida) }}</td>
+                {% if not sin_precios %}
                 <td class="col-precio">${{ '{:,.2f}'.format(detalle.precio_unitario) }}</td>
                 <td class="col-subtotal">${{ '{:,.2f}'.format(detalle.subtotal) }}</td>
+                {% endif %}
             </tr>
             {% endfor %}
         </tbody>
     </table>
 
+    {% if not sin_precios %}
     <!-- Totales -->
     <div class="totales-section">
         <div class="totales-box">
@@ -401,6 +399,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Footer -->
     <div class="footer">

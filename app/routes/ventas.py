@@ -361,13 +361,14 @@ def ticket(id):
 def pdf(id):
     """Descargar PDF de comprobante de venta."""
     venta = Venta.get_o_404(id)
+    sin_precios = request.args.get('sin_precios', '0') == '1'
 
-    pdf_bytes = venta_service.generar_pdf(venta)
+    pdf_bytes = venta_service.generar_pdf(venta, sin_precios=sin_precios)
 
     response = make_response(pdf_bytes)
     response.headers['Content-Type'] = 'application/pdf'
     response.headers['Content-Disposition'] = (
-        f'inline; filename=venta_{venta.numero_completo}.pdf'
+        f'inline; filename=remito_{venta.numero_completo}.pdf'
     )
     return response
 

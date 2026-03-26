@@ -1,8 +1,16 @@
 """Formularios de clientes."""
 
 from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, DecimalField, BooleanField, SubmitField, SelectField
-from wtforms.validators import DataRequired, Length, Optional, Email, NumberRange
+from wtforms import (
+    BooleanField,
+    DateField,
+    DecimalField,
+    SelectField,
+    StringField,
+    SubmitField,
+    TextAreaField,
+)
+from wtforms.validators import DataRequired, Email, Length, NumberRange, Optional
 
 
 class ClienteForm(FlaskForm):
@@ -52,6 +60,12 @@ class ClienteForm(FlaskForm):
             Length(max=200, message='La dirección no puede exceder 200 caracteres')
         ],
         render_kw={'placeholder': 'Calle, número, ciudad'}
+    )
+
+    fecha_nacimiento = DateField(
+        'Fecha de Nacimiento',
+        validators=[Optional()],
+        render_kw={'type': 'date', 'class': 'form-control'}
     )
 
     limite_credito = DecimalField(

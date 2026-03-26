@@ -9,6 +9,11 @@ from sqlalchemy import func
 from ..extensions import db
 from ..forms.cliente_forms import ClienteForm, PagoCuentaCorrienteForm
 from ..models import Caja, Cliente, MovimientoCaja, MovimientoCuentaCorriente
+from ..services.cumpleanos_service import (
+    contar_cumpleanos_hoy,
+    generar_url_whatsapp_cumpleanos,
+    obtener_cumpleanos_hoy,
+)
 from ..utils.decorators import empresa_aprobada_required
 from ..utils.helpers import es_peticion_htmx, paginar_query
 
@@ -47,11 +52,36 @@ def index():
             busqueda=busqueda
         )
 
+    cantidad_cumpleanos = contar_cumpleanos_hoy(current_user.empresa_id)
+
     return render_template(
         'clientes/index.html',
         clientes=clientes,
         busqueda=busqueda,
-        solo_activos=solo_activos
+        solo_activos=solo_activos,
+        cumpleanos_hoy=cantidad_cumpleanos,
+    )
+
+
+@bp.route('/cumpleanos')
+@login_required
+def cumpleanos():
+    """Retorna contenido parcial del modal de cumpleaños del día."""
+    clientes = obtener_cumpleanos_hoy(current_user.empresa_id)
+
+    datos_cumpleanos = []
+    for cliente in clientes:
+        url_whatsapp = generar_url_whatsapp_cumpleanos(
+            cliente, current_user.empresa_id
+        )
+        datos_cumpleanos.append({
+            'cliente': cliente,
+            'url_whatsapp': url_whatsapp,
+        })
+
+    return render_template(
+        'clientes/_contenido_cumpleanos.html',
+        datos_cumpleanos=datos_cumpleanos,
     )
 
 

@@ -91,7 +91,15 @@
                                     <span class="badge badge-success">Pago</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ mov.descripcion or '-' }}</td>
+                                <td>
+                                    {% if mov.referencia_tipo == 'venta' and mov.referencia_id %}
+                                    <a href="{{ url_for('ventas.detalle', id=mov.referencia_id) }}">
+                                        {{ mov.descripcion }}
+                                    </a>
+                                    {% else %}
+                                    {{ mov.descripcion or '-' }}
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if mov.tipo == 'pago' and formas_pago.get(mov.id) %}
                                     <span class="badge badge-secondary">{{ formas_pago.get(mov.id) }}</span>

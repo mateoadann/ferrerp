@@ -5,7 +5,7 @@ from flask import render_template
 from ..models import Configuracion
 
 
-def generar_pdf(venta):
+def generar_pdf(venta, sin_precios=False):
     """Genera el PDF de comprobante de venta usando WeasyPrint."""
     from weasyprint import HTML
 
@@ -25,6 +25,7 @@ def generar_pdf(venta):
         venta=venta,
         detalles=detalles,
         config_negocio=config_negocio,
+        sin_precios=sin_precios,
     )
 
     pdf = HTML(string=html_string).write_pdf()
