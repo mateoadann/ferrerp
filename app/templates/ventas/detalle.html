@@ -16,12 +16,14 @@
     <div class="d-flex gap-2">
         <a href="{{ url_for('ventas.pdf', id=venta.id) }}" class="btn btn-secondary" target="_blank">
             <span class="material-symbols-rounded me-2">picture_as_pdf</span>
-            Descargar PDF
+            Descargar Remito
         </a>
+        {# Ticket oculto temporalmente
         <a href="{{ url_for('ventas.ticket', id=venta.id) }}" class="btn btn-outline-secondary">
             <span class="material-symbols-rounded me-2">print</span>
             Imprimir Ticket
         </a>
+        #}
         {% if venta.es_anulable and current_user.es_admin %}
         <a href="{{ url_for('ventas.anular', id=venta.id) }}" class="btn btn-outline-danger">
             <span class="material-symbols-rounded me-2">cancel</span>
@@ -133,11 +135,13 @@
         </div>
 
         {% if venta.estado == 'anulada' %}
-        <div class="alert alert-danger">
-            <span class="material-symbols-rounded me-2">warning</span>
-            <strong>Venta Anulada</strong>
+        <div class="alert alert-danger" style="flex-direction: column; align-items: flex-start;">
+            <div class="d-flex align-items-center">
+                <span class="material-symbols-rounded me-2">warning</span>
+                <strong>Venta Anulada</strong>
+            </div>
             {% if venta.motivo_anulacion %}
-            <br>Motivo: {{ venta.motivo_anulacion }}
+            <div class="mt-1">Motivo: {{ venta.motivo_anulacion }}</div>
             {% endif %}
         </div>
         {% endif %}

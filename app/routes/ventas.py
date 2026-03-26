@@ -367,7 +367,7 @@ def pdf(id):
     response = make_response(pdf_bytes)
     response.headers['Content-Type'] = 'application/pdf'
     response.headers['Content-Disposition'] = (
-        f'inline; filename=venta_{venta.numero_completo}.pdf'
+        f'inline; filename=remito_{venta.numero_completo}.pdf'
     )
     return response
 

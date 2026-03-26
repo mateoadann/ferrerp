@@ -117,10 +117,12 @@
 
 {% block content %}
 <div class="no-print mb-4 text-center">
+    {# Ticket oculto temporalmente
     <button onclick="window.print()" class="btn btn-primary">
         <span class="material-symbols-rounded me-2">print</span>
         Imprimir Ticket
     </button>
+    #}
     <a href="{{ url_for('ventas.detalle', id=venta.id) }}" class="btn btn-secondary ms-2">
         <span class="material-symbols-rounded me-2">arrow_back</span>
         Volver al Detalle
