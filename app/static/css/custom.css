@@ -399,12 +399,14 @@ body {
 
 .btn-secondary {
     background-color: var(--background-surface);
-    border-color: var(--border);
+    border-color: #1A1A1A;
     color: var(--foreground);
 }
 
 .btn-secondary:hover {
-    background-color: var(--background-muted);
+    background-color: #444444;
+    border-color: #1A1A1A;
+    color: #FFFFFF;
 }
 
 /* Forms */

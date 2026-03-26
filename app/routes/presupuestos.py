@@ -13,7 +13,7 @@ from ..extensions import db
 from ..models import Presupuesto, Producto, Cliente, Caja, Configuracion
 from ..forms.presupuesto_forms import PresupuestoForm, ConvertirPresupuestoForm
 from ..utils.helpers import paginar_query, es_peticion_htmx
-from ..utils.decorators import admin_required, caja_abierta_required
+from ..utils.decorators import admin_required, caja_abierta_required, empresa_aprobada_required
 from ..services import presupuesto_service
 
 bp = Blueprint('presupuestos', __name__, url_prefix='/presupuestos')
@@ -100,6 +100,7 @@ def index():
 
 @bp.route('/nuevo', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 def nuevo():
     """Crear nuevo presupuesto."""
     form = PresupuestoForm()
@@ -175,6 +176,7 @@ def detalle(id):
 
 @bp.route('/<int:id>/editar', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 def editar(id):
     """Editar presupuesto pendiente."""
     presupuesto = Presupuesto.get_o_404(id)
@@ -251,6 +253,7 @@ def editar(id):
 
 @bp.route('/<int:id>/eliminar', methods=['POST'])
 @login_required
+@empresa_aprobada_required
 @admin_required
 def eliminar(id):
     """Eliminar presupuesto (solo admin)."""
@@ -268,6 +271,7 @@ def eliminar(id):
 
 @bp.route('/<int:id>/aceptar', methods=['POST'])
 @login_required
+@empresa_aprobada_required
 def aceptar(id):
     """Marcar presupuesto como aceptado."""
     presupuesto = Presupuesto.get_o_404(id)
@@ -283,6 +287,7 @@ def aceptar(id):
 
 @bp.route('/<int:id>/rechazar', methods=['POST'])
 @login_required
+@empresa_aprobada_required
 def rechazar(id):
     """Marcar presupuesto como rechazado."""
     presupuesto = Presupuesto.get_o_404(id)
@@ -298,6 +303,7 @@ def rechazar(id):
 
 @bp.route('/<int:id>/convertir', methods=['POST'])
 @login_required
+@empresa_aprobada_required
 @caja_abierta_required
 def convertir(id):
     """Convertir presupuesto aceptado en venta."""

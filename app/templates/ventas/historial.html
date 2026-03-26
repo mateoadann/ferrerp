@@ -109,9 +109,11 @@
                             <a href="{{ url_for('ventas.pdf', id=venta.id) }}" class="action-icon" title="Descargar PDF" target="_blank">
                                 <span class="material-symbols-rounded">picture_as_pdf</span>
                             </a>
+                            {# Ticket oculto temporalmente
                             <a href="{{ url_for('ventas.ticket', id=venta.id) }}" class="action-icon" title="Ver ticket">
                                 <span class="material-symbols-rounded">receipt</span>
                             </a>
+                            #}
                             {% if venta.es_anulable and current_user.es_admin %}
                             <a href="{{ url_for('ventas.anular', id=venta.id) }}" class="action-icon text-danger" title="Anular">
                                 <span class="material-symbols-rounded">cancel</span>

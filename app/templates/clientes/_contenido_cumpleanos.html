@@ -1,0 +1,49 @@
+{% if datos_cumpleanos %}
+<div class="table-responsive">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr>
+                <th>Cliente</th>
+                <th>Teléfono</th>
+                <th class="text-center">Saludar</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for dato in datos_cumpleanos %}
+            <tr>
+                <td>{{ dato.cliente.nombre }}</td>
+                <td>{{ dato.cliente.telefono or '-' }}</td>
+                <td class="text-center">
+                    {% if dato.cliente.telefono %}
+                    <a href="{{ dato.url_whatsapp }}" target="_blank"
+                       class="btn btn-sm btn-success"
+                       title="Enviar saludo por WhatsApp">
+                        <span class="material-symbols-rounded me-1"
+                              style="font-size: 16px; vertical-align: middle;">
+                            chat
+                        </span>
+                        WhatsApp
+                    </a>
+                    {% else %}
+                    <button type="button" class="btn btn-sm btn-secondary" disabled
+                            data-bs-toggle="tooltip" data-bs-placement="top"
+                            title="Sin teléfono registrado">
+                        <span class="material-symbols-rounded me-1"
+                              style="font-size: 16px; vertical-align: middle;">
+                            chat
+                        </span>
+                        WhatsApp
+                    </button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-4 text-muted">
+    <span class="material-symbols-rounded" style="font-size: 48px;">sentiment_satisfied</span>
+    <p class="mt-2 mb-0">No hay cumpleaños hoy</p>
+</div>
+{% endif %}

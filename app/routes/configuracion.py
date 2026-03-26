@@ -8,7 +8,7 @@ from ..forms.configuracion_forms import ConfiguracionForm
 from ..forms.producto_forms import CategoriaForm
 from ..forms.usuario_forms import UsuarioEditForm, UsuarioForm
 from ..models import Categoria, Configuracion, Usuario
-from ..utils.decorators import admin_required
+from ..utils.decorators import admin_required, empresa_aprobada_required
 from ..utils.helpers import es_peticion_htmx
 
 bp = Blueprint('configuracion', __name__, url_prefix='/configuracion')
@@ -16,6 +16,7 @@ bp = Blueprint('configuracion', __name__, url_prefix='/configuracion')
 
 @bp.route('/', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 def index():
     """Configuración general del sistema (solo administradores)."""
     if not current_user.es_administrador:
@@ -29,6 +30,13 @@ def index():
         form.telefono.data = Configuracion.get('telefono', default='')
         form.cuit.data = Configuracion.get('cuit', default='')
         form.precios_con_iva.data = Configuracion.get('precios_con_iva', default=False)
+        form.mensaje_cumpleanos.data = Configuracion.get(
+            'mensaje_cumpleanos',
+            default=(
+                '¡Feliz cumpleaños {cliente}! Te saluda {negocio}.'
+                ' ¡Que tengas un gran día!'
+            ),
+        )
 
     if form.validate_on_submit():
         Configuracion.set('nombre_negocio', form.nombre_negocio.data, 'string')
@@ -36,6 +44,9 @@ def index():
         Configuracion.set('telefono', form.telefono.data, 'string')
         Configuracion.set('cuit', form.cuit.data, 'string')
         Configuracion.set('precios_con_iva', form.precios_con_iva.data, 'boolean')
+        Configuracion.set(
+            'mensaje_cumpleanos', form.mensaje_cumpleanos.data, 'string'
+        )
 
         flash('Configuración guardada correctamente.', 'success')
         return redirect(url_for('configuracion.index'))
@@ -60,6 +71,7 @@ def usuarios():
 
 @bp.route('/usuarios/nuevo', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 @admin_required
 def nuevo_usuario():
     """Crear nuevo usuario."""
@@ -86,6 +98,7 @@ def nuevo_usuario():
 
 @bp.route('/usuarios/<int:id>/editar', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 @admin_required
 def editar_usuario(id):
     """Editar usuario."""
@@ -128,6 +141,7 @@ def editar_usuario(id):
 
 @bp.route('/usuarios/<int:id>/toggle', methods=['POST'])
 @login_required
+@empresa_aprobada_required
 @admin_required
 def toggle_usuario(id):
     """Activar/desactivar usuario."""
@@ -166,6 +180,7 @@ def toggle_usuario(id):
 
 @bp.route('/categorias', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 def categorias():
     """Gestión de categorías."""
     form = CategoriaForm()
@@ -208,6 +223,7 @@ def categorias():
 
 @bp.route('/categorias/<int:id>/editar', methods=['POST'])
 @login_required
+@empresa_aprobada_required
 def editar_categoria(id):
     """Editar categoría (HTMX)."""
     categoria = Categoria.get_o_404(id)
@@ -239,6 +255,7 @@ def editar_categoria(id):
 
 @bp.route('/categorias/<int:id>/toggle', methods=['POST'])
 @login_required
+@empresa_aprobada_required
 def toggle_categoria(id):
     """Activar/desactivar categoría."""
     categoria = Categoria.get_o_404(id)
@@ -261,6 +278,7 @@ def toggle_categoria(id):
 
 @bp.route('/categorias/<int:id>/eliminar', methods=['POST'])
 @login_required
+@empresa_aprobada_required
 def eliminar_categoria(id):
     """Eliminar categoría (solo si no tiene productos asociados)."""
     categoria = Categoria.get_o_404(id)

@@ -8,6 +8,7 @@ from flask_login import login_required, current_user
 from ..extensions import db
 from ..models import OrdenCompra, OrdenCompraDetalle, Producto, Proveedor, MovimientoStock
 from ..services import orden_compra_service
+from ..utils.decorators import empresa_aprobada_required
 from ..utils.helpers import ahora_argentina, es_peticion_htmx, generar_numero_orden_compra, paginar_query
 
 bp = Blueprint('compras', __name__, url_prefix='/compras')
@@ -45,6 +46,7 @@ def index():
 
 @bp.route('/nueva', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 def nueva():
     """Crear nueva orden de compra."""
     if request.method == 'POST':
@@ -162,6 +164,7 @@ def pdf(id):
 
 @bp.route('/<int:id>/recibir', methods=['GET', 'POST'])
 @login_required
+@empresa_aprobada_required
 def recibir(id):
     """Recibir mercadería de una orden."""
     orden = OrdenCompra.get_o_404(id)
@@ -240,6 +243,7 @@ def recibir(id):
 
 @bp.route('/<int:id>/cancelar', methods=['POST'])
 @login_required
+@empresa_aprobada_required
 def cancelar(id):
     """Cancelar orden de compra."""
     orden = OrdenCompra.get_o_404(id)
@@ -284,6 +288,7 @@ def sugerencia():
 
 @bp.route('/sugerencia/generar-orden', methods=['POST'])
 @login_required
+@empresa_aprobada_required
 def generar_orden_sugerencia():
     """Generar orden desde sugerencia."""
     proveedor_id = request.form.get('proveedor_id', type=int)
