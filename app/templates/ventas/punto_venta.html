@@ -4,6 +4,17 @@
 
 {% block content %}
 <div class="pos-container" x-data="posApp()">
+    <!-- Alerta de validación flotante -->
+    <div class="pos-alert-container" x-show="alertMessage" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:leave="transition ease-in duration-150">
+        <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-0" role="alert">
+            <span class="material-symbols-rounded me-2">error</span>
+            <span x-text="alertMessage"></span>
+            <button type="button" class="btn-close" @click="alertMessage = ''" aria-label="Cerrar"></button>
+        </div>
+    </div>
+
     <!-- Left Panel - Products and Cart -->
     <div class="pos-left">
         <!-- Header with Search -->
@@ -82,9 +93,10 @@
                                     <tr>
                                         <th>Producto</th>
                                         <th style="width: 100px;">Cantidad</th>
-                                        <th style="width: 120px;">P. Unit.</th>
-                                        <th style="width: 120px;">Subtotal</th>
-                                        <th style="width: 50px;"></th>
+                                        <th style="width: 100px;">P. Unit.</th>
+                                        <th style="width: 70px;">Desc.%</th>
+                                        <th style="width: 100px;">Subtotal</th>
+                                        <th style="width: 40px;"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -111,7 +123,14 @@
                                                 </div>
                                             </td>
                                             <td x-text="formatCurrency(item.precio_unitario)"></td>
-                                            <td class="fw-bold" x-text="formatCurrency(item.cantidad * item.precio_unitario)"></td>
+                                            <td>
+                                                <input type="number"
+                                                       x-model.number="item.descuento_porcentaje"
+                                                       min="0" max="100" step="0.5"
+                                                       class="form-control form-control-sm text-end"
+                                                       style="width: 70px;">
+                                            </td>
+                                            <td class="fw-bold" x-text="formatCurrency(item.cantidad * item.precio_unitario * (1 - (item.descuento_porcentaje || 0) / 100))"></td>
                                             <td>
                                                 <button class="btn btn-sm btn-outline-danger" @click="removeFromCart(index)">
                                                     <span class="material-symbols-rounded">delete</span>
@@ -289,9 +308,14 @@ function posApp() {
         descuentoPorcentaje: 0,
         montoRecibido: '',
         processing: false,
+        alertMessage: '',
+        alertTimer: null,
 
         get subtotal() {
-            return this.cart.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
+            return this.cart.reduce((sum, item) => {
+                const desc = item.descuento_porcentaje || 0;
+                return sum + (item.cantidad * item.precio_unitario * (1 - desc / 100));
+            }, 0);
         },
 
         get descuentoMonto() {
@@ -310,8 +334,9 @@ function posApp() {
             
             this.cart.forEach(item => {
                 const ivaPct = item.iva_porcentaje || 21;
-                const itemSubtotal = item.cantidad * item.precio_unitario;
-                const proporcion = itemSubtotal / this.subtotal;
+                const desc = item.descuento_porcentaje || 0;
+                const itemSubtotal = item.cantidad * item.precio_unitario * (1 - desc / 100);
+                const proporcion = this.subtotal > 0 ? itemSubtotal / this.subtotal : 0;
                 const itemTotal = subtotalConDesc * proporcion;
                 
                 if (!grupos[ivaPct]) {
@@ -428,10 +453,17 @@ function posApp() {
             }
         },
 
+        // Muestra alerta inline con auto-dismiss a 10 segundos
+        mostrarAlerta(mensaje) {
+            if (this.alertTimer) clearTimeout(this.alertTimer);
+            this.alertMessage = mensaje;
+            this.alertTimer = setTimeout(() => { this.alertMessage = ''; }, 10000);
+        },
+
         addToCart(product) {
             // Verificar stock
             if (product.stock_actual <= 0) {
-                showAlert('Este producto no tiene stock disponible.');
+                this.mostrarAlerta('Este producto no tiene stock disponible.');
                 return;
             }
 
@@ -441,7 +473,7 @@ function posApp() {
             if (existingIndex >= 0) {
                 // Verificar que no exceda el stock
                 if (this.cart[existingIndex].cantidad + 1 > product.stock_actual) {
-                    showAlert('No hay suficiente stock disponible.');
+                    this.mostrarAlerta('No hay suficiente stock disponible.');
                     return;
                 }
                 this.cart[existingIndex].cantidad += 1;
@@ -455,6 +487,7 @@ function posApp() {
                     cantidad: 1,
                     precio_unitario: product.precio_venta,
                     iva_porcentaje: product.iva_porcentaje || 21,
+                    descuento_porcentaje: 0,
                     stock_disponible: product.stock_actual
                 });
             }
@@ -488,7 +521,7 @@ function posApp() {
                 this.removeFromCart(index);
             } else if (item.cantidad > item.stock_disponible) {
                 item.cantidad = item.stock_disponible;
-                showAlert('Cantidad ajustada al stock disponible.');
+                this.mostrarAlerta('Cantidad ajustada al stock disponible.');
             }
         },
 
@@ -517,12 +550,29 @@ function posApp() {
 
         async confirmarVenta() {
             if (this.cart.length === 0) {
-                showAlert('El carrito está vacío.');
+                this.mostrarAlerta('El carrito está vacío.');
+                return;
+            }
+
+            // Validar descuentos por item antes de enviar
+            for (const item of this.cart) {
+                const desc = item.descuento_porcentaje || 0;
+                if (desc < 0 || desc > 100) {
+                    this.mostrarAlerta(
+                        `El descuento de "${item.nombre}" debe estar entre 0 y 100%.`
+                    );
+                    return;
+                }
+            }
+
+            // Validar descuento general
+            if (this.descuentoPorcentaje < 0 || this.descuentoPorcentaje > 100) {
+                this.mostrarAlerta('El descuento general debe estar entre 0 y 100%.');
                 return;
             }
 
             if (this.formaPago === 'cuenta_corriente' && !this.clienteId) {
-                showAlert('Debes seleccionar un cliente para pagar a cuenta corriente.');
+                this.mostrarAlerta('Debes seleccionar un cliente para pagar a cuenta corriente.');
                 return;
             }
 
@@ -575,5 +625,16 @@ function posApp() {
 
 <style>
 [x-cloak] { display: none !important; }
+/* Contenedor POS necesita position para alojar la alerta absoluta */
+.pos-container { position: relative; }
+/* Alerta de validación flotante sobre el layout POS */
+.pos-alert-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    padding: 12px 24px;
+}
 </style>
 {% endblock %}

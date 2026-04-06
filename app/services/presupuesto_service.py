@@ -26,6 +26,10 @@ def crear_presupuesto(items, usuario_id, empresa_id=None, cliente_id=None,
                       cliente_nombre=None, cliente_telefono=None,
                       descuento_porcentaje=0, validez_dias=None, notas=None):
     """Crea un nuevo presupuesto con sus líneas de detalle."""
+    descuento_porcentaje = Decimal(str(descuento_porcentaje))
+    if descuento_porcentaje < 0 or descuento_porcentaje > 100:
+        raise ValueError('El descuento general debe estar entre 0 y 100')
+
     if validez_dias is None:
         validez_dias = Configuracion.get('presupuesto_validez_dias', 15)
 
@@ -40,7 +44,7 @@ def crear_presupuesto(items, usuario_id, empresa_id=None, cliente_id=None,
         cliente_nombre=cliente_nombre,
         cliente_telefono=cliente_telefono,
         usuario_id=usuario_id,
-        descuento_porcentaje=Decimal(str(descuento_porcentaje)),
+        descuento_porcentaje=descuento_porcentaje,
         notas=notas,
         empresa_id=empresa_id,
     )
@@ -54,7 +58,14 @@ def crear_presupuesto(items, usuario_id, empresa_id=None, cliente_id=None,
 
         cantidad = Decimal(str(item['cantidad']))
         precio = Decimal(str(item['precio_unitario']))
-        item_subtotal = cantidad * precio
+        desc_pct = Decimal(str(item.get('descuento_porcentaje', 0)))
+
+        if desc_pct < 0 or desc_pct > 100:
+            raise ValueError('El descuento debe estar entre 0 y 100')
+
+        bruto = cantidad * precio
+        descuento_item = bruto * (desc_pct / Decimal('100'))
+        item_subtotal = bruto - descuento_item
         subtotal += item_subtotal
 
         detalle = PresupuestoDetalle(
@@ -62,6 +73,7 @@ def crear_presupuesto(items, usuario_id, empresa_id=None, cliente_id=None,
             cantidad=cantidad,
             precio_unitario=precio,
             iva_porcentaje=producto.iva_porcentaje,
+            descuento_porcentaje=desc_pct,
             subtotal=item_subtotal
         )
         presupuesto.detalles.append(detalle)
@@ -86,20 +98,13 @@ def actualizar_presupuesto(presupuesto, items, cliente_id=None, cliente_nombre=N
     if not presupuesto.puede_editar:
         raise ValueError('El presupuesto no puede editarse en su estado actual.')
 
-    if validez_dias is not None:
-        presupuesto.fecha_vencimiento = presupuesto.fecha + timedelta(days=int(validez_dias))
+    # Validar descuento global ANTES de modificar datos existentes
+    descuento_porcentaje = Decimal(str(descuento_porcentaje))
+    if descuento_porcentaje < 0 or descuento_porcentaje > 100:
+        raise ValueError('El descuento general debe estar entre 0 y 100')
 
-    presupuesto.cliente_id = cliente_id if cliente_id else None
-    presupuesto.cliente_nombre = cliente_nombre
-    presupuesto.cliente_telefono = cliente_telefono
-    presupuesto.descuento_porcentaje = Decimal(str(descuento_porcentaje))
-    presupuesto.notas = notas
-
-    # Eliminar detalles existentes
-    PresupuestoDetalle.query.filter_by(presupuesto_id=presupuesto.id).delete()
-
-    subtotal = Decimal('0')
-
+    # Validar todos los items ANTES de modificar datos existentes
+    items_validados = []
     for item in items:
         producto = db.session.get(Producto, item['producto_id'])
         if not producto:
@@ -107,25 +112,77 @@ def actualizar_presupuesto(presupuesto, items, cliente_id=None, cliente_nombre=N
 
         cantidad = Decimal(str(item['cantidad']))
         precio = Decimal(str(item['precio_unitario']))
-        item_subtotal = cantidad * precio
-        subtotal += item_subtotal
+        desc_pct = Decimal(str(item.get('descuento_porcentaje', 0)))
 
-        detalle = PresupuestoDetalle(
-            presupuesto_id=presupuesto.id,
-            producto_id=producto.id,
-            cantidad=cantidad,
-            precio_unitario=precio,
-            iva_porcentaje=producto.iva_porcentaje,
-            subtotal=item_subtotal
-        )
-        db.session.add(detalle)
+        if desc_pct < 0 or desc_pct > 100:
+            raise ValueError('El descuento debe estar entre 0 y 100')
 
-    presupuesto.subtotal = subtotal
-    if presupuesto.descuento_porcentaje > 0:
-        presupuesto.descuento_monto = subtotal * (presupuesto.descuento_porcentaje / 100)
-    else:
-        presupuesto.descuento_monto = Decimal('0')
-    presupuesto.total = subtotal - presupuesto.descuento_monto
+        if cantidad <= 0:
+            raise ValueError(f'La cantidad debe ser mayor a 0 para "{producto.nombre}"')
+
+        items_validados.append({
+            'producto': producto,
+            'cantidad': cantidad,
+            'precio': precio,
+            'desc_pct': desc_pct,
+        })
+
+    # Validación pasó — aplicar cambios dentro de un SAVEPOINT para que
+    # cualquier error posterior (constraint, flush, etc.) no deje los
+    # detalles eliminados sin posibilidad de rollback limpio.
+    try:
+        db.session.begin_nested()
+
+        if validez_dias is not None:
+            presupuesto.fecha_vencimiento = presupuesto.fecha + timedelta(
+                days=int(validez_dias)
+            )
+
+        presupuesto.cliente_id = cliente_id if cliente_id else None
+        presupuesto.cliente_nombre = cliente_nombre
+        presupuesto.cliente_telefono = cliente_telefono
+        presupuesto.descuento_porcentaje = descuento_porcentaje
+        presupuesto.notas = notas
+
+        # Eliminar detalles existentes
+        PresupuestoDetalle.query.filter_by(presupuesto_id=presupuesto.id).delete()
+
+        subtotal = Decimal('0')
+
+        for iv in items_validados:
+            producto = iv['producto']
+            cantidad = iv['cantidad']
+            precio = iv['precio']
+            desc_pct = iv['desc_pct']
+
+            bruto = cantidad * precio
+            descuento_item = bruto * (desc_pct / Decimal('100'))
+            item_subtotal = bruto - descuento_item
+            subtotal += item_subtotal
+
+            detalle = PresupuestoDetalle(
+                presupuesto_id=presupuesto.id,
+                producto_id=producto.id,
+                cantidad=cantidad,
+                precio_unitario=precio,
+                iva_porcentaje=producto.iva_porcentaje,
+                descuento_porcentaje=desc_pct,
+                subtotal=item_subtotal,
+            )
+            db.session.add(detalle)
+
+        presupuesto.subtotal = subtotal
+        if presupuesto.descuento_porcentaje > 0:
+            presupuesto.descuento_monto = subtotal * (
+                presupuesto.descuento_porcentaje / 100
+            )
+        else:
+            presupuesto.descuento_monto = Decimal('0')
+        presupuesto.total = subtotal - presupuesto.descuento_monto
+
+    except Exception:
+        db.session.rollback()
+        raise
 
     db.session.commit()
     return presupuesto
@@ -202,7 +259,10 @@ def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id,
         producto = detalle.producto
         cantidad = detalle.cantidad
         precio = detalle.precio_unitario
-        item_subtotal = cantidad * precio
+        desc_pct = detalle.descuento_porcentaje or Decimal('0')
+        bruto = cantidad * precio
+        descuento_item = bruto * (desc_pct / Decimal('100'))
+        item_subtotal = bruto - descuento_item
         subtotal += item_subtotal
 
         # Detalle de venta
@@ -211,6 +271,7 @@ def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id,
             cantidad=cantidad,
             precio_unitario=precio,
             iva_porcentaje=detalle.iva_porcentaje,
+            descuento_porcentaje=desc_pct,
             subtotal=item_subtotal
         )
         venta.detalles.append(venta_detalle)

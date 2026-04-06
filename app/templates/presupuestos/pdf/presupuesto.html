@@ -146,20 +146,25 @@
         }
 
         .productos-table .col-codigo {
-            width: 80px;
+            width: 70px;
             font-family: monospace;
             font-size: 9px;
             color: #666;
         }
 
         .productos-table .col-cantidad {
-            width: 70px;
+            width: 60px;
+            text-align: center;
+        }
+
+        .productos-table .col-descuento {
+            width: 50px;
             text-align: center;
         }
 
         .productos-table .col-precio,
         .productos-table .col-subtotal {
-            width: 100px;
+            width: 90px;
             text-align: right;
         }
 
@@ -316,6 +321,7 @@
                 <th>Descripción</th>
                 <th class="col-cantidad">Cant.</th>
                 <th class="col-precio">P. Unitario</th>
+                <th class="col-descuento">Desc.</th>
                 <th class="col-subtotal">Subtotal</th>
             </tr>
         </thead>
@@ -326,6 +332,7 @@
                 <td>{{ detalle.producto.nombre }}</td>
                 <td class="col-cantidad">{{ detalle.cantidad|stock(detalle.producto.unidad_medida) }}</td>
                 <td class="col-precio">${{ '{:,.2f}'.format(detalle.precio_unitario) }}</td>
+                <td class="col-descuento">{% if detalle.descuento_porcentaje and detalle.descuento_porcentaje > 0 %}{{ detalle.descuento_porcentaje }}%{% else %}-{% endif %}</td>
                 <td class="col-subtotal">${{ '{:,.2f}'.format(detalle.subtotal) }}</td>
             </tr>
             {% endfor %}

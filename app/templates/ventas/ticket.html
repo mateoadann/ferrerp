@@ -180,7 +180,7 @@
         <div class="ticket-item">
             <div class="ticket-item-name">{{ detalle.producto.nombre }}</div>
             <div class="ticket-item-details">
-                <span>{{ detalle.cantidad|stock(detalle.producto.unidad_medida) }} x {{ detalle.precio_unitario|currency }}</span>
+                <span>{{ detalle.cantidad|stock(detalle.producto.unidad_medida) }} x {{ detalle.precio_unitario|currency }}{% if detalle.descuento_porcentaje and detalle.descuento_porcentaje > 0 %} -{{ detalle.descuento_porcentaje }}%{% endif %}</span>
                 <span>{{ detalle.subtotal|currency }}</span>
             </div>
         </div>

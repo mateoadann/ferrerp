@@ -56,6 +56,7 @@
                             <th>Producto</th>
                             <th class="text-center">Cantidad</th>
                             <th class="text-end">P. Unitario</th>
+                            <th class="text-center">Desc.</th>
                             <th class="text-end">Subtotal</th>
                         </tr>
                     </thead>
@@ -66,18 +67,19 @@
                             <td>{{ detalle.producto.nombre }}</td>
                             <td class="text-center">{{ detalle.cantidad|stock(detalle.producto.unidad_medida) }}</td>
                             <td class="text-end">{{ detalle.precio_unitario|currency }}</td>
+                            <td class="text-center">{% if detalle.descuento_porcentaje and detalle.descuento_porcentaje > 0 %}{{ detalle.descuento_porcentaje }}%{% else %}-{% endif %}</td>
                             <td class="text-end fw-bold">{{ detalle.subtotal|currency }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="4" class="text-end">Subtotal:</td>
+                            <td colspan="5" class="text-end">Subtotal:</td>
                             <td class="text-end">{{ venta.subtotal|currency }}</td>
                         </tr>
                         {% if venta.descuento_monto > 0 %}
                         <tr>
-                            <td colspan="4" class="text-end">Descuento ({{ venta.descuento_porcentaje }}%):</td>
+                            <td colspan="5" class="text-end">Descuento ({{ venta.descuento_porcentaje }}%):</td>
                             <td class="text-end text-danger">-{{ venta.descuento_monto|currency }}</td>
                         </tr>
                         {% endif %}
@@ -112,17 +114,17 @@
                         {% endfor %}
 
                         <tr>
-                            <td colspan="4" class="text-end">Neto gravado:</td>
+                            <td colspan="5" class="text-end">Neto gravado:</td>
                             <td class="text-end">{{ ns.neto_total|currency }}</td>
                         </tr>
                         {% for pct, datos in ns.iva_agrupado.items() %}
                         <tr>
-                            <td colspan="4" class="text-end">IVA ({{ pct }}%):</td>
+                            <td colspan="5" class="text-end">IVA ({{ pct }}%):</td>
                             <td class="text-end">{{ datos.iva|currency }}</td>
                         </tr>
                         {% endfor %}
                         <tr class="table-light">
-                            <td colspan="4" class="text-end fw-bold">TOTAL:</td>
+                            <td colspan="5" class="text-end fw-bold">TOTAL:</td>
                             <td class="text-end fw-bold" style="font-size: 1.2em;">
                                 {% if con_iva %}
                                     {{ venta.total|currency }}
@@ -132,7 +134,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td colspan="5" class="text-end text-muted small">
+                            <td colspan="6" class="text-end text-muted small">
                                 {% if con_iva %}Los precios incluyen IVA{% else %}Los precios no incluyen IVA{% endif %}
                             </td>
                         </tr>

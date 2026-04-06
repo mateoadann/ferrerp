@@ -98,6 +98,12 @@ def punto_de_venta():
 
                 cantidad = Decimal(str(item['cantidad']))
                 precio = Decimal(str(item['precio_unitario']))
+                desc_pct = Decimal(str(item.get('descuento_porcentaje', 0)))
+
+                if desc_pct < 0 or desc_pct > 100:
+                    raise ValueError(
+                        'El descuento debe estar entre 0 y 100'
+                    )
 
                 # Verificar stock
                 if producto.stock_actual < cantidad:
@@ -108,7 +114,9 @@ def punto_de_venta():
                     )
                     return redirect(url_for('ventas.punto_de_venta'))
 
-                item_subtotal = cantidad * precio
+                bruto = cantidad * precio
+                descuento_item = bruto * (desc_pct / Decimal('100'))
+                item_subtotal = bruto - descuento_item
                 subtotal += item_subtotal
 
                 # Crear detalle de venta
@@ -117,6 +125,7 @@ def punto_de_venta():
                     cantidad=cantidad,
                     precio_unitario=precio,
                     iva_porcentaje=producto.iva_porcentaje,
+                    descuento_porcentaje=desc_pct,
                     subtotal=item_subtotal
                 )
                 venta.detalles.append(detalle)

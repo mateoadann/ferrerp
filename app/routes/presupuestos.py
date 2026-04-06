@@ -21,8 +21,14 @@ bp = Blueprint('presupuestos', __name__, url_prefix='/presupuestos')
 
 @bp.before_request
 def _marcar_vencidos():
-    """Marca presupuestos vencidos antes de cada request."""
-    presupuesto_service.marcar_vencidos()
+    """Marca presupuestos vencidos antes de cada request GET de listado/detalle.
+
+    Se omite en requests POST para evitar que un presupuesto pase a 'vencido'
+    en medio de una operación de edición, lo cual generaría conflictos de
+    sesión y comportamiento inesperado.
+    """
+    if request.method == 'GET':
+        presupuesto_service.marcar_vencidos()
 
 
 # ─── Listado ─────────────────────────────────────────────────────────
@@ -215,7 +221,14 @@ def editar(id):
             flash(f'Presupuesto #{presupuesto.numero_completo} actualizado.', 'success')
             return redirect(url_for('presupuestos.detalle', id=id))
 
+        except (ValueError, json.JSONDecodeError) as e:
+            # Error de validación: no hubo mutación, rollback preventivo
+            db.session.rollback()
+            flash(f'Error al actualizar: {str(e)}', 'danger')
+            return redirect(url_for('presupuestos.editar', id=id))
+
         except Exception as e:
+            # Error inesperado (DB, etc.): rollback obligatorio
             db.session.rollback()
             flash(f'Error al actualizar: {str(e)}', 'danger')
             return redirect(url_for('presupuestos.editar', id=id))
@@ -232,6 +245,7 @@ def editar(id):
             'nombre': d.producto.nombre,
             'cantidad': float(d.cantidad),
             'precio_unitario': float(d.precio_unitario),
+            'descuento_porcentaje': float(d.descuento_porcentaje),
             'stock_disponible': float(d.producto.stock_actual)
         })
 
