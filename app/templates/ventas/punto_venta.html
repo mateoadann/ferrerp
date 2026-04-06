@@ -152,11 +152,37 @@
                 </div>
                 <div class="summary-row mb-2">
                     <span class="text-muted">Descuento</span>
-                    <div class="input-group input-group-sm" style="width: 100px;">
-                        <input type="number" class="form-control text-end"
-                               x-model.number="descuentoPorcentaje"
-                               min="0" max="100" step="0.5">
-                        <span class="input-group-text">%</span>
+                    <div class="d-flex align-items-center gap-1">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn"
+                                    :class="modoDescuento === 'porcentaje'
+                                        ? 'btn-primary' : 'btn-outline-primary'"
+                                    @click="modoDescuento = 'porcentaje'">%</button>
+                            <button type="button" class="btn"
+                                    :class="modoDescuento === 'total'
+                                        ? 'btn-primary' : 'btn-outline-primary'"
+                                    @click="if (modoDescuento !== 'total') {
+                                        totalDeseado = total.toFixed(2);
+                                    } modoDescuento = 'total'">$</button>
+                        </div>
+                        <div x-show="modoDescuento === 'porcentaje'"
+                             class="input-group input-group-sm" style="width: 100px;">
+                            <input type="number" class="form-control text-end"
+                                   x-model.number="descuentoPorcentaje"
+                                   min="0" max="100" step="0.5"
+                                   :disabled="cart.length === 0">
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <div x-show="modoDescuento === 'total'" x-cloak
+                             class="input-group input-group-sm" style="width: 120px;">
+                            <span class="input-group-text">$</span>
+                            <input type="text" class="form-control text-end"
+                                   x-model="totalDeseado"
+                                   @input="calcularDescuentoDesdeTotal()"
+                                   :disabled="cart.length === 0"
+                                   inputmode="decimal"
+                                   placeholder="Total">
+                        </div>
                     </div>
                 </div>
                 <hr>
@@ -270,6 +296,8 @@
         <input type="hidden" name="cliente_id" x-model="clienteId">
         <input type="hidden" name="forma_pago" x-model="formaPago">
         <input type="hidden" name="descuento_porcentaje" x-model="descuentoPorcentaje">
+        <input type="hidden" name="descuento_monto_exacto"
+               :value="descuentoMontoExacto !== null ? descuentoMontoExacto.toFixed(2) : ''">
         <input type="hidden" name="items_json" :value="JSON.stringify(cart)">
     </form>
 </div>
@@ -287,6 +315,8 @@ function posApp() {
         clienteId: '',
         formaPago: 'efectivo',
         descuentoPorcentaje: 0,
+        modoDescuento: 'porcentaje',
+        totalDeseado: '',
         montoRecibido: '',
         processing: false,
 
@@ -294,7 +324,20 @@ function posApp() {
             return this.cart.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
         },
 
+        get descuentoMontoExacto() {
+            if (this.modoDescuento === 'total') {
+                const deseado = parseMoneyNumber(this.totalDeseado);
+                if (deseado > 0 && deseado < this.subtotal) {
+                    return this.subtotal - deseado;
+                }
+            }
+            return null;
+        },
+
         get descuentoMonto() {
+            if (this.descuentoMontoExacto !== null) {
+                return this.descuentoMontoExacto;
+            }
             return this.subtotal * (this.descuentoPorcentaje / 100);
         },
 
@@ -357,6 +400,20 @@ function posApp() {
             return Math.max(0, parseMoneyNumber(this.montoRecibido) - this.totalConIva);
         },
 
+        calcularDescuentoDesdeTotal() {
+            const deseado = parseMoneyNumber(this.totalDeseado);
+            if (this.subtotal <= 0 || deseado <= 0) {
+                this.descuentoPorcentaje = 0;
+                return;
+            }
+            if (deseado >= this.subtotal) {
+                this.descuentoPorcentaje = 0;
+                return;
+            }
+            const porcentaje = ((this.subtotal - deseado) / this.subtotal) * 100;
+            this.descuentoPorcentaje = Math.round(porcentaje * 100) / 100;
+        },
+
         formatCurrency(value) {
             return new Intl.NumberFormat('es-AR', {
                 style: 'currency',
@@ -377,7 +434,9 @@ function posApp() {
                 cart: this.cart,
                 clienteId: this.clienteId,
                 formaPago: this.formaPago,
-                descuentoPorcentaje: this.descuentoPorcentaje
+                descuentoPorcentaje: this.descuentoPorcentaje,
+                modoDescuento: this.modoDescuento,
+                totalDeseado: this.totalDeseado
             };
             localStorage.setItem(this.storageKey, JSON.stringify(payload));
         },
@@ -398,6 +457,11 @@ function posApp() {
                 }
                 if (payload.descuentoPorcentaje !== undefined && payload.descuentoPorcentaje !== null) {
                     this.descuentoPorcentaje = payload.descuentoPorcentaje;
+                }
+                this.modoDescuento = payload.modoDescuento || 'porcentaje';
+                this.totalDeseado = payload.totalDeseado || '';
+                if (this.modoDescuento === 'total' && this.totalDeseado) {
+                    this.calcularDescuentoDesdeTotal();
                 }
             } catch (error) {
                 localStorage.removeItem(this.storageKey);
@@ -508,6 +572,8 @@ function posApp() {
             if (ok) {
                 this.cart = [];
                 this.descuentoPorcentaje = 0;
+                this.modoDescuento = 'porcentaje';
+                this.totalDeseado = '';
                 this.montoRecibido = '';
                 this.clienteId = '';
                 this.formaPago = 'efectivo';
@@ -552,6 +618,20 @@ function posApp() {
             this.$watch('clienteId', () => this.persistState());
             this.$watch('formaPago', () => this.persistState());
             this.$watch('descuentoPorcentaje', () => this.persistState());
+            this.$watch('modoDescuento', () => this.persistState());
+            this.$watch('totalDeseado', () => this.persistState());
+
+            // Recalcular descuento cuando cambia el subtotal en modo total
+            this.$watch('subtotal', (newSubtotal) => {
+                if (this.modoDescuento === 'total' && this.totalDeseado) {
+                    if (newSubtotal <= 0) {
+                        this.descuentoPorcentaje = 0;
+                        this.totalDeseado = '';
+                    } else {
+                        this.calcularDescuentoDesdeTotal();
+                    }
+                }
+            });
 
             // Keyboard shortcuts
             document.addEventListener('keydown', (e) => {

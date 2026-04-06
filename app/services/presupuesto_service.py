@@ -24,7 +24,8 @@ from ..utils.helpers import ahora_argentina, generar_numero_presupuesto, generar
 
 def crear_presupuesto(items, usuario_id, empresa_id=None, cliente_id=None,
                       cliente_nombre=None, cliente_telefono=None,
-                      descuento_porcentaje=0, validez_dias=None, notas=None):
+                      descuento_porcentaje=0, descuento_monto_exacto=None,
+                      validez_dias=None, notas=None):
     """Crea un nuevo presupuesto con sus líneas de detalle."""
     if validez_dias is None:
         validez_dias = Configuracion.get('presupuesto_validez_dias', 15)
@@ -67,7 +68,10 @@ def crear_presupuesto(items, usuario_id, empresa_id=None, cliente_id=None,
         presupuesto.detalles.append(detalle)
 
     presupuesto.subtotal = subtotal
-    if presupuesto.descuento_porcentaje > 0:
+    if descuento_monto_exacto is not None and descuento_monto_exacto > 0:
+        # Modo "total deseado": usar monto exacto para evitar diferencia por redondeo
+        presupuesto.descuento_monto = descuento_monto_exacto
+    elif presupuesto.descuento_porcentaje > 0:
         presupuesto.descuento_monto = subtotal * (presupuesto.descuento_porcentaje / 100)
     else:
         presupuesto.descuento_monto = Decimal('0')
@@ -81,6 +85,7 @@ def crear_presupuesto(items, usuario_id, empresa_id=None, cliente_id=None,
 
 def actualizar_presupuesto(presupuesto, items, cliente_id=None, cliente_nombre=None,
                            cliente_telefono=None, descuento_porcentaje=0,
+                           descuento_monto_exacto=None,
                            validez_dias=None, notas=None):
     """Actualiza un presupuesto pendiente."""
     if not presupuesto.puede_editar:
@@ -121,7 +126,10 @@ def actualizar_presupuesto(presupuesto, items, cliente_id=None, cliente_nombre=N
         db.session.add(detalle)
 
     presupuesto.subtotal = subtotal
-    if presupuesto.descuento_porcentaje > 0:
+    if descuento_monto_exacto is not None and descuento_monto_exacto > 0:
+        # Modo "total deseado": usar monto exacto para evitar diferencia por redondeo
+        presupuesto.descuento_monto = descuento_monto_exacto
+    elif presupuesto.descuento_porcentaje > 0:
         presupuesto.descuento_monto = subtotal * (presupuesto.descuento_porcentaje / 100)
     else:
         presupuesto.descuento_monto = Decimal('0')

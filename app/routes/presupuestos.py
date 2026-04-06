@@ -111,6 +111,14 @@ def nuevo():
             cliente_nombre = request.form.get('cliente_nombre', '').strip()
             cliente_telefono = request.form.get('cliente_telefono', '').strip()
             descuento_porcentaje = Decimal(request.form.get('descuento_porcentaje', '0'))
+            descuento_monto_exacto_str = request.form.get(
+                'descuento_monto_exacto', ''
+            ).strip()
+            descuento_monto_exacto = (
+                Decimal(descuento_monto_exacto_str)
+                if descuento_monto_exacto_str
+                else None
+            )
             validez_dias = request.form.get('validez_dias', 15, type=int)
             notas = request.form.get('notas', '').strip()
             items_json = request.form.get('items_json', '[]')
@@ -129,6 +137,7 @@ def nuevo():
                 cliente_nombre=cliente_nombre or None,
                 cliente_telefono=cliente_telefono or None,
                 descuento_porcentaje=descuento_porcentaje,
+                descuento_monto_exacto=descuento_monto_exacto,
                 validez_dias=validez_dias,
                 notas=notas or None
             )
@@ -191,6 +200,14 @@ def editar(id):
             cliente_nombre = request.form.get('cliente_nombre', '').strip()
             cliente_telefono = request.form.get('cliente_telefono', '').strip()
             descuento_porcentaje = Decimal(request.form.get('descuento_porcentaje', '0'))
+            descuento_monto_exacto_str = request.form.get(
+                'descuento_monto_exacto', ''
+            ).strip()
+            descuento_monto_exacto = (
+                Decimal(descuento_monto_exacto_str)
+                if descuento_monto_exacto_str
+                else None
+            )
             validez_dias = request.form.get('validez_dias', 15, type=int)
             notas = request.form.get('notas', '').strip()
             items_json = request.form.get('items_json', '[]')
@@ -208,6 +225,7 @@ def editar(id):
                 cliente_nombre=cliente_nombre or None,
                 cliente_telefono=cliente_telefono or None,
                 descuento_porcentaje=descuento_porcentaje,
+                descuento_monto_exacto=descuento_monto_exacto,
                 validez_dias=validez_dias,
                 notas=notas or None
             )

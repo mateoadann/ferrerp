@@ -180,11 +180,37 @@
                 </div>
                 <div class="summary-row mb-2">
                     <span class="text-muted">Descuento</span>
-                    <div class="input-group input-group-sm" style="width: 100px;">
-                        <input type="number" class="form-control text-end"
-                               x-model.number="descuentoPorcentaje"
-                               min="0" max="100" step="0.5">
-                        <span class="input-group-text">%</span>
+                    <div class="d-flex align-items-center gap-1">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn"
+                                    :class="modoDescuento === 'porcentaje'
+                                        ? 'btn-primary' : 'btn-outline-primary'"
+                                    @click="modoDescuento = 'porcentaje'">%</button>
+                            <button type="button" class="btn"
+                                    :class="modoDescuento === 'total'
+                                        ? 'btn-primary' : 'btn-outline-primary'"
+                                    @click="if (modoDescuento !== 'total') {
+                                        totalDeseado = total.toFixed(2);
+                                    } modoDescuento = 'total'">$</button>
+                        </div>
+                        <div x-show="modoDescuento === 'porcentaje'"
+                             class="input-group input-group-sm" style="width: 100px;">
+                            <input type="number" class="form-control text-end"
+                                   x-model.number="descuentoPorcentaje"
+                                   min="0" max="100" step="0.5"
+                                   :disabled="cart.length === 0">
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <div x-show="modoDescuento === 'total'" x-cloak
+                             class="input-group input-group-sm" style="width: 120px;">
+                            <span class="input-group-text">$</span>
+                            <input type="text" class="form-control text-end"
+                                   x-model="totalDeseado"
+                                   @input="calcularDescuentoDesdeTotal()"
+                                   :disabled="cart.length === 0"
+                                   inputmode="decimal"
+                                   placeholder="Total">
+                        </div>
                     </div>
                 </div>
                 {% if editando is not defined or not editando %}
@@ -249,6 +275,8 @@
         <input type="hidden" name="cliente_nombre" x-model="clienteNombre">
         <input type="hidden" name="cliente_telefono" x-model="clienteTelefono">
         <input type="hidden" name="descuento_porcentaje" x-model="descuentoPorcentaje">
+        <input type="hidden" name="descuento_monto_exacto"
+               :value="descuentoMontoExacto !== null ? descuentoMontoExacto.toFixed(2) : ''">
         <input type="hidden" name="validez_dias" x-model="validezDias">
         <input type="hidden" name="notas" x-model="notas">
         <input type="hidden" name="items_json" :value="JSON.stringify(cart)">
@@ -268,6 +296,8 @@ function presupuestoApp() {
         clienteNombre: '{{ presupuesto.cliente_nombre if editando and presupuesto.cliente_nombre else "" }}',
         clienteTelefono: '{{ presupuesto.cliente_telefono if editando and presupuesto.cliente_telefono else "" }}',
         descuentoPorcentaje: {{ presupuesto.descuento_porcentaje if editando else 0 }},
+        modoDescuento: 'porcentaje',
+        totalDeseado: '',
         validezDias: {{ validez_default|default(15) }},
         notas: '{{ presupuesto.notas|default("")|e if editando else "" }}',
         processing: false,
@@ -279,7 +309,20 @@ function presupuestoApp() {
             );
         },
 
+        get descuentoMontoExacto() {
+            if (this.modoDescuento === 'total') {
+                const deseado = parseMoneyNumber(this.totalDeseado);
+                if (deseado > 0 && deseado < this.subtotal) {
+                    return this.subtotal - deseado;
+                }
+            }
+            return null;
+        },
+
         get descuentoMonto() {
+            if (this.descuentoMontoExacto !== null) {
+                return this.descuentoMontoExacto;
+            }
             return this.subtotal * (this.descuentoPorcentaje / 100);
         },
 
@@ -358,6 +401,20 @@ function presupuestoApp() {
                 return String(Math.trunc(value));
             }
             return Number(value).toFixed(2);
+        },
+
+        calcularDescuentoDesdeTotal() {
+            const deseado = parseMoneyNumber(this.totalDeseado);
+            if (this.subtotal <= 0 || deseado <= 0) {
+                this.descuentoPorcentaje = 0;
+                return;
+            }
+            if (deseado >= this.subtotal) {
+                this.descuentoPorcentaje = 0;
+                return;
+            }
+            const porcentaje = ((this.subtotal - deseado) / this.subtotal) * 100;
+            this.descuentoPorcentaje = Math.round(porcentaje * 100) / 100;
         },
 
         async searchProducts() {
@@ -446,6 +503,18 @@ function presupuestoApp() {
                 ...item,
                 precio_unitario_display: formatMoneyOnBlur(String(item.precio_unitario || 0))
             }));
+
+            // Recalcular descuento cuando cambia el subtotal en modo total
+            this.$watch('subtotal', (newSubtotal) => {
+                if (this.modoDescuento === 'total' && this.totalDeseado) {
+                    if (newSubtotal <= 0) {
+                        this.descuentoPorcentaje = 0;
+                        this.totalDeseado = '';
+                    } else {
+                        this.calcularDescuentoDesdeTotal();
+                    }
+                }
+            });
         }
     }
 }

@@ -50,6 +50,12 @@ def punto_de_venta():
             cliente_id = request.form.get('cliente_id', type=int)
             forma_pago = request.form.get('forma_pago', 'efectivo')
             descuento_porcentaje = Decimal(request.form.get('descuento_porcentaje', '0'))
+            descuento_monto_exacto_str = request.form.get('descuento_monto_exacto', '').strip()
+            descuento_monto_exacto = (
+                Decimal(descuento_monto_exacto_str)
+                if descuento_monto_exacto_str
+                else None
+            )
             items_json = request.form.get('items_json', '[]')
 
             items = json.loads(items_json)
@@ -139,7 +145,10 @@ def punto_de_venta():
 
             # Calcular totales
             venta.subtotal = subtotal
-            if descuento_porcentaje > 0:
+            if descuento_monto_exacto is not None and descuento_monto_exacto > 0:
+                # Modo "total deseado": usar monto exacto para evitar diferencia por redondeo
+                venta.descuento_monto = descuento_monto_exacto
+            elif descuento_porcentaje > 0:
                 venta.descuento_monto = subtotal * (descuento_porcentaje / 100)
             else:
                 venta.descuento_monto = Decimal('0')
