@@ -588,6 +588,7 @@ input[type="number"] {
     border-left: 1px solid var(--border);
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
 }
 
 .pos-header {
@@ -649,12 +650,12 @@ input[type="number"] {
 
 .payment-methods {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
 }
 
 .payment-method {
-    padding: 12px;
+    padding: 8px 4px;
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     text-align: center;

@@ -91,6 +91,11 @@
                         <span class="badge badge-orange">QR</span>
                         {% elif venta.forma_pago == 'cuenta_corriente' %}
                         <span class="badge badge-warning">Cta. Cte.</span>
+                        {% elif venta.forma_pago == 'dividido' %}
+                        <span class="badge badge-info">
+                            <span class="material-symbols-rounded" style="font-size:14px;vertical-align:middle;">call_split</span>
+                            Dividido
+                        </span>
                         {% endif %}
                     </td>
                     <td class="text-end fw-bold">{{ venta.total|currency }}</td>

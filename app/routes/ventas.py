@@ -28,6 +28,7 @@ from ..models import (
     Producto,
     Venta,
     VentaDetalle,
+    VentaPago,
 )
 from ..services import venta_service
 from ..utils.decorators import admin_required, caja_abierta_required, empresa_aprobada_required
@@ -158,19 +159,124 @@ def punto_de_venta():
                 if mov:
                     mov.referencia_id = venta.id
 
-            # Verificar límite de crédito para cuenta corriente
-            if forma_pago == 'cuenta_corriente':
+            # Procesar pagos segun forma de pago
+            if forma_pago == 'dividido':
+                # Parsear y validar pago dividido
+                pago_dividido_json = request.form.get('pago_dividido_json', '[]')
+                try:
+                    pagos_data = json.loads(pago_dividido_json)
+                except (json.JSONDecodeError, TypeError):
+                    db.session.rollback()
+                    flash('Datos de pago dividido invalidos.', 'danger')
+                    return redirect(url_for('ventas.punto_de_venta'))
+
+                # Validar estructura
+                if len(pagos_data) != 2:
+                    db.session.rollback()
+                    flash('El pago dividido requiere exactamente 2 formas de pago.', 'danger')
+                    return redirect(url_for('ventas.punto_de_venta'))
+
+                # Validar formas distintas
+                if pagos_data[0]['forma_pago'] == pagos_data[1]['forma_pago']:
+                    db.session.rollback()
+                    flash('Las formas de pago deben ser distintas.', 'danger')
+                    return redirect(url_for('ventas.punto_de_venta'))
+
+                # Validar montos > 0 y suma correcta
+                monto1 = Decimal(str(pagos_data[0]['monto']))
+                monto2 = Decimal(str(pagos_data[1]['monto']))
+
+                if monto1 <= 0 or monto2 <= 0:
+                    db.session.rollback()
+                    flash('Cada monto debe ser mayor a 0.', 'danger')
+                    return redirect(url_for('ventas.punto_de_venta'))
+
+                if abs((monto1 + monto2) - venta.total) > Decimal('0.01'):
+                    db.session.rollback()
+                    flash('Los montos no coinciden con el total de la venta.', 'danger')
+                    return redirect(url_for('ventas.punto_de_venta'))
+
+                # Validar CC si alguno es cuenta_corriente
+                for pago_data in pagos_data:
+                    if pago_data['forma_pago'] == 'cuenta_corriente':
+                        if not cliente_id:
+                            db.session.rollback()
+                            flash(
+                                'Debe seleccionar un cliente para cuenta corriente.',
+                                'danger',
+                            )
+                            return redirect(url_for('ventas.punto_de_venta'))
+                        cliente = Cliente.get_o_404(cliente_id)
+                        monto_cc = Decimal(str(pago_data['monto']))
+                        if not cliente.puede_comprar_a_credito(monto_cc):
+                            db.session.rollback()
+                            flash(
+                                f'El monto de cuenta corriente (${monto_cc:.2f}) '
+                                f'excede el limite disponible '
+                                f'(${cliente.credito_disponible:.2f}).',
+                                'danger',
+                            )
+                            return redirect(url_for('ventas.punto_de_venta'))
+
+                # Crear VentaPago y movimientos por cada pago
+                for pago_data in pagos_data:
+                    fp = pago_data['forma_pago']
+                    monto = Decimal(str(pago_data['monto']))
+
+                    venta_pago = VentaPago(
+                        venta_id=venta.id,
+                        forma_pago=fp,
+                        monto=monto,
+                    )
+                    db.session.add(venta_pago)
+
+                    if fp == 'cuenta_corriente':
+                        cliente = Cliente.get_o_404(cliente_id)
+                        saldo_anterior, saldo_posterior = cliente.actualizar_saldo(
+                            monto, 'cargo'
+                        )
+                        movimiento_cc = MovimientoCuentaCorriente(
+                            cliente_id=cliente.id,
+                            tipo='cargo',
+                            monto=monto,
+                            saldo_anterior=saldo_anterior,
+                            saldo_posterior=saldo_posterior,
+                            referencia_tipo='venta',
+                            referencia_id=venta.id,
+                            descripcion=f'Venta #{venta.numero_completo} (pago parcial)',
+                            usuario_id=current_user.id,
+                            empresa_id=current_user.empresa_id,
+                        )
+                        db.session.add(movimiento_cc)
+                    else:
+                        movimiento_caja = MovimientoCaja(
+                            caja_id=caja.id,
+                            tipo='ingreso',
+                            concepto='venta',
+                            descripcion=f'Venta #{venta.numero_completo} (pago parcial)',
+                            monto=monto,
+                            forma_pago=fp,
+                            referencia_tipo='venta',
+                            referencia_id=venta.id,
+                            usuario_id=current_user.id,
+                        )
+                        db.session.add(movimiento_caja)
+
+            elif forma_pago == 'cuenta_corriente':
+                # Verificar limite de credito para cuenta corriente
                 if not cliente.puede_comprar_a_credito(venta.total):
                     db.session.rollback()
                     flash(
-                        f'El cliente excedería su límite de crédito. '
+                        f'El cliente excederia su limite de credito. '
                         f'Disponible: ${cliente.credito_disponible:.2f}',
                         'danger'
                     )
                     return redirect(url_for('ventas.punto_de_venta'))
 
                 # Cargar a cuenta corriente
-                saldo_anterior, saldo_posterior = cliente.actualizar_saldo(venta.total, 'cargo')
+                saldo_anterior, saldo_posterior = cliente.actualizar_saldo(
+                    venta.total, 'cargo'
+                )
 
                 movimiento_cc = MovimientoCuentaCorriente(
                     cliente_id=cliente.id,
@@ -185,6 +291,14 @@ def punto_de_venta():
                     empresa_id=current_user.empresa_id,
                 )
                 db.session.add(movimiento_cc)
+
+                # Crear VentaPago para uniformidad en queries
+                venta_pago = VentaPago(
+                    venta_id=venta.id,
+                    forma_pago=forma_pago,
+                    monto=venta.total,
+                )
+                db.session.add(venta_pago)
             else:
                 # Registrar movimiento de caja
                 movimiento_caja = MovimientoCaja(
@@ -199,6 +313,14 @@ def punto_de_venta():
                     usuario_id=current_user.id
                 )
                 db.session.add(movimiento_caja)
+
+                # Crear VentaPago para uniformidad en queries
+                venta_pago = VentaPago(
+                    venta_id=venta.id,
+                    forma_pago=forma_pago,
+                    monto=venta.total,
+                )
+                db.session.add(venta_pago)
 
             db.session.commit()
 
@@ -318,9 +440,34 @@ def anular(id):
             )
             db.session.add(movimiento)
 
-        # Si era cuenta corriente, revertir el cargo
-        if venta.forma_pago == 'cuenta_corriente' and venta.cliente:
-            saldo_anterior, saldo_posterior = venta.cliente.actualizar_saldo(venta.total, 'pago')
+        # Revertir pagos segun forma de pago
+        if venta.forma_pago == 'dividido' and venta.cliente:
+            # Revertir cada componente CC del pago dividido
+            for pago in venta.pagos:
+                if pago.forma_pago == 'cuenta_corriente':
+                    saldo_anterior, saldo_posterior = venta.cliente.actualizar_saldo(
+                        pago.monto, 'pago'
+                    )
+                    movimiento_cc = MovimientoCuentaCorriente(
+                        cliente_id=venta.cliente.id,
+                        tipo='pago',
+                        monto=pago.monto,
+                        saldo_anterior=saldo_anterior,
+                        saldo_posterior=saldo_posterior,
+                        referencia_tipo='anulacion_venta',
+                        referencia_id=venta.id,
+                        descripcion=(
+                            f'Anulacion de venta #{venta.numero_completo}'
+                            f' (pago parcial)'
+                        ),
+                        usuario_id=current_user.id,
+                        empresa_id=current_user.empresa_id,
+                    )
+                    db.session.add(movimiento_cc)
+        elif venta.forma_pago == 'cuenta_corriente' and venta.cliente:
+            saldo_anterior, saldo_posterior = venta.cliente.actualizar_saldo(
+                venta.total, 'pago'
+            )
 
             movimiento_cc = MovimientoCuentaCorriente(
                 cliente_id=venta.cliente.id,
@@ -330,7 +477,7 @@ def anular(id):
                 saldo_posterior=saldo_posterior,
                 referencia_tipo='anulacion_venta',
                 referencia_id=venta.id,
-                descripcion=f'Anulación de venta #{venta.numero_completo}',
+                descripcion=f'Anulacion de venta #{venta.numero_completo}',
                 usuario_id=current_user.id,
                 empresa_id=current_user.empresa_id,
             )

@@ -247,6 +247,18 @@
 
     <!-- Forma de pago -->
     <div class="ticket-meta">
+        {% if venta.forma_pago == 'dividido' %}
+        <div style="margin-bottom: 4px;">
+            <span>Forma de pago:</span>
+            <span>Pago Dividido</span>
+        </div>
+        {% for pago in venta.pagos %}
+        <div>
+            <span>  {{ pago.forma_pago_display }}:</span>
+            <span>{{ pago.monto|currency }}</span>
+        </div>
+        {% endfor %}
+        {% else %}
         <div>
             <span>Forma de pago:</span>
             <span>
@@ -259,6 +271,7 @@
                 {% endif %}
             </span>
         </div>
+        {% endif %}
     </div>
 
     <!-- Footer -->

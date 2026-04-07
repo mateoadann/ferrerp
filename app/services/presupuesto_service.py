@@ -1,5 +1,6 @@
 """Servicio de presupuestos."""
 
+import json
 from datetime import timedelta
 from decimal import Decimal
 from urllib.parse import quote
@@ -18,6 +19,7 @@ from ..models import (
     Producto,
     Venta,
     VentaDetalle,
+    VentaPago,
 )
 from ..utils.helpers import ahora_argentina, generar_numero_presupuesto, generar_numero_venta
 
@@ -151,7 +153,7 @@ def cambiar_estado(presupuesto, nuevo_estado):
 
 
 def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id,
-                      empresa_id=None):
+                      empresa_id=None, pago_dividido_json=None):
     """Convierte un presupuesto aceptado en venta."""
     if not presupuesto.puede_convertir:
         raise ValueError('Solo presupuestos aceptados pueden convertirse a venta.')
@@ -250,8 +252,92 @@ def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id,
         if mov:
             mov.referencia_id = venta.id
 
-    # Movimiento de caja o cuenta corriente
-    if forma_pago == 'cuenta_corriente':
+    # Procesar pagos segun forma de pago
+    desc_base = f'Venta #{venta.numero_completo} (Presup. #{presupuesto.numero_completo})'
+
+    if forma_pago == 'dividido':
+        # Parsear y validar pago dividido
+        try:
+            pagos_data = json.loads(pago_dividido_json or '[]')
+        except (json.JSONDecodeError, TypeError):
+            raise ValueError('Datos de pago dividido invalidos.')
+
+        if len(pagos_data) != 2:
+            raise ValueError('El pago dividido requiere exactamente 2 formas de pago.')
+
+        if pagos_data[0]['forma_pago'] == pagos_data[1]['forma_pago']:
+            raise ValueError('Las formas de pago deben ser distintas.')
+
+        monto1 = Decimal(str(pagos_data[0]['monto']))
+        monto2 = Decimal(str(pagos_data[1]['monto']))
+
+        if monto1 <= 0 or monto2 <= 0:
+            raise ValueError('Cada monto debe ser mayor a 0.')
+
+        if abs((monto1 + monto2) - venta.total) > Decimal('0.01'):
+            raise ValueError('Los montos no coinciden con el total de la venta.')
+
+        # Validar CC si alguno es cuenta_corriente
+        for pago_data in pagos_data:
+            if pago_data['forma_pago'] == 'cuenta_corriente':
+                cliente = presupuesto.cliente
+                if not cliente:
+                    raise ValueError(
+                        'Se requiere un cliente registrado para cuenta corriente.'
+                    )
+                monto_cc = Decimal(str(pago_data['monto']))
+                if not cliente.puede_comprar_a_credito(monto_cc):
+                    raise ValueError(
+                        f'El monto de cuenta corriente (${monto_cc:.2f}) '
+                        f'excede el limite disponible '
+                        f'(${cliente.credito_disponible:.2f}).'
+                    )
+
+        # Crear VentaPago y movimientos por cada pago
+        for pago_data in pagos_data:
+            fp = pago_data['forma_pago']
+            monto = Decimal(str(pago_data['monto']))
+
+            venta_pago = VentaPago(
+                venta_id=venta.id,
+                forma_pago=fp,
+                monto=monto,
+            )
+            db.session.add(venta_pago)
+
+            if fp == 'cuenta_corriente':
+                cliente = presupuesto.cliente
+                saldo_anterior, saldo_posterior = cliente.actualizar_saldo(
+                    monto, 'cargo'
+                )
+                movimiento_cc = MovimientoCuentaCorriente(
+                    cliente_id=cliente.id,
+                    tipo='cargo',
+                    monto=monto,
+                    saldo_anterior=saldo_anterior,
+                    saldo_posterior=saldo_posterior,
+                    referencia_tipo='venta',
+                    referencia_id=venta.id,
+                    descripcion=f'{desc_base} (pago parcial)',
+                    usuario_id=usuario_id,
+                    empresa_id=empresa_id,
+                )
+                db.session.add(movimiento_cc)
+            else:
+                movimiento_caja = MovimientoCaja(
+                    caja_id=caja_id,
+                    tipo='ingreso',
+                    concepto='venta',
+                    descripcion=f'{desc_base} (pago parcial)',
+                    monto=monto,
+                    forma_pago=fp,
+                    referencia_tipo='venta',
+                    referencia_id=venta.id,
+                    usuario_id=usuario_id,
+                )
+                db.session.add(movimiento_caja)
+
+    elif forma_pago == 'cuenta_corriente':
         cliente = presupuesto.cliente
         saldo_anterior, saldo_posterior = cliente.actualizar_saldo(venta.total, 'cargo')
 
@@ -263,24 +349,40 @@ def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id,
             saldo_posterior=saldo_posterior,
             referencia_tipo='venta',
             referencia_id=venta.id,
-            descripcion=f'Venta #{venta.numero_completo} (Presup. #{presupuesto.numero_completo})',
+            descripcion=desc_base,
             usuario_id=usuario_id,
             empresa_id=empresa_id,
         )
         db.session.add(movimiento_cc)
+
+        # VentaPago para uniformidad en queries
+        venta_pago = VentaPago(
+            venta_id=venta.id,
+            forma_pago=forma_pago,
+            monto=venta.total,
+        )
+        db.session.add(venta_pago)
     else:
         movimiento_caja = MovimientoCaja(
             caja_id=caja_id,
             tipo='ingreso',
             concepto='venta',
-            descripcion=f'Venta #{venta.numero_completo} (Presup. #{presupuesto.numero_completo})',
+            descripcion=desc_base,
             monto=venta.total,
             forma_pago=forma_pago,
             referencia_tipo='venta',
             referencia_id=venta.id,
-            usuario_id=usuario_id
+            usuario_id=usuario_id,
         )
         db.session.add(movimiento_caja)
+
+        # VentaPago para uniformidad en queries
+        venta_pago = VentaPago(
+            venta_id=venta.id,
+            forma_pago=forma_pago,
+            monto=venta.total,
+        )
+        db.session.add(venta_pago)
 
     # Marcar presupuesto como convertido
     presupuesto.estado = 'convertido'

@@ -293,6 +293,18 @@
             <div class="info-box-label">Datos de la venta</div>
             <p><strong>Vendedor:</strong> {{ venta.usuario.nombre }}</p>
             <p><strong>Forma de pago:</strong> {{ venta.forma_pago_display }}</p>
+            {% if venta.forma_pago == 'dividido' %}
+            {% for pago in venta.pagos %}
+            <p style="margin-left: 10px; font-size: 9px;">
+                {# En remito sin precios, solo mostrar el medio de pago sin montos #}
+                {% if sin_precios %}
+                    {{ pago.forma_pago_display }}
+                {% else %}
+                    {{ pago.forma_pago_display }}: ${{ '{:,.2f}'.format(pago.monto) }}
+                {% endif %}
+            </p>
+            {% endfor %}
+            {% endif %}
             {% if venta.estado == 'anulada' %}
             <p style="font-weight: bold; margin-top: 4px; text-transform: uppercase;">
                 VENTA ANULADA

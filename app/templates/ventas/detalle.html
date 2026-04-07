@@ -13,8 +13,11 @@
         </nav>
         <h2>Venta #{{ venta.numero_completo }}</h2>
     </div>
+    {# Determinar si la venta involucra cuenta corriente (para mostrar opcion remito sin precios) #}
+    {% set tiene_cc = venta.forma_pago == 'cuenta_corriente' or
+        (venta.forma_pago == 'dividido' and venta.pagos|selectattr('forma_pago', 'equalto', 'cuenta_corriente')|list|length > 0) %}
     <div class="d-flex gap-2">
-        {% if venta.forma_pago == 'cuenta_corriente' %}
+        {% if tiene_cc %}
         <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#modalRemito">
             <span class="material-symbols-rounded me-2">picture_as_pdf</span>
             Descargar Remito
@@ -177,7 +180,12 @@
 
                     <dt class="col-5 text-muted">Forma Pago:</dt>
                     <dd class="col-7">
-                        {% if venta.forma_pago == 'efectivo' %}Efectivo
+                        {% if venta.forma_pago == 'dividido' %}
+                        Dividido<br>
+                        {% for pago in venta.pagos %}
+                        <small><span class="badge {% if pago.forma_pago == 'efectivo' %}badge-success{% elif pago.forma_pago == 'tarjeta_debito' %}badge-info{% elif pago.forma_pago == 'tarjeta_credito' %}badge-bordo{% elif pago.forma_pago == 'transferencia' %}badge-brown{% elif pago.forma_pago == 'qr' %}badge-orange{% elif pago.forma_pago == 'cuenta_corriente' %}badge-warning{% endif %}">{% if pago.forma_pago == 'tarjeta_debito' %}Debito{% elif pago.forma_pago == 'tarjeta_credito' %}Credito{% elif pago.forma_pago == 'transferencia' %}Transfer.{% elif pago.forma_pago == 'cuenta_corriente' %}Cta. Cte.{% else %}{{ pago.forma_pago_display }}{% endif %}</span> {{ pago.monto|currency }}</small><br>
+                        {% endfor %}
+                        {% elif venta.forma_pago == 'efectivo' %}Efectivo
                         {% elif venta.forma_pago == 'tarjeta_debito' %}Tarjeta Debito
                         {% elif venta.forma_pago == 'tarjeta_credito' %}Tarjeta Credito
                         {% elif venta.forma_pago == 'transferencia' %}Transferencia
@@ -222,7 +230,7 @@
     </div>
 </div>
 
-{% if venta.forma_pago == 'cuenta_corriente' %}
+{% if tiene_cc %}
 <!-- Modal Descargar Remito -->
 <div class="modal fade" id="modalRemito" tabindex="-1" aria-labelledby="modalRemitoLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

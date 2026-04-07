@@ -6,12 +6,75 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 
 from ..extensions import db
-from ..models import Caja, MovimientoCaja, Venta
+from ..models import Caja, MovimientoCaja, Venta, VentaPago
 from ..forms.caja_forms import AperturaCajaForm, CierreCajaForm, EgresoCajaForm
 from ..utils.helpers import ahora_argentina, paginar_query
 from ..utils.decorators import admin_required, empresa_aprobada_required
 
 bp = Blueprint('caja', __name__, url_prefix='/caja')
+
+
+def _agrupar_movimientos_divididos(movimientos):
+    """Agrupa movimientos de pagos divididos de una misma venta en una sola fila.
+
+    Los movimientos con el mismo venta_id (no None) y que NO son informativos
+    se consolidan en un unico registro con multiples formas de pago.
+    """
+    agrupados = []
+    venta_grupos = {}  # venta_id -> indice en agrupados
+
+    for mov in movimientos:
+        vid = mov.get('venta_id')
+        # Solo agrupar movimientos de caja reales (no informativos) con venta_id
+        if vid and not mov['es_informativo']:
+            if vid in venta_grupos:
+                # Agregar esta forma de pago al movimiento existente
+                idx = venta_grupos[vid]
+                agrupados[idx]['formas_pago'].append({
+                    'forma_pago': mov['forma_pago'],
+                    'forma_pago_display': mov['forma_pago_display'],
+                    'monto': mov['monto'],
+                })
+                agrupados[idx]['monto'] += mov['monto']
+            else:
+                # Primer movimiento de esta venta
+                mov['formas_pago'] = [{
+                    'forma_pago': mov['forma_pago'],
+                    'forma_pago_display': mov['forma_pago_display'],
+                    'monto': mov['monto'],
+                }]
+                # Limpiar "(pago parcial)" de la descripcion
+                if mov['descripcion']:
+                    mov['descripcion'] = mov['descripcion'].replace(
+                        ' (pago parcial)', ''
+                    )
+                venta_grupos[vid] = len(agrupados)
+                agrupados.append(mov)
+        else:
+            # Movimiento sin venta o informativo: agregar tal cual
+            mov['formas_pago'] = [{
+                'forma_pago': mov['forma_pago'],
+                'forma_pago_display': mov['forma_pago_display'],
+                'monto': mov['monto'],
+            }]
+            agrupados.append(mov)
+
+    # Para movimientos informativos (CC) de ventas divididas que ya tienen
+    # su contraparte agrupada, consolidar en la misma fila
+    for mov in agrupados:
+        vid = mov.get('venta_id')
+        if vid and mov['es_informativo'] and vid in venta_grupos:
+            idx = venta_grupos[vid]
+            if agrupados[idx] is not mov:
+                agrupados[idx]['formas_pago'].append({
+                    'forma_pago': mov['forma_pago'],
+                    'forma_pago_display': mov['forma_pago_display'],
+                    'monto': mov['monto'],
+                })
+                agrupados[idx]['monto'] += mov['monto']
+                mov['_eliminar'] = True
+
+    return [m for m in agrupados if not m.get('_eliminar')]
 
 
 @bp.route('/')
@@ -24,13 +87,39 @@ def index():
     if caja:
         # Calcular totales
         movimientos_caja = caja.movimientos.order_by(MovimientoCaja.created_at.desc()).all()
+
+        # Ventas CC puras
         ventas_cc = Venta.query.filter_by(
             caja_id=caja.id,
             forma_pago='cuenta_corriente',
             estado='completada'
         ).order_by(Venta.fecha.desc()).all()
 
+        # Ventas divididas con componente CC
+        ventas_divididas_cc = (
+            Venta.query.join(VentaPago)
+            .filter(
+                Venta.caja_id == caja.id,
+                Venta.forma_pago == 'dividido',
+                Venta.estado == 'completada',
+                VentaPago.forma_pago == 'cuenta_corriente',
+            )
+            .order_by(Venta.fecha.desc())
+            .all()
+        )
+
+        # Total CC: ventas CC puras + montos parciales CC de divididas
         total_cc_ventas = sum((v.total for v in ventas_cc), Decimal('0'))
+        for venta_div in ventas_divididas_cc:
+            for pago in venta_div.pagos:
+                if pago.forma_pago == 'cuenta_corriente':
+                    total_cc_ventas += pago.monto
+
+        # Combinar ventas CC para mostrar en movimientos
+        todas_ventas_cc = list(ventas_cc)
+        for venta_div in ventas_divididas_cc:
+            if venta_div not in todas_ventas_cc:
+                todas_ventas_cc.append(venta_div)
 
         movimientos = [
             {
@@ -42,13 +131,25 @@ def index():
                 'forma_pago_display': mov.forma_pago_display,
                 'descripcion': mov.descripcion,
                 'monto': mov.monto,
-                'es_informativo': False
+                'es_informativo': False,
+                'venta_id': (
+                    mov.referencia_id
+                    if mov.referencia_tipo == 'venta' else None
+                ),
             }
             for mov in movimientos_caja
         ]
 
-        movimientos += [
-            {
+        for venta in todas_ventas_cc:
+            if venta.forma_pago == 'dividido':
+                # Mostrar solo el monto parcial CC
+                monto_cc = sum(
+                    p.monto for p in venta.pagos
+                    if p.forma_pago == 'cuenta_corriente'
+                )
+            else:
+                monto_cc = venta.total
+            movimientos.append({
                 'fecha': venta.fecha,
                 'tipo': 'informativo',
                 'tipo_display': 'Venta',
@@ -56,24 +157,28 @@ def index():
                 'forma_pago': 'cuenta_corriente',
                 'forma_pago_display': 'Cuenta Corriente',
                 'descripcion': f'Venta #{venta.numero_completo}',
-                'monto': venta.total,
-                'es_informativo': True
-            }
-            for venta in ventas_cc
-        ]
+                'monto': monto_cc,
+                'es_informativo': True,
+                'venta_id': venta.id,
+            })
 
         movimientos.sort(key=lambda mov: mov['fecha'], reverse=True)
+        movimientos = _agrupar_movimientos_divididos(movimientos)
 
         # Totales por forma de pago
         totales_forma_pago = {}
         for mov in movimientos_caja:
             if mov.tipo == 'ingreso':
                 if mov.forma_pago not in totales_forma_pago:
-                    totales_forma_pago[mov.forma_pago] = {'ingresos': Decimal('0'), 'egresos': Decimal('0')}
+                    totales_forma_pago[mov.forma_pago] = {
+                        'ingresos': Decimal('0'), 'egresos': Decimal('0'),
+                    }
                 totales_forma_pago[mov.forma_pago]['ingresos'] += mov.monto
             else:
                 if mov.forma_pago not in totales_forma_pago:
-                    totales_forma_pago[mov.forma_pago] = {'ingresos': Decimal('0'), 'egresos': Decimal('0')}
+                    totales_forma_pago[mov.forma_pago] = {
+                        'ingresos': Decimal('0'), 'egresos': Decimal('0'),
+                    }
                 totales_forma_pago[mov.forma_pago]['egresos'] += mov.monto
 
         if total_cc_ventas > 0:
@@ -231,13 +336,39 @@ def detalle(id):
     caja = Caja.get_o_404(id)
 
     movimientos_caja = caja.movimientos.order_by(MovimientoCaja.created_at.desc()).all()
+
+    # Ventas CC puras
     ventas_cc = Venta.query.filter_by(
         caja_id=caja.id,
         forma_pago='cuenta_corriente',
         estado='completada'
     ).order_by(Venta.fecha.desc()).all()
 
+    # Ventas divididas con componente CC
+    ventas_divididas_cc = (
+        Venta.query.join(VentaPago)
+        .filter(
+            Venta.caja_id == caja.id,
+            Venta.forma_pago == 'dividido',
+            Venta.estado == 'completada',
+            VentaPago.forma_pago == 'cuenta_corriente',
+        )
+        .order_by(Venta.fecha.desc())
+        .all()
+    )
+
+    # Total CC: ventas CC puras + montos parciales CC de divididas
     total_cc_ventas = sum((v.total for v in ventas_cc), Decimal('0'))
+    for venta_div in ventas_divididas_cc:
+        for pago in venta_div.pagos:
+            if pago.forma_pago == 'cuenta_corriente':
+                total_cc_ventas += pago.monto
+
+    # Combinar ventas CC para mostrar en movimientos
+    todas_ventas_cc = list(ventas_cc)
+    for venta_div in ventas_divididas_cc:
+        if venta_div not in todas_ventas_cc:
+            todas_ventas_cc.append(venta_div)
 
     movimientos = [
         {
@@ -249,13 +380,24 @@ def detalle(id):
             'forma_pago_display': mov.forma_pago_display,
             'descripcion': mov.descripcion,
             'monto': mov.monto,
-            'es_informativo': False
+            'es_informativo': False,
+            'venta_id': (
+                mov.referencia_id
+                if mov.referencia_tipo == 'venta' else None
+            ),
         }
         for mov in movimientos_caja
     ]
 
-    movimientos += [
-        {
+    for venta in todas_ventas_cc:
+        if venta.forma_pago == 'dividido':
+            monto_cc = sum(
+                p.monto for p in venta.pagos
+                if p.forma_pago == 'cuenta_corriente'
+            )
+        else:
+            monto_cc = venta.total
+        movimientos.append({
             'fecha': venta.fecha,
             'tipo': 'informativo',
             'tipo_display': 'Venta',
@@ -263,19 +405,21 @@ def detalle(id):
             'forma_pago': 'cuenta_corriente',
             'forma_pago_display': 'Cuenta Corriente',
             'descripcion': f'Venta #{venta.numero_completo}',
-            'monto': venta.total,
-            'es_informativo': True
-        }
-        for venta in ventas_cc
-    ]
+            'monto': monto_cc,
+            'es_informativo': True,
+            'venta_id': venta.id,
+        })
 
     movimientos.sort(key=lambda mov: mov['fecha'], reverse=True)
+    movimientos = _agrupar_movimientos_divididos(movimientos)
 
     # Totales por forma de pago
     totales_forma_pago = {}
     for mov in movimientos_caja:
         if mov.forma_pago not in totales_forma_pago:
-            totales_forma_pago[mov.forma_pago] = {'ingresos': Decimal('0'), 'egresos': Decimal('0')}
+            totales_forma_pago[mov.forma_pago] = {
+                'ingresos': Decimal('0'), 'egresos': Decimal('0'),
+            }
 
         if mov.tipo == 'ingreso':
             totales_forma_pago[mov.forma_pago]['ingresos'] += mov.monto

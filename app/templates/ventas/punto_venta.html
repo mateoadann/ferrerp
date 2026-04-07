@@ -220,10 +220,75 @@
                         <span class="material-symbols-rounded d-block mb-1">account_balance_wallet</span>
                         <small>Cta. Cte.</small>
                     </div>
+                    <div class="payment-method"
+                         :class="{'active': formaPago === 'dividido'}"
+                         @click="formaPago = 'dividido'">
+                        <span class="material-symbols-rounded d-block mb-1">call_split</span>
+                        <small>Dividido</small>
+                    </div>
                 </div>
             </div>
 
-            <!-- Cálculo de vuelto (solo efectivo) -->
+            <!-- Seccion pago dividido -->
+            <div x-show="formaPago === 'dividido'" x-cloak>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Metodo 1</label>
+                        <select x-model="pagoDividido1.forma" class="form-select form-select-sm">
+                            <option value="efectivo">Efectivo</option>
+                            <option value="tarjeta_debito">Tarjeta Debito</option>
+                            <option value="tarjeta_credito">Tarjeta Credito</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="qr">QR</option>
+                            <option value="cuenta_corriente">Cuenta Corriente</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Monto 1</label>
+                        <input type="number" class="form-control form-control-sm"
+                               x-model="pagoDividido1.monto"
+                               @input="calcularMonto2()"
+                               step="0.01" min="0.01"
+                               placeholder="$0.00">
+                    </div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Metodo 2</label>
+                        <select x-model="pagoDividido2.forma" class="form-select form-select-sm">
+                            <option value="efectivo">Efectivo</option>
+                            <option value="tarjeta_debito">Tarjeta Debito</option>
+                            <option value="tarjeta_credito">Tarjeta Credito</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="qr">QR</option>
+                            <option value="cuenta_corriente">Cuenta Corriente</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Monto 2</label>
+                        <input type="number" class="form-control form-control-sm"
+                               x-model="pagoDividido2.monto"
+                               @input="calcularMonto1()"
+                               step="0.01" min="0.01"
+                               placeholder="$0.00">
+                    </div>
+                </div>
+                <!-- Indicador de validacion -->
+                <div class="small px-1"
+                     :class="sumaValida ? 'text-success' : 'text-danger'">
+                    <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;"
+                          x-text="sumaValida ? 'check_circle' : 'error'"></span>
+                    <span x-text="sumaValida ? 'Los montos suman correctamente' : 'Los montos no coinciden con el total'"></span>
+                </div>
+                <div class="small text-danger px-1 mt-1"
+                     x-show="pagoDividido1.forma === pagoDividido2.forma"
+                     x-cloak>
+                    <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;">error</span>
+                    Las formas de pago deben ser distintas
+                </div>
+            </div>
+
+            <!-- Calculo de vuelto (solo efectivo) -->
             <div x-show="formaPago === 'efectivo'" x-cloak>
                 <div class="row g-2">
                     <div class="col-6">
@@ -271,6 +336,7 @@
         <input type="hidden" name="forma_pago" x-model="formaPago">
         <input type="hidden" name="descuento_porcentaje" x-model="descuentoPorcentaje">
         <input type="hidden" name="items_json" :value="JSON.stringify(cart)">
+        <input type="hidden" name="pago_dividido_json" id="pago_dividido_json">
     </form>
 </div>
 {% endblock %}
@@ -288,6 +354,8 @@ function posApp() {
         formaPago: 'efectivo',
         descuentoPorcentaje: 0,
         montoRecibido: '',
+        pagoDividido1: { forma: 'efectivo', monto: '' },
+        pagoDividido2: { forma: 'qr', monto: '' },
         processing: false,
 
         get subtotal() {
@@ -357,6 +425,23 @@ function posApp() {
             return Math.max(0, parseMoneyNumber(this.montoRecibido) - this.totalConIva);
         },
 
+        get sumaValida() {
+            if (this.formaPago !== 'dividido') return true;
+            const m1 = parseFloat(this.pagoDividido1.monto) || 0;
+            const m2 = parseFloat(this.pagoDividido2.monto) || 0;
+            return Math.abs((m1 + m2) - this.total) < 0.01;
+        },
+
+        calcularMonto2() {
+            const m1 = parseFloat(this.pagoDividido1.monto) || 0;
+            this.pagoDividido2.monto = Math.max(0, (this.total - m1)).toFixed(2);
+        },
+
+        calcularMonto1() {
+            const m2 = parseFloat(this.pagoDividido2.monto) || 0;
+            this.pagoDividido1.monto = Math.max(0, (this.total - m2)).toFixed(2);
+        },
+
         formatCurrency(value) {
             return new Intl.NumberFormat('es-AR', {
                 style: 'currency',
@@ -377,7 +462,9 @@ function posApp() {
                 cart: this.cart,
                 clienteId: this.clienteId,
                 formaPago: this.formaPago,
-                descuentoPorcentaje: this.descuentoPorcentaje
+                descuentoPorcentaje: this.descuentoPorcentaje,
+                pagoDividido1: this.pagoDividido1,
+                pagoDividido2: this.pagoDividido2,
             };
             localStorage.setItem(this.storageKey, JSON.stringify(payload));
         },
@@ -398,6 +485,12 @@ function posApp() {
                 }
                 if (payload.descuentoPorcentaje !== undefined && payload.descuentoPorcentaje !== null) {
                     this.descuentoPorcentaje = payload.descuentoPorcentaje;
+                }
+                if (payload.pagoDividido1) {
+                    this.pagoDividido1 = payload.pagoDividido1;
+                }
+                if (payload.pagoDividido2) {
+                    this.pagoDividido2 = payload.pagoDividido2;
                 }
             } catch (error) {
                 localStorage.removeItem(this.storageKey);
@@ -511,13 +604,15 @@ function posApp() {
                 this.montoRecibido = '';
                 this.clienteId = '';
                 this.formaPago = 'efectivo';
+                this.pagoDividido1 = { forma: 'efectivo', monto: '' };
+                this.pagoDividido2 = { forma: 'qr', monto: '' };
                 this.clearPersistedState();
             }
         },
 
         async confirmarVenta() {
             if (this.cart.length === 0) {
-                showAlert('El carrito está vacío.');
+                showAlert('El carrito esta vacio.');
                 return;
             }
 
@@ -526,8 +621,37 @@ function posApp() {
                 return;
             }
 
+            if (this.formaPago === 'dividido') {
+                if (!this.sumaValida) {
+                    showAlert('Los montos no coinciden con el total.');
+                    return;
+                }
+                if (this.pagoDividido1.forma === this.pagoDividido2.forma) {
+                    showAlert('Las formas de pago deben ser distintas.');
+                    return;
+                }
+                const m1 = parseFloat(this.pagoDividido1.monto) || 0;
+                const m2 = parseFloat(this.pagoDividido2.monto) || 0;
+                if (m1 <= 0 || m2 <= 0) {
+                    showAlert('Cada monto debe ser mayor a 0.');
+                    return;
+                }
+                if (this.pagoDividido1.forma === 'cuenta_corriente' ||
+                    this.pagoDividido2.forma === 'cuenta_corriente') {
+                    if (!this.clienteId) {
+                        showAlert('Debe seleccionar un cliente para cuenta corriente.');
+                        return;
+                    }
+                }
+                // Serializar JSON al hidden field
+                document.getElementById('pago_dividido_json').value = JSON.stringify([
+                    { forma_pago: this.pagoDividido1.forma, monto: m1 },
+                    { forma_pago: this.pagoDividido2.forma, monto: m2 },
+                ]);
+            }
+
             if (this.formaPago === 'efectivo' && parseMoneyNumber(this.montoRecibido) < this.total) {
-                const ok = await showConfirm('El monto recibido es menor al total. ¿Deseas continuar?', {
+                const ok = await showConfirm('El monto recibido es menor al total. Deseas continuar?', {
                     title: 'Monto insuficiente',
                     confirmText: 'Continuar',
                     confirmClass: 'btn-warning',
@@ -552,6 +676,8 @@ function posApp() {
             this.$watch('clienteId', () => this.persistState());
             this.$watch('formaPago', () => this.persistState());
             this.$watch('descuentoPorcentaje', () => this.persistState());
+            this.$watch('pagoDividido1', () => this.persistState(), { deep: true });
+            this.$watch('pagoDividido2', () => this.persistState(), { deep: true });
 
             // Keyboard shortcuts
             document.addEventListener('keydown', (e) => {

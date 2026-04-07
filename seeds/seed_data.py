@@ -25,6 +25,7 @@ from app.models import (
     Usuario,
     Venta,
     VentaDetalle,
+    VentaPago,
 )
 from app.utils.helpers import ahora_argentina
 
@@ -35,17 +36,18 @@ def run_seeds():
 
     # Limpiar datos existentes (en orden inverso por las FK)
     print('Limpiando datos existentes...')
-    PresupuestoDetalle.query.delete()
-    Presupuesto.query.delete()
+    VentaPago.query.delete()
     MovimientoCaja.query.delete()
+    MovimientoCuentaCorriente.query.delete()
     MovimientoStock.query.delete()
     VentaDetalle.query.delete()
     Venta.query.delete()
+    PresupuestoDetalle.query.delete()
+    Presupuesto.query.delete()
     Caja.query.delete()
     Producto.query.delete()
     Categoria.query.delete()
     Proveedor.query.delete()
-    MovimientoCuentaCorriente.query.delete()
     Cliente.query.delete()
     Configuracion.query.delete()
     Usuario.query.delete()

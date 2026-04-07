@@ -316,12 +316,15 @@ def convertir(id):
                 estado='abierta', empresa_id=current_user.empresa_id
             ).first()
 
+            pago_dividido_json = request.form.get('pago_dividido_json', '')
+
             venta = presupuesto_service.convertir_a_venta(
                 presupuesto=presupuesto,
                 usuario_id=current_user.id,
                 forma_pago=form.forma_pago.data,
                 caja_id=caja.id,
                 empresa_id=current_user.empresa_id,
+                pago_dividido_json=pago_dividido_json if form.forma_pago.data == 'dividido' else None,
             )
 
             flash(

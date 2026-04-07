@@ -18,6 +18,7 @@ from .proveedor import Proveedor
 from .usuario import Usuario
 from .venta import Venta
 from .venta_detalle import VentaDetalle
+from .venta_pago import VentaPago
 
 __all__ = [
     'Empresa',
@@ -38,5 +39,6 @@ __all__ = [
     'MovimientoCuentaCorriente',
     'Configuracion',
     'Presupuesto',
-    'PresupuestoDetalle'
+    'PresupuestoDetalle',
+    'VentaPago',
 ]
