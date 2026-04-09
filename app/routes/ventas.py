@@ -441,10 +441,10 @@ def anular(id):
             db.session.add(movimiento)
 
         # Revertir pagos segun forma de pago
-        if venta.forma_pago == 'dividido' and venta.cliente:
-            # Revertir cada componente CC del pago dividido
+        if venta.forma_pago == 'dividido':
+            # Revertir cada componente del pago dividido
             for pago in venta.pagos:
-                if pago.forma_pago == 'cuenta_corriente':
+                if pago.forma_pago == 'cuenta_corriente' and venta.cliente:
                     saldo_anterior, saldo_posterior = venta.cliente.actualizar_saldo(
                         pago.monto, 'pago'
                     )
@@ -464,6 +464,23 @@ def anular(id):
                         empresa_id=current_user.empresa_id,
                     )
                     db.session.add(movimiento_cc)
+                else:
+                    # Egreso de caja para componente no-CC
+                    movimiento_caja = MovimientoCaja(
+                        caja_id=venta.caja_id,
+                        tipo='egreso',
+                        concepto='devolucion',
+                        descripcion=(
+                            f'Anulacion de venta #{venta.numero_completo}'
+                            f' (pago parcial)'
+                        ),
+                        monto=pago.monto,
+                        forma_pago=pago.forma_pago,
+                        referencia_tipo='anulacion_venta',
+                        referencia_id=venta.id,
+                        usuario_id=current_user.id,
+                    )
+                    db.session.add(movimiento_caja)
         elif venta.forma_pago == 'cuenta_corriente' and venta.cliente:
             saldo_anterior, saldo_posterior = venta.cliente.actualizar_saldo(
                 venta.total, 'pago'
@@ -482,6 +499,20 @@ def anular(id):
                 empresa_id=current_user.empresa_id,
             )
             db.session.add(movimiento_cc)
+        else:
+            # Egreso de caja para ventas con forma de pago simple (no CC)
+            movimiento_caja = MovimientoCaja(
+                caja_id=venta.caja_id,
+                tipo='egreso',
+                concepto='devolucion',
+                descripcion=f'Anulacion de venta #{venta.numero_completo}',
+                monto=venta.total,
+                forma_pago=venta.forma_pago,
+                referencia_tipo='anulacion_venta',
+                referencia_id=venta.id,
+                usuario_id=current_user.id,
+            )
+            db.session.add(movimiento_caja)
 
         # Marcar venta como anulada
         venta.estado = 'anulada'

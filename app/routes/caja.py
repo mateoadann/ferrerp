@@ -17,19 +17,22 @@ bp = Blueprint('caja', __name__, url_prefix='/caja')
 def _agrupar_movimientos_divididos(movimientos):
     """Agrupa movimientos de pagos divididos de una misma venta en una sola fila.
 
-    Los movimientos con el mismo venta_id (no None) y que NO son informativos
-    se consolidan en un unico registro con multiples formas de pago.
+    Los movimientos con el mismo (venta_id, tipo) que NO son informativos
+    se consolidan en un unico registro. Para ventas con forma_pago='dividido',
+    las formas de pago se obtienen de VentaPago (incluye CC que no pasa por caja).
     """
     agrupados = []
-    venta_grupos = {}  # venta_id -> indice en agrupados
+    # clave: (venta_id, tipo) -> indice en agrupados
+    venta_grupos = {}
 
     for mov in movimientos:
         vid = mov.get('venta_id')
         # Solo agrupar movimientos de caja reales (no informativos) con venta_id
         if vid and not mov['es_informativo']:
-            if vid in venta_grupos:
+            clave = (vid, mov['tipo'])
+            if clave in venta_grupos:
                 # Agregar esta forma de pago al movimiento existente
-                idx = venta_grupos[vid]
+                idx = venta_grupos[clave]
                 agrupados[idx]['formas_pago'].append({
                     'forma_pago': mov['forma_pago'],
                     'forma_pago_display': mov['forma_pago_display'],
@@ -37,7 +40,7 @@ def _agrupar_movimientos_divididos(movimientos):
                 })
                 agrupados[idx]['monto'] += mov['monto']
             else:
-                # Primer movimiento de esta venta
+                # Primer movimiento de esta venta/tipo
                 mov['formas_pago'] = [{
                     'forma_pago': mov['forma_pago'],
                     'forma_pago_display': mov['forma_pago_display'],
@@ -48,7 +51,7 @@ def _agrupar_movimientos_divididos(movimientos):
                     mov['descripcion'] = mov['descripcion'].replace(
                         ' (pago parcial)', ''
                     )
-                venta_grupos[vid] = len(agrupados)
+                venta_grupos[clave] = len(agrupados)
                 agrupados.append(mov)
         else:
             # Movimiento sin venta o informativo: agregar tal cual
@@ -59,20 +62,30 @@ def _agrupar_movimientos_divididos(movimientos):
             }]
             agrupados.append(mov)
 
-    # Para movimientos informativos (CC) de ventas divididas que ya tienen
-    # su contraparte agrupada, consolidar en la misma fila
+    # Para ventas divididas, reemplazar formas_pago con los datos completos
+    # de VentaPago (incluye cuenta_corriente que no genera MovimientoCaja).
+    # Tambien eliminar filas informativas de CC que ya estan representadas.
+    venta_ids_divididas = set()
+    for clave, idx in venta_grupos.items():
+        vid = clave[0]
+        venta = Venta.query.get(vid)
+        if venta and venta.forma_pago == 'dividido':
+            venta_ids_divididas.add(vid)
+            agrupados[idx]['formas_pago'] = [
+                {
+                    'forma_pago': p.forma_pago,
+                    'forma_pago_display': p.forma_pago_display,
+                    'monto': p.monto,
+                }
+                for p in venta.pagos
+            ]
+            agrupados[idx]['monto'] = venta.total
+
+    # Eliminar filas informativas de CC de ventas divididas ya representadas
     for mov in agrupados:
         vid = mov.get('venta_id')
-        if vid and mov['es_informativo'] and vid in venta_grupos:
-            idx = venta_grupos[vid]
-            if agrupados[idx] is not mov:
-                agrupados[idx]['formas_pago'].append({
-                    'forma_pago': mov['forma_pago'],
-                    'forma_pago_display': mov['forma_pago_display'],
-                    'monto': mov['monto'],
-                })
-                agrupados[idx]['monto'] += mov['monto']
-                mov['_eliminar'] = True
+        if vid and mov['es_informativo'] and vid in venta_ids_divididas:
+            mov['_eliminar'] = True
 
     return [m for m in agrupados if not m.get('_eliminar')]
 
@@ -134,7 +147,8 @@ def index():
                 'es_informativo': False,
                 'venta_id': (
                     mov.referencia_id
-                    if mov.referencia_tipo == 'venta' else None
+                    if mov.referencia_tipo in ('venta', 'anulacion_venta')
+                    else None
                 ),
             }
             for mov in movimientos_caja
@@ -383,7 +397,8 @@ def detalle(id):
             'es_informativo': False,
             'venta_id': (
                 mov.referencia_id
-                if mov.referencia_tipo == 'venta' else None
+                if mov.referencia_tipo in ('venta', 'anulacion_venta')
+                else None
             ),
         }
         for mov in movimientos_caja
