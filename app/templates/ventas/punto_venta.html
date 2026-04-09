@@ -278,7 +278,7 @@
                      :class="sumaValida ? 'text-success' : 'text-danger'">
                     <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;"
                           x-text="sumaValida ? 'check_circle' : 'error'"></span>
-                    <span x-text="sumaValida ? 'Los montos suman correctamente' : 'Los montos no coinciden con el total'"></span>
+                    <span x-text="sumaValida ? 'Los montos suman correctamente' : (!montosPositivos ? 'Cada monto debe ser mayor a 0' : 'Los montos no coinciden con el total')"></span>
                 </div>
                 <div class="small text-danger px-1 mt-1"
                      x-show="pagoDividido1.forma === pagoDividido2.forma"
@@ -425,8 +425,15 @@ function posApp() {
             return Math.max(0, parseMoneyNumber(this.montoRecibido) - this.totalConIva);
         },
 
+        get montosPositivos() {
+            const m1 = parseFloat(this.pagoDividido1.monto) || 0;
+            const m2 = parseFloat(this.pagoDividido2.monto) || 0;
+            return m1 > 0 && m2 > 0;
+        },
+
         get sumaValida() {
             if (this.formaPago !== 'dividido') return true;
+            if (!this.montosPositivos) return false;
             const m1 = parseFloat(this.pagoDividido1.monto) || 0;
             const m2 = parseFloat(this.pagoDividido2.monto) || 0;
             return Math.abs((m1 + m2) - this.total) < 0.01;

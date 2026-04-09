@@ -274,62 +274,75 @@
                 formaPago: 'efectivo',
                 totalPresupuesto: {{ presupuesto.total|float }},
                 tieneCliente: {{ 'true' if presupuesto.cliente else 'false' }},
-                pago1: { forma: 'efectivo', monto: '' },
-                pago2: { forma: 'qr', monto: '' },
+                pago1Forma: 'efectivo',
+                pago1Monto: '',
+                pago2Forma: 'qr',
+                pago2Monto: '',
 
-                get metodos() {
-                    let opciones = [
-                        { value: 'efectivo', label: 'Efectivo' },
-                        { value: 'tarjeta_debito', label: 'Tarjeta Debito' },
-                        { value: 'tarjeta_credito', label: 'Tarjeta Credito' },
-                        { value: 'transferencia', label: 'Transferencia' },
-                        { value: 'qr', label: 'QR' },
-                    ];
-                    if (this.tieneCliente) {
-                        opciones.push({ value: 'cuenta_corriente', label: 'Cta. Cte.' });
-                    }
-                    return opciones;
+                get montosPositivos() {
+                    const m1 = parseFloat(this.pago1Monto) || 0;
+                    const m2 = parseFloat(this.pago2Monto) || 0;
+                    return m1 > 0 && m2 > 0;
                 },
 
                 get sumaValida() {
-                    const m1 = parseFloat(this.pago1.monto) || 0;
-                    const m2 = parseFloat(this.pago2.monto) || 0;
+                    if (!this.montosPositivos) return false;
+                    const m1 = parseFloat(this.pago1Monto) || 0;
+                    const m2 = parseFloat(this.pago2Monto) || 0;
                     return Math.abs((m1 + m2) - this.totalPresupuesto) < 0.01;
                 },
 
                 get formasDiferentes() {
-                    return this.pago1.forma !== this.pago2.forma;
+                    return this.pago1Forma !== this.pago2Forma;
                 },
 
                 calcularMonto2() {
-                    const m1 = parseFloat(this.pago1.monto) || 0;
-                    this.pago2.monto = Math.max(0, (this.totalPresupuesto - m1)).toFixed(2);
+                    const m1 = parseFloat(this.pago1Monto) || 0;
+                    this.pago2Monto = Math.max(0, (this.totalPresupuesto - m1)).toFixed(2);
                 },
 
                 calcularMonto1() {
-                    const m2 = parseFloat(this.pago2.monto) || 0;
-                    this.pago1.monto = Math.max(0, (this.totalPresupuesto - m2)).toFixed(2);
+                    const m2 = parseFloat(this.pago2Monto) || 0;
+                    this.pago1Monto = Math.max(0, (this.totalPresupuesto - m2)).toFixed(2);
                 },
 
                 init() {
                     this.$watch('formaPago', (val) => {
                         if (val === 'dividido') {
-                            this.pago1.monto = this.totalPresupuesto.toFixed(2);
-                            this.pago2.monto = '0.00';
+                            this.pago1Forma = 'efectivo';
+                            this.pago2Forma = 'qr';
+                            this.pago1Monto = this.totalPresupuesto.toFixed(2);
+                            this.pago2Monto = '0.00';
+                        }
+                    });
+                    // Si el usuario selecciona la misma forma en ambos, corregir el otro
+                    this.$watch('pago1Forma', (val) => {
+                        if (val === this.pago2Forma) {
+                            // Buscar la primera opcion distinta
+                            const opciones = ['efectivo', 'tarjeta_debito', 'tarjeta_credito', 'transferencia', 'qr'];
+                            if (this.tieneCliente) opciones.push('cuenta_corriente');
+                            this.pago2Forma = opciones.find(o => o !== val) || '';
+                        }
+                    });
+                    this.$watch('pago2Forma', (val) => {
+                        if (val === this.pago1Forma) {
+                            const opciones = ['efectivo', 'tarjeta_debito', 'tarjeta_credito', 'transferencia', 'qr'];
+                            if (this.tieneCliente) opciones.push('cuenta_corriente');
+                            this.pago1Forma = opciones.find(o => o !== val) || '';
                         }
                     });
                 },
 
                 prepararEnvio() {
                     if (this.formaPago === 'dividido') {
-                        const m1 = parseFloat(this.pago1.monto) || 0;
-                        const m2 = parseFloat(this.pago2.monto) || 0;
+                        const m1 = parseFloat(this.pago1Monto) || 0;
+                        const m2 = parseFloat(this.pago2Monto) || 0;
                         if (!this.sumaValida) return false;
-                        if (!this.formasDiferentes) return false;
+                        if (this.pago1Forma === this.pago2Forma) return false;
                         if (m1 <= 0 || m2 <= 0) return false;
                         this.$refs.pagoDivididoJson.value = JSON.stringify([
-                            { forma_pago: this.pago1.forma, monto: m1 },
-                            { forma_pago: this.pago2.forma, monto: m2 },
+                            { forma_pago: this.pago1Forma, monto: m1 },
+                            { forma_pago: this.pago2Forma, monto: m2 },
                         ]);
                     }
                     return true;
@@ -368,16 +381,21 @@
                         <div class="row g-2 mb-2">
                             <div class="col-6">
                                 <label class="form-label small text-muted">Metodo 1</label>
-                                <select x-model="pago1.forma" class="form-select form-select-sm">
-                                    <template x-for="m in metodos" :key="m.value">
-                                        <option :value="m.value" x-text="m.label"></option>
-                                    </template>
+                                <select x-model="pago1Forma" class="form-select form-select-sm">
+                                    <option value="efectivo">Efectivo</option>
+                                    <option value="tarjeta_debito">Tarjeta Debito</option>
+                                    <option value="tarjeta_credito">Tarjeta Credito</option>
+                                    <option value="transferencia">Transferencia</option>
+                                    <option value="qr">QR</option>
+                                    {% if presupuesto.cliente %}
+                                    <option value="cuenta_corriente">Cta. Cte.</option>
+                                    {% endif %}
                                 </select>
                             </div>
                             <div class="col-6">
                                 <label class="form-label small text-muted">Monto 1</label>
                                 <input type="number" class="form-control form-control-sm"
-                                       x-model="pago1.monto"
+                                       x-model="pago1Monto"
                                        @input="calcularMonto2()"
                                        step="0.01" min="0.01"
                                        placeholder="$0.00">
@@ -386,16 +404,21 @@
                         <div class="row g-2 mb-2">
                             <div class="col-6">
                                 <label class="form-label small text-muted">Metodo 2</label>
-                                <select x-model="pago2.forma" class="form-select form-select-sm">
-                                    <template x-for="m in metodos" :key="m.value">
-                                        <option :value="m.value" x-text="m.label"></option>
-                                    </template>
+                                <select x-model="pago2Forma" class="form-select form-select-sm">
+                                    <option value="efectivo">Efectivo</option>
+                                    <option value="tarjeta_debito">Tarjeta Debito</option>
+                                    <option value="tarjeta_credito">Tarjeta Credito</option>
+                                    <option value="transferencia">Transferencia</option>
+                                    <option value="qr">QR</option>
+                                    {% if presupuesto.cliente %}
+                                    <option value="cuenta_corriente">Cta. Cte.</option>
+                                    {% endif %}
                                 </select>
                             </div>
                             <div class="col-6">
                                 <label class="form-label small text-muted">Monto 2</label>
                                 <input type="number" class="form-control form-control-sm"
-                                       x-model="pago2.monto"
+                                       x-model="pago2Monto"
                                        @input="calcularMonto1()"
                                        step="0.01" min="0.01"
                                        placeholder="$0.00">
@@ -407,7 +430,7 @@
                              :class="sumaValida ? 'text-success' : 'text-danger'">
                             <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;"
                                   x-text="sumaValida ? 'check_circle' : 'error'"></span>
-                            <span x-text="sumaValida ? 'Los montos suman correctamente' : 'Los montos no coinciden con el total'"></span>
+                            <span x-text="sumaValida ? 'Los montos suman correctamente' : (!montosPositivos ? 'Cada monto debe ser mayor a 0' : 'Los montos no coinciden con el total')"></span>
                         </div>
                         <div class="small text-danger px-1 mt-1"
                              x-show="!formasDiferentes"
