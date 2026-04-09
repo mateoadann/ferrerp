@@ -75,7 +75,12 @@
             <tbody>
                 {% for venta in ventas.items %}
                 <tr>
-                    <td class="table-code">{{ venta.numero_completo }}</td>
+                    <td class="table-code">
+                        <a href="{{ url_for('ventas.detalle', id=venta.id) }}"
+                           {% if venta.estado == 'anulada' %}class="text-danger"{% endif %}>
+                            {{ venta.numero_completo }}
+                        </a>
+                    </td>
                     <td>{{ venta.fecha|datetime }}</td>
                     <td>{{ venta.cliente.nombre if venta.cliente else 'Consumidor Final' }}</td>
                     <td>

@@ -94,7 +94,7 @@
                                 </td>
                                 <td>
                                     {% if mov.venta_id %}
-                                    <a href="{{ url_for('ventas.detalle', id=mov.venta_id) }}">{{ mov.descripcion or '-' }}</a>
+                                    <a href="{{ url_for('ventas.detalle', id=mov.venta_id) }}"{% if mov.tipo == 'egreso' %} class="text-danger"{% endif %}>{{ mov.descripcion or '-' }}</a>
                                     {% else %}
                                     {{ mov.descripcion or '-' }}
                                     {% endif %}
