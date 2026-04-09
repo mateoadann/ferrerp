@@ -28,8 +28,8 @@
                 <li><span class="dropdown-item-text text-muted small">{{ current_user.email }}</span></li>
                 <li><hr class="dropdown-divider"></li>
                 <li>
-                    <a class="dropdown-item" href="{{ url_for('auth.logout') }}">
-                        <span class="material-symbols-rounded me-2">logout</span>
+                    <a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('auth.logout') }}">
+                        <span class="material-symbols-rounded">logout</span>
                         Cerrar sesión
                     </a>
                 </li>

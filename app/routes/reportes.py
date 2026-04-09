@@ -8,7 +8,7 @@ from flask_login import current_user, login_required
 from sqlalchemy import func
 
 from ..extensions import db
-from ..models import Categoria, Cliente, Producto, Venta, VentaDetalle
+from ..models import Categoria, Cliente, Producto, Venta, VentaDetalle, VentaPago
 from ..utils.decorators import admin_required
 from ..utils.helpers import ahora_argentina
 
@@ -99,20 +99,21 @@ def ventas():
         for row in ventas_por_dia_query
     ]
 
-    # Ventas por forma de pago
+    # Ventas por forma de pago (usando VentaPago para distribuir divididos)
     ventas_por_forma_pago_query = (
         db.session.query(
-            Venta.forma_pago,
-            func.sum(Venta.total).label('total'),
-            func.count(Venta.id).label('cantidad'),
+            VentaPago.forma_pago,
+            func.sum(VentaPago.monto).label('total'),
+            func.count(func.distinct(VentaPago.venta_id)).label('cantidad'),
         )
+        .join(Venta, VentaPago.venta_id == Venta.id)
         .filter(
             Venta.empresa_id == empresa_id,
             Venta.fecha >= inicio,
             Venta.fecha <= fin,
             Venta.estado == 'completada',
         )
-        .group_by(Venta.forma_pago)
+        .group_by(VentaPago.forma_pago)
         .all()
     )
 
@@ -122,6 +123,7 @@ def ventas():
         'tarjeta_debito': 'Tarjeta Debito',
         'tarjeta_credito': 'Tarjeta Credito',
         'transferencia': 'Transferencia',
+        'qr': 'QR',
         'cuenta_corriente': 'Cuenta Corriente',
     }
     ventas_por_forma_pago = [

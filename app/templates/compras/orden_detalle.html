@@ -14,10 +14,10 @@
         <h2>Orden de Compra #{{ orden.numero }}</h2>
     </div>
     <div>
-        <a href="{{ url_for('compras.pdf', id=orden.id) }}" class="btn btn-outline-secondary" target="_blank">
+        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalPdfOrden">
             <span class="material-symbols-rounded me-2">picture_as_pdf</span>
-            PDF
-        </a>
+            Descargar PDF
+        </button>
         {% if orden.puede_recibir %}
         <a href="{{ url_for('compras.recibir', id=orden.id) }}" class="btn btn-primary">
             <span class="material-symbols-rounded me-2">inventory</span>
@@ -135,6 +135,34 @@
                     {{ orden.proveedor.email }}
                 </p>
                 {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Descargar PDF Orden de Compra -->
+<div class="modal fade" id="modalPdfOrden" tabindex="-1" aria-labelledby="modalPdfOrdenLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalPdfOrdenLabel">
+                    <span class="material-symbols-rounded me-2">picture_as_pdf</span>
+                    Descargar Orden de Compra
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Selecciona el tipo de PDF que deseas descargar:</p>
+                <div class="d-flex gap-3">
+                    <a href="{{ url_for('compras.pdf', id=orden.id) }}" class="btn btn-secondary flex-fill" target="_blank">
+                        <span class="material-symbols-rounded me-2">description</span>
+                        Con precios
+                    </a>
+                    <a href="{{ url_for('compras.pdf', id=orden.id) }}?sin_precios=1" class="btn btn-outline-secondary flex-fill" target="_blank">
+                        <span class="material-symbols-rounded me-2">hide_source</span>
+                        Sin precios
+                    </a>
+                </div>
             </div>
         </div>
     </div>

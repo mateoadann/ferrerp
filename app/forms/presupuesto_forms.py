@@ -80,8 +80,11 @@ class ConvertirPresupuestoForm(FlaskForm):
             ('tarjeta_credito', 'Tarjeta Crédito'),
             ('transferencia', 'Transferencia'),
             ('qr', 'QR'),
-            ('cuenta_corriente', 'Cuenta Corriente')
+            ('cuenta_corriente', 'Cuenta Corriente'),
+            ('dividido', 'Dividido'),
         ],
         default='efectivo',
         validators=[DataRequired()]
     )
+
+    pago_dividido_json = HiddenField('Pago dividido')

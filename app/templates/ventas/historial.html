@@ -75,7 +75,12 @@
             <tbody>
                 {% for venta in ventas.items %}
                 <tr>
-                    <td class="table-code">{{ venta.numero_completo }}</td>
+                    <td class="table-code">
+                        <a href="{{ url_for('ventas.detalle', id=venta.id) }}"
+                           {% if venta.estado == 'anulada' %}class="text-danger"{% endif %}>
+                            {{ venta.numero_completo }}
+                        </a>
+                    </td>
                     <td>{{ venta.fecha|datetime }}</td>
                     <td>{{ venta.cliente.nombre if venta.cliente else 'Consumidor Final' }}</td>
                     <td>
@@ -91,6 +96,11 @@
                         <span class="badge badge-orange">QR</span>
                         {% elif venta.forma_pago == 'cuenta_corriente' %}
                         <span class="badge badge-warning">Cta. Cte.</span>
+                        {% elif venta.forma_pago == 'dividido' %}
+                        <span class="badge badge-info">
+                            <span class="material-symbols-rounded" style="font-size:14px;vertical-align:middle;">call_split</span>
+                            Dividido
+                        </span>
                         {% endif %}
                     </td>
                     <td class="text-end fw-bold">{{ venta.total|currency }}</td>
