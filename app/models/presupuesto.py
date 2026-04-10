@@ -174,6 +174,9 @@ class PresupuestoDetalle(db.Model):
     cantidad = db.Column(db.Numeric(12, 3), nullable=False)
     precio_unitario = db.Column(db.Numeric(12, 2), nullable=False)
     iva_porcentaje = db.Column(db.Numeric(5, 2), nullable=False, default=Decimal('21'))
+    descuento_porcentaje = db.Column(
+        db.Numeric(5, 2), nullable=False, server_default='0', default=0
+    )
     subtotal = db.Column(db.Numeric(12, 2), nullable=False)
 
     # Relación
@@ -183,8 +186,10 @@ class PresupuestoDetalle(db.Model):
         return f'<PresupuestoDetalle {self.id} - Presupuesto {self.presupuesto_id}>'
 
     def calcular_subtotal(self):
-        """Calcula el subtotal de la línea."""
-        self.subtotal = Decimal(str(self.cantidad)) * Decimal(str(self.precio_unitario))
+        """Calcula el subtotal de la línea aplicando descuento unitario."""
+        bruto = Decimal(str(self.cantidad)) * Decimal(str(self.precio_unitario))
+        descuento = bruto * (Decimal(str(self.descuento_porcentaje or 0)) / Decimal('100'))
+        self.subtotal = bruto - descuento
         return self.subtotal
 
     def to_dict(self):
@@ -198,5 +203,6 @@ class PresupuestoDetalle(db.Model):
             'cantidad': float(self.cantidad) if self.cantidad else 0,
             'precio_unitario': float(self.precio_unitario) if self.precio_unitario else 0,
             'iva_porcentaje': float(self.iva_porcentaje) if self.iva_porcentaje else 21,
+            'descuento_porcentaje': float(self.descuento_porcentaje) if self.descuento_porcentaje else 0,
             'subtotal': float(self.subtotal) if self.subtotal else 0
         }

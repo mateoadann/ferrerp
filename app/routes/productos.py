@@ -237,7 +237,7 @@ def editar(id):
         db.session.commit()
 
         flash(f'Producto "{producto.nombre}" actualizado correctamente.', 'success')
-        return redirect(url_for('productos.index'))
+        return redirect(url_for('productos.detalle', id=producto.id))
 
     return render_template(
         'productos/form.html',
@@ -301,15 +301,38 @@ def tabla():
     """Partial de tabla de productos (HTMX)."""
     page = request.args.get('page', 1, type=int)
     busqueda = request.args.get('q', '')
+    categoria_id = request.args.get('categoria', 0, type=int)
+    solo_activos = request.args.get('activos', '1') == '1'
+    solo_bajo_stock = request.args.get('bajo_stock', '0') == '1'
 
     query = Producto.query_empresa()
 
     if busqueda:
         query = query.filter(
-            db.or_(Producto.codigo.ilike(f'%{busqueda}%'), Producto.nombre.ilike(f'%{busqueda}%'))
+            db.or_(
+                Producto.codigo.ilike(f'%{busqueda}%'),
+                Producto.nombre.ilike(f'%{busqueda}%'),
+                Producto.codigo_barras.ilike(f'%{busqueda}%'),
+            )
         )
 
-    query = query.filter(Producto.activo.is_(True)).order_by(Producto.nombre)
+    if categoria_id:
+        categoria = Categoria.get_o_404(categoria_id)
+        if categoria.es_padre:
+            categoria_ids = [categoria.id] + [
+                subcategoria.id for subcategoria in categoria.subcategorias
+            ]
+            query = query.filter(Producto.categoria_id.in_(categoria_ids))
+        else:
+            query = query.filter(Producto.categoria_id == categoria_id)
+
+    if solo_activos:
+        query = query.filter(Producto.activo.is_(True))
+
+    if solo_bajo_stock:
+        query = query.filter(Producto.stock_actual < Producto.stock_minimo)
+
+    query = query.order_by(Producto.nombre)
     productos = paginar_query(query, page)
 
     return render_template('productos/_tabla.html', productos=productos, busqueda=busqueda)

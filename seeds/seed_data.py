@@ -25,6 +25,7 @@ from app.models import (
     Usuario,
     Venta,
     VentaDetalle,
+    VentaPago,
 )
 from app.utils.helpers import ahora_argentina
 
@@ -35,17 +36,18 @@ def run_seeds():
 
     # Limpiar datos existentes (en orden inverso por las FK)
     print('Limpiando datos existentes...')
-    PresupuestoDetalle.query.delete()
-    Presupuesto.query.delete()
+    VentaPago.query.delete()
     MovimientoCaja.query.delete()
+    MovimientoCuentaCorriente.query.delete()
     MovimientoStock.query.delete()
     VentaDetalle.query.delete()
     Venta.query.delete()
+    PresupuestoDetalle.query.delete()
+    Presupuesto.query.delete()
     Caja.query.delete()
     Producto.query.delete()
     Categoria.query.delete()
     Proveedor.query.delete()
-    MovimientoCuentaCorriente.query.delete()
     Cliente.query.delete()
     Configuracion.query.delete()
     Usuario.query.delete()
@@ -797,8 +799,11 @@ def seed_ventas(empresa_id):
 
     formas_pago = ['efectivo', 'tarjeta_debito', 'tarjeta_credito', 'transferencia']
 
-    # Generar ventas para los ultimos 7 dias
-    numero_base = 1
+    # Generar datos de ventas para los ultimos 7 dias.
+    # Primero se recopilan todas las ventas con fechas aleatorias,
+    # luego se ordenan por fecha para asignar numero secuencial correcto.
+    ventas_pendientes = []
+
     for dias_atras in range(7, -1, -1):
         fecha_base = ahora_argentina() - timedelta(days=dias_atras)
 
@@ -815,42 +820,58 @@ def seed_ventas(empresa_id):
             cliente = random.choice(clientes) if random.random() > 0.4 else None
             forma_pago = random.choice(formas_pago)
 
-            venta = Venta(
-                numero=numero_base,
-                fecha=fecha_venta,
-                cliente_id=cliente.id if cliente else None,
-                usuario_id=usuario.id,
-                forma_pago=forma_pago,
-                estado='completada',
-                caja_id=caja.id,
-                descuento_porcentaje=Decimal('0'),
-                empresa_id=empresa_id,
-            )
-
             # Entre 1 y 5 productos por venta
             num_items = random.randint(1, 5)
             productos_venta = random.sample(productos, min(num_items, len(productos)))
 
+            detalles = []
             subtotal = Decimal('0')
             for producto in productos_venta:
                 cantidad = Decimal(str(random.randint(1, 3)))
                 item_subtotal = cantidad * producto.precio_venta
                 subtotal += item_subtotal
 
-                detalle = VentaDetalle(
-                    producto_id=producto.id,
-                    cantidad=cantidad,
-                    precio_unitario=producto.precio_venta,
-                    subtotal=item_subtotal,
+                detalles.append(
+                    VentaDetalle(
+                        producto_id=producto.id,
+                        cantidad=cantidad,
+                        precio_unitario=producto.precio_venta,
+                        subtotal=item_subtotal,
+                    )
                 )
-                venta.detalles.append(detalle)
 
-            venta.subtotal = subtotal
-            venta.descuento_monto = Decimal('0')
-            venta.total = subtotal
+            ventas_pendientes.append({
+                'fecha': fecha_venta,
+                'cliente_id': cliente.id if cliente else None,
+                'forma_pago': forma_pago,
+                'detalles': detalles,
+                'subtotal': subtotal,
+            })
 
-            db.session.add(venta)
-            numero_base += 1
+    # Ordenar por fecha ascendente para que numero sea cronologico
+    ventas_pendientes.sort(key=lambda v: v['fecha'])
+
+    # Crear las ventas con numero secuencial segun orden cronologico
+    for numero, datos in enumerate(ventas_pendientes, start=1):
+        venta = Venta(
+            numero=numero,
+            fecha=datos['fecha'],
+            cliente_id=datos['cliente_id'],
+            usuario_id=usuario.id,
+            forma_pago=datos['forma_pago'],
+            estado='completada',
+            caja_id=caja.id,
+            descuento_porcentaje=Decimal('0'),
+            empresa_id=empresa_id,
+            subtotal=datos['subtotal'],
+            descuento_monto=Decimal('0'),
+            total=datos['subtotal'],
+        )
+
+        for detalle in datos['detalles']:
+            venta.detalles.append(detalle)
+
+        db.session.add(venta)
 
     db.session.flush()
 

@@ -4,6 +4,17 @@
 
 {% block content %}
 <div class="pos-container" x-data="presupuestoApp()" x-init="init()">
+    <!-- Alerta de validación flotante -->
+    <div class="pos-alert-container" x-show="alertMessage" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:leave="transition ease-in duration-150">
+        <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-0" role="alert">
+            <span class="material-symbols-rounded me-2">error</span>
+            <span x-text="alertMessage"></span>
+            <button type="button" class="btn-close" @click="alertMessage = ''" aria-label="Cerrar"></button>
+        </div>
+    </div>
+
     <!-- Panel izquierdo: Búsqueda y productos -->
     <div class="pos-left">
         <div class="pos-header">
@@ -70,9 +81,10 @@
                                     <tr>
                                         <th>Producto</th>
                                         <th style="width: 100px;">Cantidad</th>
-                                        <th style="width: 120px;">P. Unit.</th>
-                                        <th style="width: 120px;">Subtotal</th>
-                                        <th style="width: 50px;"></th>
+                                        <th style="width: 100px;">P. Unit.</th>
+                                        <th style="width: 140px;">Desc.</th>
+                                        <th style="width: 100px;">Subtotal</th>
+                                        <th style="width: 40px;"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -106,7 +118,33 @@
                                                        min="0"
                                                        step="0.01">
                                             </td>
-                                            <td class="fw-bold" x-text="formatCurrency(item.cantidad * parseMoneyNumber(item.precio_unitario))"></td>
+                                            <td>
+                                                <!-- Descuento por item: input con prefijo clickeable que alterna % / $ -->
+                                                <div class="input-group input-group-sm descuento-input-group" style="width: 130px;">
+                                                    <button type="button"
+                                                            class="btn btn-outline-secondary px-2"
+                                                            @click="toggleModoDescuentoItem(item)"
+                                                            style="font-weight: 600;">
+                                                        <span x-text="(item.modoDescuento || 'porcentaje') === 'porcentaje' ? '%' : '$'"></span>
+                                                    </button>
+                                                    <input type="number"
+                                                           class="form-control text-end"
+                                                           x-show="(item.modoDescuento || 'porcentaje') === 'porcentaje'"
+                                                           x-model.number="item.descuento_porcentaje"
+                                                           min="0" max="100" step="0.5"
+                                                           placeholder="0">
+                                                    <input type="number"
+                                                           class="form-control text-end"
+                                                           x-show="(item.modoDescuento || 'porcentaje') === 'total'"
+                                                           x-cloak
+                                                           x-model.number="item.precioDeseado"
+                                                           min="0" step="0.01"
+                                                           inputmode="decimal"
+                                                           placeholder="0"
+                                                           @input="calcularDescuentoItemDesdeTotal(item)">
+                                                </div>
+                                            </td>
+                                            <td class="fw-bold" x-text="formatCurrency(subtotalLinea(item))"></td>
                                             <td>
                                                 <button class="btn btn-sm btn-outline-danger" @click="removeFromCart(index)">
                                                     <span class="material-symbols-rounded">delete</span>
@@ -180,11 +218,28 @@
                 </div>
                 <div class="summary-row mb-2">
                     <span class="text-muted">Descuento</span>
-                    <div class="input-group input-group-sm" style="width: 100px;">
-                        <input type="number" class="form-control text-end"
+                    <div class="input-group input-group-sm descuento-input-group" style="width: 130px;">
+                        <button type="button" class="btn btn-outline-secondary px-2"
+                                @click="toggleModoDescuentoGlobal()"
+                                :disabled="cart.length === 0"
+                                style="font-weight: 600;">
+                            <span x-text="modoDescuento === 'porcentaje' ? '%' : '$'"></span>
+                        </button>
+                        <input type="number"
+                               class="form-control text-end"
+                               x-show="modoDescuento === 'porcentaje'"
                                x-model.number="descuentoPorcentaje"
-                               min="0" max="100" step="0.5">
-                        <span class="input-group-text">%</span>
+                               min="0" max="100" step="0.5"
+                               :disabled="cart.length === 0">
+                        <input type="text"
+                               class="form-control text-end"
+                               x-show="modoDescuento === 'total'"
+                               x-cloak
+                               x-model="totalDeseado"
+                               @input="calcularDescuentoDesdeTotal()"
+                               :disabled="cart.length === 0"
+                               inputmode="decimal"
+                               placeholder="Total">
                     </div>
                 </div>
                 {% if editando is not defined or not editando %}
@@ -249,6 +304,8 @@
         <input type="hidden" name="cliente_nombre" x-model="clienteNombre">
         <input type="hidden" name="cliente_telefono" x-model="clienteTelefono">
         <input type="hidden" name="descuento_porcentaje" x-model="descuentoPorcentaje">
+        <input type="hidden" name="descuento_monto_exacto"
+               :value="descuentoMontoExacto !== null ? descuentoMontoExacto.toFixed(2) : ''">
         <input type="hidden" name="validez_dias" x-model="validezDias">
         <input type="hidden" name="notas" x-model="notas">
         <input type="hidden" name="items_json" :value="JSON.stringify(cart)">
@@ -268,18 +325,51 @@ function presupuestoApp() {
         clienteNombre: '{{ presupuesto.cliente_nombre if editando and presupuesto.cliente_nombre else "" }}',
         clienteTelefono: '{{ presupuesto.cliente_telefono if editando and presupuesto.cliente_telefono else "" }}',
         descuentoPorcentaje: {{ presupuesto.descuento_porcentaje if editando else 0 }},
+        modoDescuento: 'porcentaje',
+        totalDeseado: '',
         validezDias: {{ validez_default|default(15) }},
         notas: '{{ presupuesto.notas|default("")|e if editando else "" }}',
         processing: false,
+        alertMessage: '',
+        alertTimer: null,
+
+        // Calcula el subtotal exacto de una línea respetando el modo de descuento.
+        // En modo '$' (total) usa cantidad * precioDeseado para evitar diferencias
+        // por redondeo del porcentaje.
+        subtotalLinea(item) {
+            const cantidad = Number(item.cantidad) || 0;
+            const precio = parseMoneyNumber(item.precio_unitario);
+            const modo = item.modoDescuento || 'porcentaje';
+            if (modo === 'total') {
+                const deseado = parseFloat(item.precioDeseado);
+                if (!isNaN(deseado) && deseado >= 0 && deseado < precio) {
+                    return cantidad * deseado;
+                }
+            }
+            const desc = item.descuento_porcentaje || 0;
+            return cantidad * precio * (1 - desc / 100);
+        },
 
         get subtotal() {
-            return this.cart.reduce(
-                (sum, item) => sum + (item.cantidad * parseMoneyNumber(item.precio_unitario)),
-                0
-            );
+            return this.cart.reduce((sum, item) => {
+                return sum + this.subtotalLinea(item);
+            }, 0);
+        },
+
+        get descuentoMontoExacto() {
+            if (this.modoDescuento === 'total') {
+                const deseado = parseMoneyNumber(this.totalDeseado);
+                if (deseado > 0 && deseado < this.subtotal) {
+                    return this.subtotal - deseado;
+                }
+            }
+            return null;
         },
 
         get descuentoMonto() {
+            if (this.descuentoMontoExacto !== null) {
+                return this.descuentoMontoExacto;
+            }
             return this.subtotal * (this.descuentoPorcentaje / 100);
         },
 
@@ -296,7 +386,7 @@ function presupuestoApp() {
             
             this.cart.forEach(item => {
                 const ivaPct = item.iva_porcentaje || 21;
-                const itemSubtotal = item.cantidad * item.precio_unitario;
+                const itemSubtotal = this.subtotalLinea(item);
                 const proporcion = this.subtotal > 0 ? itemSubtotal / this.subtotal : 0;
                 const itemTotal = subtotalConDesc * proporcion;
                 
@@ -360,6 +450,64 @@ function presupuestoApp() {
             return Number(value).toFixed(2);
         },
 
+        // Alterna el modo de descuento de un item entre porcentaje y precio final ($)
+        toggleModoDescuentoItem(item) {
+            const modoActual = item.modoDescuento || 'porcentaje';
+            if (modoActual === 'porcentaje') {
+                // Cambiar a modo $: poblar precioDeseado con el precio con descuento actual
+                const pct = Number(item.descuento_porcentaje) || 0;
+                const precioOriginal = parseMoneyNumber(item.precio_unitario);
+                item.precioDeseado = (precioOriginal * (1 - pct / 100)).toFixed(2);
+                item.modoDescuento = 'total';
+            } else {
+                // Cambiar a modo %: se mantiene el descuento_porcentaje ya calculado
+                item.modoDescuento = 'porcentaje';
+            }
+        },
+
+        // Calcula el descuento_porcentaje de un item a partir del precio unitario deseado
+        calcularDescuentoItemDesdeTotal(item) {
+            const original = parseMoneyNumber(item.precio_unitario);
+            const deseado = parseFloat(item.precioDeseado);
+            if (original <= 0 || isNaN(deseado) || deseado < 0) {
+                item.descuento_porcentaje = 0;
+                return;
+            }
+            if (deseado >= original) {
+                // Precio deseado mayor o igual al original: sin descuento
+                item.descuento_porcentaje = 0;
+                return;
+            }
+            const porcentaje = ((original - deseado) / original) * 100;
+            item.descuento_porcentaje = Math.round(porcentaje * 100) / 100;
+        },
+
+        // Alterna el modo de descuento global entre porcentaje y total deseado ($)
+        toggleModoDescuentoGlobal() {
+            if (this.modoDescuento === 'porcentaje') {
+                // Cambiar a modo $: poblar totalDeseado con el total actual
+                this.totalDeseado = this.total > 0 ? this.total.toFixed(2) : '';
+                this.modoDescuento = 'total';
+            } else {
+                // Cambiar a modo %: dejar el porcentaje calculado
+                this.modoDescuento = 'porcentaje';
+            }
+        },
+
+        calcularDescuentoDesdeTotal() {
+            const deseado = parseMoneyNumber(this.totalDeseado);
+            if (this.subtotal <= 0 || deseado <= 0) {
+                this.descuentoPorcentaje = 0;
+                return;
+            }
+            if (deseado >= this.subtotal) {
+                this.descuentoPorcentaje = 0;
+                return;
+            }
+            const porcentaje = ((this.subtotal - deseado) / this.subtotal) * 100;
+            this.descuentoPorcentaje = Math.round(porcentaje * 100) / 100;
+        },
+
         async searchProducts() {
             if (this.searchQuery.length < 2) {
                 this.searchResults = [];
@@ -392,6 +540,10 @@ function presupuestoApp() {
                     cantidad: 1,
                     precio_unitario: product.precio_venta,
                     iva_porcentaje: product.iva_porcentaje || 21,
+                    descuento_porcentaje: 0,
+                    // Modo de descuento por item: 'porcentaje' (default) o 'total' (precio deseado unitario)
+                    modoDescuento: 'porcentaje',
+                    precioDeseado: '',
                     precio_unitario_display: formatMoneyOnBlur(String(product.precio_venta || 0)),
                     stock_disponible: product.stock_actual
                 });
@@ -432,11 +584,36 @@ function presupuestoApp() {
             this.searchResults = [];
         },
 
+        // Muestra alerta inline con auto-dismiss a 10 segundos
+        mostrarAlerta(mensaje) {
+            if (this.alertTimer) clearTimeout(this.alertTimer);
+            this.alertMessage = mensaje;
+            this.alertTimer = setTimeout(() => { this.alertMessage = ''; }, 10000);
+        },
+
         guardarPresupuesto() {
             if (this.cart.length === 0) {
-                showAlert('Agrega al menos un producto al presupuesto.');
+                this.mostrarAlerta('Agrega al menos un producto al presupuesto.');
                 return;
             }
+
+            // Validar descuentos por item antes de enviar
+            for (const item of this.cart) {
+                const desc = item.descuento_porcentaje || 0;
+                if (desc < 0 || desc > 100) {
+                    this.mostrarAlerta(
+                        `El descuento de "${item.nombre}" debe estar entre 0 y 100%.`
+                    );
+                    return;
+                }
+            }
+
+            // Validar descuento general
+            if (this.descuentoPorcentaje < 0 || this.descuentoPorcentaje > 100) {
+                this.mostrarAlerta('El descuento general debe estar entre 0 y 100%.');
+                return;
+            }
+
             this.processing = true;
             document.getElementById('presupuestoForm').submit();
         },
@@ -444,13 +621,40 @@ function presupuestoApp() {
         init() {
             this.cart = (this.cart || []).map((item) => ({
                 ...item,
+                descuento_porcentaje: item.descuento_porcentaje || 0,
+                // Campos para el toggle de descuento por item
+                modoDescuento: item.modoDescuento || 'porcentaje',
+                precioDeseado: item.precioDeseado || '',
                 precio_unitario_display: formatMoneyOnBlur(String(item.precio_unitario || 0))
             }));
+
+            // Recalcular descuento cuando cambia el subtotal en modo total
+            this.$watch('subtotal', (newSubtotal) => {
+                if (this.modoDescuento === 'total' && this.totalDeseado) {
+                    if (newSubtotal <= 0) {
+                        this.descuentoPorcentaje = 0;
+                        this.totalDeseado = '';
+                    } else {
+                        this.calcularDescuentoDesdeTotal();
+                    }
+                }
+            });
         }
     }
 }
 </script>
 <style>
 [x-cloak] { display: none !important; }
+/* Contenedor POS necesita position para alojar la alerta absoluta */
+.pos-container { position: relative; }
+/* Alerta de validación flotante sobre el layout POS */
+.pos-alert-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    padding: 12px 24px;
+}
 </style>
 {% endblock %}

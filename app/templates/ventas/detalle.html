@@ -13,8 +13,11 @@
         </nav>
         <h2>Venta #{{ venta.numero_completo }}</h2>
     </div>
+    {# Determinar si la venta involucra cuenta corriente (para mostrar opcion remito sin precios) #}
+    {% set tiene_cc = venta.forma_pago == 'cuenta_corriente' or
+        (venta.forma_pago == 'dividido' and venta.pagos|selectattr('forma_pago', 'equalto', 'cuenta_corriente')|list|length > 0) %}
     <div class="d-flex gap-2">
-        {% if venta.forma_pago == 'cuenta_corriente' %}
+        {% if tiene_cc %}
         <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#modalRemito">
             <span class="material-symbols-rounded me-2">picture_as_pdf</span>
             Descargar Remito
@@ -56,6 +59,7 @@
                             <th>Producto</th>
                             <th class="text-center">Cantidad</th>
                             <th class="text-end">P. Unitario</th>
+                            <th class="text-center">Desc.</th>
                             <th class="text-end">Subtotal</th>
                         </tr>
                     </thead>
@@ -66,18 +70,19 @@
                             <td>{{ detalle.producto.nombre }}</td>
                             <td class="text-center">{{ detalle.cantidad|stock(detalle.producto.unidad_medida) }}</td>
                             <td class="text-end">{{ detalle.precio_unitario|currency }}</td>
+                            <td class="text-center">{% if detalle.descuento_porcentaje and detalle.descuento_porcentaje > 0 %}{{ detalle.descuento_porcentaje }}%{% else %}-{% endif %}</td>
                             <td class="text-end fw-bold">{{ detalle.subtotal|currency }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="4" class="text-end">Subtotal:</td>
+                            <td colspan="5" class="text-end">Subtotal:</td>
                             <td class="text-end">{{ venta.subtotal|currency }}</td>
                         </tr>
                         {% if venta.descuento_monto > 0 %}
                         <tr>
-                            <td colspan="4" class="text-end">Descuento ({{ venta.descuento_porcentaje }}%):</td>
+                            <td colspan="5" class="text-end">Descuento ({{ venta.descuento_porcentaje }}%):</td>
                             <td class="text-end text-danger">-{{ venta.descuento_monto|currency }}</td>
                         </tr>
                         {% endif %}
@@ -112,17 +117,17 @@
                         {% endfor %}
 
                         <tr>
-                            <td colspan="4" class="text-end">Neto gravado:</td>
+                            <td colspan="5" class="text-end">Neto gravado:</td>
                             <td class="text-end">{{ ns.neto_total|currency }}</td>
                         </tr>
                         {% for pct, datos in ns.iva_agrupado.items() %}
                         <tr>
-                            <td colspan="4" class="text-end">IVA ({{ pct }}%):</td>
+                            <td colspan="5" class="text-end">IVA ({{ pct }}%):</td>
                             <td class="text-end">{{ datos.iva|currency }}</td>
                         </tr>
                         {% endfor %}
                         <tr class="table-light">
-                            <td colspan="4" class="text-end fw-bold">TOTAL:</td>
+                            <td colspan="5" class="text-end fw-bold">TOTAL:</td>
                             <td class="text-end fw-bold" style="font-size: 1.2em;">
                                 {% if con_iva %}
                                     {{ venta.total|currency }}
@@ -132,7 +137,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td colspan="5" class="text-end text-muted small">
+                            <td colspan="6" class="text-end text-muted small">
                                 {% if con_iva %}Los precios incluyen IVA{% else %}Los precios no incluyen IVA{% endif %}
                             </td>
                         </tr>
@@ -177,12 +182,23 @@
 
                     <dt class="col-5 text-muted">Forma Pago:</dt>
                     <dd class="col-7">
-                        {% if venta.forma_pago == 'efectivo' %}Efectivo
-                        {% elif venta.forma_pago == 'tarjeta_debito' %}Tarjeta Debito
-                        {% elif venta.forma_pago == 'tarjeta_credito' %}Tarjeta Credito
-                        {% elif venta.forma_pago == 'transferencia' %}Transferencia
-                        {% elif venta.forma_pago == 'qr' %}QR
-                        {% elif venta.forma_pago == 'cuenta_corriente' %}Cuenta Corriente
+                        {% if venta.forma_pago == 'dividido' %}
+                        Dividido<br>
+                        {% for pago in venta.pagos %}
+                        <small><span class="badge {% if pago.forma_pago == 'efectivo' %}badge-success{% elif pago.forma_pago == 'tarjeta_debito' %}badge-info{% elif pago.forma_pago == 'tarjeta_credito' %}badge-bordo{% elif pago.forma_pago == 'transferencia' %}badge-brown{% elif pago.forma_pago == 'qr' %}badge-orange{% elif pago.forma_pago == 'cuenta_corriente' %}badge-warning{% endif %}">{% if pago.forma_pago == 'tarjeta_debito' %}Debito{% elif pago.forma_pago == 'tarjeta_credito' %}Credito{% elif pago.forma_pago == 'transferencia' %}Transfer.{% elif pago.forma_pago == 'cuenta_corriente' %}Cta. Cte.{% else %}{{ pago.forma_pago_display }}{% endif %}</span> {{ pago.monto|currency }}</small><br>
+                        {% endfor %}
+                        {% elif venta.forma_pago == 'efectivo' %}
+                        <span class="badge badge-success">Efectivo</span>
+                        {% elif venta.forma_pago == 'tarjeta_debito' %}
+                        <span class="badge badge-info">Débito</span>
+                        {% elif venta.forma_pago == 'tarjeta_credito' %}
+                        <span class="badge badge-bordo">Crédito</span>
+                        {% elif venta.forma_pago == 'transferencia' %}
+                        <span class="badge badge-brown">Transfer.</span>
+                        {% elif venta.forma_pago == 'qr' %}
+                        <span class="badge badge-orange">QR</span>
+                        {% elif venta.forma_pago == 'cuenta_corriente' %}
+                        <span class="badge badge-warning">Cta. Cte.</span>
                         {% endif %}
                     </dd>
                 </dl>
@@ -222,7 +238,7 @@
     </div>
 </div>
 
-{% if venta.forma_pago == 'cuenta_corriente' %}
+{% if tiene_cc %}
 <!-- Modal Descargar Remito -->
 <div class="modal fade" id="modalRemito" tabindex="-1" aria-labelledby="modalRemitoLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

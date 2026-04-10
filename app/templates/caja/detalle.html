@@ -85,13 +85,31 @@
                                 </td>
                                 <td>{{ mov.concepto_display }}</td>
                                 <td>
-                                    {% if mov.forma_pago == 'cuenta_corriente' %}
-                                    <span class="badge badge-secondary">Cuenta Corriente</span>
+                                    {% for fp in mov.formas_pago %}
+                                    <div{% if not loop.first %} class="mt-1"{% endif %}>
+                                        {% if fp.forma_pago == 'efectivo' %}
+                                        <span class="badge badge-success">Efectivo</span>
+                                        {% elif fp.forma_pago == 'tarjeta_debito' %}
+                                        <span class="badge badge-info">Debito</span>
+                                        {% elif fp.forma_pago == 'tarjeta_credito' %}
+                                        <span class="badge badge-bordo">Credito</span>
+                                        {% elif fp.forma_pago == 'transferencia' %}
+                                        <span class="badge badge-brown">Transfer.</span>
+                                        {% elif fp.forma_pago == 'qr' %}
+                                        <span class="badge badge-orange">QR</span>
+                                        {% elif fp.forma_pago == 'cuenta_corriente' %}
+                                        <span class="badge badge-warning">Cta. Cte.</span>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {% if mov.venta_id %}
+                                    <a href="{{ url_for('ventas.detalle', id=mov.venta_id) }}"{% if mov.tipo == 'egreso' %} class="text-danger"{% endif %}>{{ mov.descripcion or '-' }}</a>
                                     {% else %}
-                                    {{ mov.forma_pago_display }}
+                                    {{ mov.descripcion or '-' }}
                                     {% endif %}
                                 </td>
-                                <td>{{ mov.descripcion or '-' }}</td>
                                 <td class="text-end fw-bold {% if mov.es_informativo %}text-muted{% elif mov.tipo == 'ingreso' %}text-success{% else %}text-danger{% endif %}">
                                     {% if mov.es_informativo %}
                                     {{ mov.monto|currency }}
