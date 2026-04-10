@@ -5,10 +5,18 @@
 {% block content %}
 <div class="page-header">
     <h2>Productos</h2>
-    <a href="{{ url_for('productos.nuevo') }}" class="btn btn-primary">
-        <span class="material-symbols-rounded me-2">add</span>
-        Nuevo Producto
-    </a>
+    <div class="d-flex gap-2">
+        {% if current_user.es_administrador %}
+        <a href="{{ url_for('productos.actualizacion_masiva') }}" class="btn btn-outline-primary">
+            <span class="material-symbols-rounded me-2">price_change</span>
+            Actualizar Precios
+        </a>
+        {% endif %}
+        <a href="{{ url_for('productos.nuevo') }}" class="btn btn-primary">
+            <span class="material-symbols-rounded me-2">add</span>
+            Nuevo Producto
+        </a>
+    </div>
 </div>
 
 <!-- Filtros -->

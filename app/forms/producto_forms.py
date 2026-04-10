@@ -187,6 +187,38 @@ class ProductoForm(FlaskForm):
         self.proveedor_id.choices = [(0, 'Sin proveedor')] + [(p.id, p.nombre) for p in proveedores]
 
 
+class ActualizacionMasivaPreciosForm(FlaskForm):
+    """Formulario para actualización masiva de precios por categoría."""
+
+    porcentaje = DecimalField(
+        'Porcentaje (%)',
+        validators=[
+            DataRequired(message='El porcentaje es requerido'),
+            NumberRange(
+                min=-99.99,
+                max=999.99,
+                message='El porcentaje debe estar entre -99.99%% y 999.99%%',
+            ),
+        ],
+        places=2,
+        render_kw={
+            'placeholder': 'Ej: 15.5',
+            'step': '0.01',
+            'inputmode': 'decimal',
+        },
+    )
+
+    actualizar_costo = BooleanField('Actualizar precio de costo', default=True)
+
+    notas = TextAreaField(
+        'Notas (opcional)',
+        validators=[Optional(), Length(max=500)],
+        render_kw={'placeholder': 'Motivo del ajuste de precios', 'rows': 2},
+    )
+
+    submit = SubmitField('Previsualizar')
+
+
 class CategoriaForm(FlaskForm):
     """Formulario de categoría."""
 
