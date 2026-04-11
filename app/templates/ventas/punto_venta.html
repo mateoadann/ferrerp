@@ -524,7 +524,7 @@ function posApp() {
             if (modoActual === 'porcentaje') {
                 // Cambiar a modo $: poblar precioDeseado con el precio con descuento actual
                 const pct = Number(item.descuento_porcentaje) || 0;
-                const precioOriginal = Number(item.precio_unitario) || 0;
+                const precioOriginal = parseMoneyNumber(item.precio_unitario);
                 item.precioDeseado = (precioOriginal * (1 - pct / 100)).toFixed(2);
                 item.modoDescuento = 'total';
             } else {
@@ -535,7 +535,7 @@ function posApp() {
 
         // Calcula el descuento_porcentaje de un item a partir del precio unitario deseado
         calcularDescuentoItemDesdeTotal(item) {
-            const original = parseFloat(item.precio_unitario) || 0;
+            const original = parseMoneyNumber(item.precio_unitario);
             const deseado = parseFloat(item.precioDeseado);
             if (original <= 0 || isNaN(deseado) || deseado < 0) {
                 item.descuento_porcentaje = 0;
@@ -639,7 +639,7 @@ function posApp() {
                     this.cart = payload.cart.map((item) => ({
                         ...item,
                         modoDescuento: item.modoDescuento || 'porcentaje',
-                        precioDeseado: item.precioDeseado || '',
+                        precioDeseado: (item.precioDeseado !== undefined && item.precioDeseado !== null) ? item.precioDeseado : '',
                     }));
                 }
                 if (payload.clienteId !== undefined && payload.clienteId !== null) {

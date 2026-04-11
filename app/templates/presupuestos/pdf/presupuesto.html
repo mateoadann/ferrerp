@@ -461,7 +461,10 @@
     <!-- Footer -->
     <div class="footer">
         <div class="gracias">Gracias por su consulta</div>
-        <p>{{ config_negocio.nombre or 'FerrERP' }}{% if config_negocio.telefono %} | Tel: {{ config_negocio.telefono }}{% endif %}{% if config_negocio.email %} | {{ config_negocio.email }}{% endif %}</p>
+        <p>{{ config_negocio.nombre or 'FerrERP' }}{% if config_negocio.telefono %} | Tel: {{ config_negocio.telefono }}{% endif %}</p>
+        <div style="text-align: center; font-size: 7px; color: #999; margin-top: 5px;">
+            Generado por <a href="https://ferrerp.app/" style="color: #999; text-decoration: none;">FerrERP.app</a> by <a href="https://adain.dev" style="color: #999; text-decoration: none;">AD&#x039B;IN.DEV</a>
+        </div>
     </div>
 </body>
 </html>

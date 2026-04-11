@@ -117,6 +117,9 @@ def index():
             ),
         )
 
+    if request.method == 'POST' and not form.validate():
+        flash('Por favor corregí los errores del formulario.', 'danger')
+
     if form.validate_on_submit():
         # Procesar upload de logo si se envió un archivo
         logo_archivo = request.files.get('logo')
