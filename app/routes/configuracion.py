@@ -1,6 +1,17 @@
 """Rutas de configuración."""
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+import os
+
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from flask_login import current_user, login_required
 
 from ..extensions import db
@@ -12,6 +23,75 @@ from ..utils.decorators import admin_required, empresa_aprobada_required
 from ..utils.helpers import es_peticion_htmx
 
 bp = Blueprint('configuracion', __name__, url_prefix='/configuracion')
+
+EXTENSIONES_PERMITIDAS = {'png', 'jpg', 'jpeg'}
+MAX_LOGO_WIDTH = 400
+
+
+def _extension_permitida(filename):
+    """Verifica que la extensión del archivo sea permitida."""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in EXTENSIONES_PERMITIDAS
+
+
+def _directorio_logos():
+    """Retorna la ruta al directorio de logos, creándolo si no existe."""
+    upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'logos')
+    os.makedirs(upload_dir, exist_ok=True)
+    return upload_dir
+
+
+def _eliminar_logo_anterior(empresa_id, upload_dir):
+    """Elimina archivos de logo anteriores de la empresa."""
+    for ext in EXTENSIONES_PERMITIDAS:
+        filepath = os.path.join(upload_dir, f'empresa_{empresa_id}_logo.{ext}')
+        if os.path.exists(filepath):
+            os.remove(filepath)
+
+
+def _guardar_logo(archivo, empresa_id):
+    """Valida, redimensiona y guarda el logo de la empresa.
+
+    Args:
+        archivo: FileStorage del archivo subido.
+        empresa_id: ID de la empresa.
+
+    Returns:
+        Nombre del archivo guardado.
+
+    Raises:
+        ValueError: Si el formato no es permitido.
+    """
+    if not archivo or not archivo.filename:
+        return None
+
+    if not _extension_permitida(archivo.filename):
+        raise ValueError('Formato no permitido. Use PNG o JPG.')
+
+    ext = archivo.filename.rsplit('.', 1)[1].lower()
+    if ext == 'jpeg':
+        ext = 'jpg'
+    filename = f'empresa_{empresa_id}_logo.{ext}'
+
+    upload_dir = _directorio_logos()
+    _eliminar_logo_anterior(empresa_id, upload_dir)
+
+    filepath = os.path.join(upload_dir, filename)
+    archivo.save(filepath)
+
+    # Redimensionar si excede el ancho maximo
+    try:
+        from PIL import Image
+
+        with Image.open(filepath) as img:
+            if img.width > MAX_LOGO_WIDTH:
+                ratio = MAX_LOGO_WIDTH / img.width
+                nuevo_alto = int(img.height * ratio)
+                img = img.resize((MAX_LOGO_WIDTH, nuevo_alto), Image.LANCZOS)
+                img.save(filepath)
+    except ImportError:
+        pass  # Pillow no disponible, se guarda sin redimensionar
+
+    return filename
 
 
 @bp.route('/', methods=['GET', 'POST'])
@@ -33,25 +113,98 @@ def index():
         form.mensaje_cumpleanos.data = Configuracion.get(
             'mensaje_cumpleanos',
             default=(
-                '¡Feliz cumpleaños {cliente}! Te saluda {negocio}.'
-                ' ¡Que tengas un gran día!'
+                '¡Feliz cumpleaños {cliente}! Te saluda {negocio}.' ' ¡Que tengas un gran día!'
             ),
         )
 
     if form.validate_on_submit():
+        # Procesar upload de logo si se envió un archivo
+        logo_archivo = request.files.get('logo')
+        if logo_archivo and logo_archivo.filename:
+            try:
+                filename = _guardar_logo(logo_archivo, current_user.empresa_id)
+                if filename:
+                    Configuracion.set('logo_filename', filename, 'string')
+                    flash('Logo actualizado correctamente.', 'success')
+            except ValueError as e:
+                flash(str(e), 'danger')
+                return redirect(url_for('configuracion.index'))
+
         Configuracion.set('nombre_negocio', form.nombre_negocio.data, 'string')
         Configuracion.set('direccion', form.direccion.data, 'string')
         Configuracion.set('telefono', form.telefono.data, 'string')
         Configuracion.set('cuit', form.cuit.data, 'string')
         Configuracion.set('precios_con_iva', form.precios_con_iva.data, 'boolean')
-        Configuracion.set(
-            'mensaje_cumpleanos', form.mensaje_cumpleanos.data, 'string'
-        )
+        Configuracion.set('mensaje_cumpleanos', form.mensaje_cumpleanos.data, 'string')
 
         flash('Configuración guardada correctamente.', 'success')
         return redirect(url_for('configuracion.index'))
 
-    return render_template('configuracion/general.html', form=form)
+    logo_actual = Configuracion.get('logo_filename', default='')
+    # Verificar que el archivo exista en disco
+    if logo_actual:
+        logo_path = os.path.join(current_app.root_path, 'static', 'uploads', 'logos', logo_actual)
+        if not os.path.exists(logo_path):
+            logo_actual = ''
+
+    return render_template('configuracion/general.html', form=form, logo_actual=logo_actual)
+
+
+@bp.route('/logo/eliminar', methods=['POST'])
+@login_required
+@empresa_aprobada_required
+@admin_required
+def eliminar_logo():
+    """Elimina el logo de la empresa."""
+    logo_filename = Configuracion.get('logo_filename', default='')
+    if logo_filename:
+        upload_dir = _directorio_logos()
+        filepath = os.path.join(upload_dir, logo_filename)
+        if os.path.exists(filepath):
+            os.remove(filepath)
+
+        # Eliminar la configuracion
+        config = Configuracion.query.filter_by(
+            clave='logo_filename',
+            empresa_id=current_user.empresa_id,
+        ).first()
+        if config:
+            db.session.delete(config)
+            db.session.commit()
+
+        flash('Logo eliminado correctamente.', 'success')
+    else:
+        flash('No hay logo para eliminar.', 'info')
+
+    return redirect(url_for('configuracion.index'))
+
+
+@bp.route('/logo/preview-pdf')
+@login_required
+@empresa_aprobada_required
+@admin_required
+def preview_logo_pdf():
+    """Genera un PDF de ejemplo con el header para previsualizar el logo."""
+    from weasyprint import HTML
+
+    from ..services.pdf_utils import obtener_config_negocio
+
+    config_negocio = obtener_config_negocio()
+
+    html_string = render_template(
+        'configuracion/preview_logo_pdf.html',
+        config_negocio=config_negocio,
+    )
+
+    pdf = HTML(string=html_string).write_pdf()
+
+    from flask import Response
+
+    return Response(
+        pdf,
+        mimetype='application/pdf',
+        headers={'Content-Disposition': 'inline; filename=preview_logo.pdf'},
+    )
 
 
 @bp.route('/usuarios')

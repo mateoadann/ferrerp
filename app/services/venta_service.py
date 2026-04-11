@@ -3,6 +3,7 @@
 from flask import render_template
 
 from ..models import Configuracion
+from .pdf_utils import obtener_config_negocio
 
 
 def generar_pdf(venta, sin_precios=False):
@@ -11,14 +12,9 @@ def generar_pdf(venta, sin_precios=False):
 
     detalles = list(venta.detalles)
 
-    config_negocio = {
-        'nombre': Configuracion.get('nombre_negocio', 'FerrERP'),
-        'cuit': Configuracion.get('cuit', ''),
-        'direccion': Configuracion.get('direccion', ''),
-        'telefono': Configuracion.get('telefono', ''),
-        'email': Configuracion.get('email', ''),
-        'precios_con_iva': Configuracion.get('precios_con_iva', True),
-    }
+    config_negocio = obtener_config_negocio(
+        precios_con_iva=Configuracion.get('precios_con_iva', True),
+    )
 
     html_string = render_template(
         'ventas/pdf/venta.html',

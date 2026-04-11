@@ -18,7 +18,7 @@
     </div>
     <div class="col-lg-9">
         {% include 'components/alerts.html' %}
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             {{ form.hidden_tag() }}
             <div class="card mb-4">
                 <div class="card-header">Datos del Negocio</div>
@@ -53,6 +53,64 @@
                             </small>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <span class="material-symbols-rounded me-2" style="vertical-align: text-bottom;">image</span>Logo del Negocio
+                </div>
+                <div class="card-body">
+                    {% if logo_actual %}
+                    <div class="mb-3 d-flex align-items-center">
+                        <img src="{{ url_for('static', filename='uploads/logos/' + logo_actual) }}"
+                             alt="Logo actual"
+                             style="max-height: 80px; max-width: 250px; object-fit: contain; border: 1px solid #dee2e6; border-radius: 4px; padding: 4px;">
+                        <form method="POST" action="{{ url_for('configuracion.eliminar_logo') }}" class="ms-3 d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                    onclick="return confirm('Eliminar el logo?')">
+                                <span class="material-symbols-rounded me-1" style="font-size: 18px; vertical-align: text-bottom;">delete</span>Eliminar
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                    <div class="mb-2">
+                        <input type="file" name="logo" accept="image/png,image/jpeg"
+                               class="form-control" id="logo_input">
+                    </div>
+                    <small class="text-muted d-block mt-1">
+                        Formatos: PNG, JPG. Tamaño maximo: 2 MB. Recomendado: 400x200px o menor.
+                        Las imagenes mas anchas se redimensionan automaticamente.
+                    </small>
+
+                    {# Preview del header PDF #}
+                    {% if logo_actual %}
+                    <div class="mt-3 pt-3 border-top">
+                        <p class="text-muted small mb-2">
+                            <span class="material-symbols-rounded me-1" style="font-size: 16px; vertical-align: text-bottom;">visibility</span>
+                            Vista previa del encabezado en documentos PDF:
+                        </p>
+                        <div style="border: 1px solid #dee2e6; border-radius: 6px; padding: 12px 16px; background: #fff; max-width: 500px;">
+                            <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                <div>
+                                    <img src="{{ url_for('static', filename='uploads/logos/' + logo_actual) }}"
+                                         alt="Logo" style="max-height: 60px; max-width: 200px; object-fit: contain;">
+                                    <div style="margin-top: 4px; font-size: 12px; color: #666;">
+                                        <strong>{{ get_config('nombre_negocio', 'FerrERP') }}</strong><br>
+                                        {% if get_config('cuit') %}CUIT: {{ get_config('cuit') }}<br>{% endif %}
+                                        {% if get_config('direccion') %}{{ get_config('direccion') }}<br>{% endif %}
+                                        {% if get_config('telefono') %}Tel: {{ get_config('telefono') }}{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <a href="{{ url_for('configuracion.preview_logo_pdf') }}"
+                           target="_blank" class="btn btn-sm btn-outline-secondary mt-2">
+                            <span class="material-symbols-rounded me-1" style="font-size: 18px; vertical-align: text-bottom;">picture_as_pdf</span>Descargar PDF de ejemplo
+                        </a>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
