@@ -26,9 +26,10 @@ def _marcar_vencidos():
     Se omite en requests POST para evitar que un presupuesto pase a 'vencido'
     en medio de una operación de edición, lo cual generaría conflictos de
     sesión y comportamiento inesperado.
+    Solo se ejecuta si el usuario está autenticado (multi-tenant).
     """
-    if request.method == 'GET':
-        presupuesto_service.marcar_vencidos()
+    if request.method == 'GET' and current_user.is_authenticated:
+        presupuesto_service.marcar_vencidos(empresa_id=current_user.empresa_id)
 
 
 # ─── Listado ─────────────────────────────────────────────────────────

@@ -505,11 +505,20 @@ def convertir_a_venta(
     return venta
 
 
-def marcar_vencidos():
-    """Marca como vencidos los presupuestos pendientes cuya fecha de vencimiento pasó."""
+def marcar_vencidos(empresa_id=None):
+    """Marca como vencidos los presupuestos pendientes cuya fecha de vencimiento pasó.
+
+    Requiere empresa_id para respetar el aislamiento multi-tenant.
+    Si no se proporciona, no ejecuta la query (evita leak cross-tenant).
+    """
+    if empresa_id is None:
+        return 0
+
     ahora = ahora_argentina()
     vencidos = Presupuesto.query.filter(
-        Presupuesto.estado == 'pendiente', Presupuesto.fecha_vencimiento < ahora
+        Presupuesto.empresa_id == empresa_id,
+        Presupuesto.estado == 'pendiente',
+        Presupuesto.fecha_vencimiento < ahora,
     ).all()
 
     for p in vencidos:
