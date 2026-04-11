@@ -93,25 +93,34 @@ def index():
         Producto.stock_actual < Producto.stock_minimo
     ).order_by(Producto.stock_actual).limit(5).all()
 
-    # Ventas de los últimos 7 días para el gráfico
+    # Ventas de los últimos 7 días para el gráfico (una sola query con GROUP BY)
+    inicio_semana = datetime.combine(hoy - timedelta(days=6), datetime.min.time())
+    ventas_diarias = (
+        db.session.query(
+            func.date(Venta.fecha).label('dia'),
+            func.coalesce(func.sum(Venta.total), 0).label('total'),
+        )
+        .filter(
+            Venta.empresa_id == empresa_id,
+            Venta.fecha >= inicio_semana,
+            Venta.fecha <= fin_dia,
+            Venta.estado == 'completada',
+        )
+        .group_by(func.date(Venta.fecha))
+        .all()
+    )
+
+    # Dict para lookup rápido por fecha
+    ventas_por_dia = {str(row.dia): float(row.total) for row in ventas_diarias}
+
+    # Construir array de 7 días (con 0 para días sin ventas)
     ventas_semana = []
     for i in range(6, -1, -1):
-        fecha = hoy - timedelta(days=i)
-        inicio = datetime.combine(fecha, datetime.min.time())
-        fin = datetime.combine(fecha, datetime.max.time())
-
-        total = db.session.query(
-            func.coalesce(func.sum(Venta.total), 0)
-        ).filter(
-            Venta.empresa_id == empresa_id,
-            Venta.fecha >= inicio,
-            Venta.fecha <= fin,
-            Venta.estado == 'completada'
-        ).scalar()
-
+        dia = hoy - timedelta(days=i)
+        total = ventas_por_dia.get(str(dia), 0)
         ventas_semana.append({
-            'fecha': fecha.strftime('%a'),
-            'total': float(total)
+            'fecha': dia.strftime('%a'),
+            'total': total,
         })
 
     return render_template(
