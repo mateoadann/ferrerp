@@ -161,13 +161,11 @@ def nuevo():
             flash(f'Error al crear presupuesto: {str(e)}', 'danger')
             return redirect(url_for('presupuestos.nuevo'))
 
-    clientes = Cliente.query_empresa().filter_by(activo=True).order_by(Cliente.nombre).all()
     validez_default = Configuracion.get('presupuesto_validez_dias', 15)
 
     return render_template(
         'presupuestos/crear.html',
         form=form,
-        clientes=clientes,
         validez_default=validez_default
     )
 
@@ -252,7 +250,6 @@ def editar(id):
             flash(f'Error al actualizar: {str(e)}', 'danger')
             return redirect(url_for('presupuestos.editar', id=id))
 
-    clientes = Cliente.query_empresa().filter_by(activo=True).order_by(Cliente.nombre).all()
     detalles = list(presupuesto.detalles)
 
     # Preparar items existentes como JSON para Alpine.js
@@ -273,7 +270,6 @@ def editar(id):
     return render_template(
         'presupuestos/crear.html',
         form=PresupuestoForm(obj=presupuesto),
-        clientes=clientes,
         presupuesto=presupuesto,
         items_existentes=json.dumps(items_existentes),
         validez_dias=validez_dias,

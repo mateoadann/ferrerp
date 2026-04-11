@@ -65,5 +65,7 @@
 
 {% if productos.pages > 1 %}
 {% set pagination = productos %}
+{% set htmx = true %}
+{% set htmx_target = '#tabla-productos' %}
 {% include 'components/pagination.html' %}
 {% endif %}

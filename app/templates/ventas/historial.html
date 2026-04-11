@@ -33,16 +33,93 @@
                     <option value="anulada" {% if estado_filtro == 'anulada' %}selected{% endif %}>Anulada</option>
                 </select>
             </div>
-            <div class="col-md-3">
+            <!-- Autocomplete de cliente -->
+            <div class="col-md-3" x-data="{
+                clienteId: '{{ cliente_id or '' }}',
+                clienteNombre: '{{ cliente_nombre }}',
+                query: '',
+                resultados: [],
+                mostrar: false,
+                selectedIndex: -1,
+
+                async buscar() {
+                    if (this.query.length < 2) {
+                        this.resultados = [];
+                        this.mostrar = false;
+                        return;
+                    }
+                    try {
+                        const resp = await fetch(`{{ url_for('clientes.buscar') }}?q=${encodeURIComponent(this.query)}&limit=15`);
+                        this.resultados = await resp.json();
+                        this.selectedIndex = -1;
+                        this.mostrar = true;
+                    } catch (e) {
+                        console.error('Error buscando clientes:', e);
+                    }
+                },
+
+                seleccionar(cliente) {
+                    this.clienteId = cliente.id;
+                    this.clienteNombre = cliente.nombre;
+                    this.query = '';
+                    this.resultados = [];
+                    this.mostrar = false;
+                    // Enviar formulario automáticamente
+                    this.$nextTick(() => this.$el.closest('form').submit());
+                },
+
+                limpiar() {
+                    this.clienteId = '';
+                    this.clienteNombre = '';
+                    this.query = '';
+                    this.resultados = [];
+                    this.mostrar = false;
+                    this.$nextTick(() => this.$el.closest('form').submit());
+                }
+            }">
                 <label class="form-label">Cliente</label>
-                <select name="cliente" class="form-select">
-                    <option value="">Todos</option>
-                    {% for cliente in clientes %}
-                    <option value="{{ cliente.id }}" {% if cliente_id == cliente.id %}selected{% endif %}>
-                        {{ cliente.nombre }}
-                    </option>
-                    {% endfor %}
-                </select>
+                <input type="hidden" name="cliente" :value="clienteId">
+
+                <!-- Cliente seleccionado -->
+                <div x-show="clienteNombre" class="input-group" x-cloak>
+                    <input type="text" class="form-control" :value="clienteNombre" readonly>
+                    <button type="button" class="btn btn-outline-secondary" @click="limpiar()" title="Quitar filtro de cliente">
+                        <span class="material-symbols-rounded" style="font-size:18px;vertical-align:middle;">close</span>
+                    </button>
+                </div>
+
+                <!-- Campo de búsqueda -->
+                <div class="position-relative" x-show="!clienteNombre">
+                    <input type="text"
+                           class="form-control"
+                           placeholder="Buscar cliente..."
+                           x-model="query"
+                           @input.debounce.300ms="buscar()"
+                           @focus="if(query.length >= 2) mostrar = true"
+                           @click.outside="mostrar = false"
+                           @keydown.arrow-down.prevent="selectedIndex = Math.min(selectedIndex + 1, resultados.length - 1)"
+                           @keydown.arrow-up.prevent="selectedIndex = Math.max(selectedIndex - 1, 0)"
+                           @keydown.enter.prevent="if(selectedIndex >= 0 && resultados[selectedIndex]) seleccionar(resultados[selectedIndex])"
+                           @keydown.escape="mostrar = false; selectedIndex = -1">
+                    <!-- Resultados -->
+                    <div class="position-absolute w-100 bg-white border rounded shadow-sm"
+                         style="z-index: 1050; max-height: 200px; overflow-y: auto;"
+                         x-show="mostrar && resultados.length > 0"
+                         x-cloak
+                         x-effect="if(selectedIndex >= 0) $el.children[selectedIndex]?.scrollIntoView({block: 'nearest'})">
+                        <template x-for="(c, index) in resultados" :key="c.id">
+                            <div class="px-3 py-2 border-bottom"
+                                 style="cursor: pointer;"
+                                 :class="{'bg-primary text-white': selectedIndex === index}"
+                                 @mouseenter="selectedIndex = index"
+                                 @mouseleave="selectedIndex = -1"
+                                 @click="seleccionar(c)">
+                                <span x-text="c.nombre" class="fw-medium"></span>
+                                <small x-show="c.dni_cuit" class="text-muted ms-2" x-text="c.dni_cuit"></small>
+                            </div>
+                        </template>
+                    </div>
+                </div>
             </div>
             <div class="col-md-3">
                 <button type="submit" class="btn btn-secondary me-2">
