@@ -27,22 +27,46 @@
             line-height: 1.4;
         }
 
-        /* Header */
+        /* Header - layout tabla para compatibilidad con WeasyPrint */
         .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 8px;
-            padding-bottom: 0;
+            display: table;
+            width: 100%;
+            margin-bottom: 10px;
         }
 
         .header-left {
-            width: 55%;
+            display: table-cell;
+            vertical-align: top;
+            width: 65%;
         }
 
         .header-right {
-            width: 40%;
+            display: table-cell;
+            vertical-align: top;
             text-align: right;
+            width: 35%;
+        }
+
+        .header-left-content {
+            display: table;
+        }
+
+        .logo-cell {
+            display: table-cell;
+            vertical-align: middle;
+            padding-right: 12px;
+            width: 80px;
+        }
+
+        .logo-img {
+            max-height: 70px;
+            max-width: 80px;
+            object-fit: contain;
+        }
+
+        .company-info-cell {
+            display: table-cell;
+            vertical-align: middle;
         }
 
         .logo-text {
@@ -52,10 +76,10 @@
             letter-spacing: 1px;
         }
 
-        .negocio-info {
+        .company-details {
             font-size: 10px;
             color: #666;
-            margin-top: 5px;
+            margin-top: 3px;
             line-height: 1.6;
         }
 
@@ -252,11 +276,22 @@
     <!-- Header -->
     <div class="header">
         <div class="header-left">
-            <div class="logo-text">{{ config_negocio.nombre or 'FerrERP' }}</div>
-            <div class="negocio-info">
-                {% if config_negocio.cuit %}CUIT: {{ config_negocio.cuit }}<br>{% endif %}
-                {% if config_negocio.direccion %}{{ config_negocio.direccion }}<br>{% endif %}
-                {% if config_negocio.telefono %}Tel: {{ config_negocio.telefono }}{% endif %}
+            <div class="header-left-content">
+                {% if config_negocio.logo_base64 %}
+                <div class="logo-cell">
+                    <img src="{{ config_negocio.logo_base64 }}"
+                         class="logo-img"
+                         alt="{{ config_negocio.nombre }}">
+                </div>
+                {% endif %}
+                <div class="company-info-cell">
+                    <div class="logo-text">{{ config_negocio.nombre or 'FerrERP' }}</div>
+                    <div class="company-details">
+                        {% if config_negocio.cuit %}CUIT: {{ config_negocio.cuit }}<br>{% endif %}
+                        {% if config_negocio.direccion %}{{ config_negocio.direccion }}<br>{% endif %}
+                        {% if config_negocio.telefono %}Tel: {{ config_negocio.telefono }}{% endif %}
+                    </div>
+                </div>
             </div>
         </div>
         <div class="header-right">
@@ -264,7 +299,9 @@
             <div class="venta-numero">#{{ venta.numero_completo }}</div>
             <div class="venta-fecha">
                 Fecha: {{ venta.fecha.strftime('%d/%m/%Y %H:%M') }}
-                <span class="estado-badge estado-{{ venta.estado }}" style="margin-left: 6px;">
+            </div>
+            <div style="margin-top: 4px;">
+                <span class="estado-badge estado-{{ venta.estado }}">
                     {{ venta.estado_display }}
                 </span>
             </div>
@@ -423,8 +460,11 @@
     <!-- Footer -->
     <div class="footer">
         <div class="gracias">Gracias por su compra</div>
-        <p>{{ config_negocio.nombre or 'FerrERP' }}{% if config_negocio.telefono %} | Tel: {{ config_negocio.telefono }}{% endif %}{% if config_negocio.email %} | {{ config_negocio.email }}{% endif %}</p>
+        <p>{{ config_negocio.nombre or 'FerrERP' }}{% if config_negocio.telefono %} | Tel: {{ config_negocio.telefono }}{% endif %}</p>
         <p class="aviso-pie">Documento no válido como factura</p>
+        <div style="text-align: center; font-size: 7px; color: #999; margin-top: 5px;">
+            Generado por <a href="https://ferrerp.app/" style="color: #999; text-decoration: none;">FerrERP.app</a> by <a href="https://adain.dev" style="color: #999; text-decoration: none;">AD&#x039B;IN.DEV</a>
+        </div>
     </div>
 </body>
 </html>

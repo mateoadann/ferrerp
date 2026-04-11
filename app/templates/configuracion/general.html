@@ -1,5 +1,22 @@
 {% extends 'base.html' %}
 {% block title %}Configuración - {{ app_name }}{% endblock %}
+{% block extra_css %}
+<style>
+    .collapsible-header {
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+    }
+    .collapsible-header:hover {
+        background-color: rgba(0, 0, 0, 0.04);
+    }
+    .collapsible-header .collapse-chevron {
+        transition: transform 0.3s ease;
+    }
+    .collapsible-header[aria-expanded="false"] .collapse-chevron {
+        transform: rotate(-90deg);
+    }
+</style>
+{% endblock %}
 {% block alerts %}{% endblock %}
 {% block content %}
 <div class="page-header">
@@ -18,27 +35,54 @@
     </div>
     <div class="col-lg-9">
         {% include 'components/alerts.html' %}
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             {{ form.hidden_tag() }}
             <div class="card mb-4">
-                <div class="card-header">Datos del Negocio</div>
+                <div class="card-header d-flex justify-content-between align-items-center collapsible-header"
+                     data-bs-toggle="collapse" data-bs-target="#collapseDatosNegocio"
+                     aria-expanded="true" aria-controls="collapseDatosNegocio"
+                     role="button">
+                    <span>Datos del Negocio</span>
+                    <span class="material-symbols-rounded collapse-chevron">expand_more</span>
+                </div>
+                <div id="collapseDatosNegocio" class="collapse show">
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label">{{ form.nombre_negocio.label.text }} *</label>
-                            {{ form.nombre_negocio(class="form-control") }}
+                            {{ form.nombre_negocio(class="form-control" + (" is-invalid" if form.nombre_negocio.errors else "")) }}
+                            {% if form.nombre_negocio.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.nombre_negocio.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">{{ form.cuit.label.text }}</label>
-                            {{ form.cuit(class="form-control") }}
+                            {{ form.cuit(class="form-control" + (" is-invalid" if form.cuit.errors else "")) }}
+                            {% if form.cuit.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.cuit.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">{{ form.telefono.label.text }}</label>
-                            {{ form.telefono(class="form-control") }}
+                            {{ form.telefono(class="form-control" + (" is-invalid" if form.telefono.errors else "")) }}
+                            {% if form.telefono.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.telefono.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
                         </div>
                         <div class="col-12">
                             <label class="form-label">{{ form.direccion.label.text }}</label>
-                            {{ form.direccion(class="form-control") }}
+                            {{ form.direccion(class="form-control" + (" is-invalid" if form.direccion.errors else "")) }}
+                            {% if form.direccion.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.direccion.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
                         </div>
                         <div class="col-12">
                             <div class="form-check">
@@ -54,10 +98,97 @@
                         </div>
                     </div>
                 </div>
+                </div>
             </div>
 
             <div class="card mb-4">
-                <div class="card-header">Mensaje de cumpleaños</div>
+                <div class="card-header d-flex justify-content-between align-items-center collapsible-header"
+                     data-bs-toggle="collapse" data-bs-target="#collapseLogoNegocio"
+                     aria-expanded="false" aria-controls="collapseLogoNegocio"
+                     role="button">
+                    <span>
+                        <span class="material-symbols-rounded me-2" style="vertical-align: text-bottom;">image</span>Logo del Negocio
+                    </span>
+                    <span class="material-symbols-rounded collapse-chevron">expand_more</span>
+                </div>
+                <div id="collapseLogoNegocio" class="collapse">
+                <div class="card-body">
+                    {% if logo_actual %}
+                    <div class="mb-3 d-flex align-items-center">
+                        <img src="{{ url_for('static', filename='uploads/logos/' + logo_actual) }}"
+                             alt="Logo actual"
+                             style="max-height: 80px; max-width: 250px; object-fit: contain; border: 1px solid #dee2e6; border-radius: 4px; padding: 4px;">
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-3"
+                                onclick="if(confirm('Eliminar el logo?')) document.getElementById('form-eliminar-logo').submit();">
+                            <span class="material-symbols-rounded me-1" style="font-size: 18px; vertical-align: text-bottom;">delete</span>Eliminar
+                        </button>
+                    </div>
+                    {% endif %}
+                    <div class="mb-2">
+                        <input type="file" name="logo" accept="image/png,image/jpeg"
+                               class="form-control" id="logo_input">
+                    </div>
+                    <small class="text-muted d-block mt-1">
+                        Formatos: PNG, JPG. Tamaño maximo: 2 MB. Recomendado: 400x200px o menor.
+                        Las imagenes mas anchas se redimensionan automaticamente.
+                    </small>
+
+                    {# Preview del header PDF #}
+                    {% if logo_actual %}
+                    <div class="mt-3 pt-3 border-top">
+                        <p class="text-muted small mb-2">
+                            <span class="material-symbols-rounded me-1" style="font-size: 16px; vertical-align: text-bottom;">visibility</span>
+                            Vista previa del encabezado en documentos PDF:
+                        </p>
+                        <div style="border: 1px solid #ddd; border-radius: 6px; padding: 16px 20px; background: #fff; width: 100%; font-family: 'Helvetica', 'Arial', sans-serif;">
+                            <div style="display: table; width: 100%;">
+                                {# Lado izquierdo: logo + datos empresa (65%) #}
+                                <div style="display: table-cell; vertical-align: top; width: 65%;">
+                                    <div style="display: table;">
+                                        <div style="display: table-cell; vertical-align: middle; padding-right: 12px; width: 80px;">
+                                            <img src="{{ url_for('static', filename='uploads/logos/' + logo_actual) }}"
+                                                 alt="Logo" style="max-height: 70px; max-width: 80px; object-fit: contain;">
+                                        </div>
+                                        <div style="display: table-cell; vertical-align: middle;">
+                                            <div style="font-size: 22px; font-weight: bold; color: #333; letter-spacing: 1px;">{{ get_config('nombre_negocio', 'FerrERP') }}</div>
+                                            <div style="font-size: 10px; color: #666; margin-top: 3px; line-height: 1.6;">
+                                                {% if get_config('cuit') %}CUIT: {{ get_config('cuit') }}<br>{% endif %}
+                                                {% if get_config('direccion') %}{{ get_config('direccion') }}<br>{% endif %}
+                                                {% if get_config('telefono') %}Tel: {{ get_config('telefono') }}{% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {# Lado derecho: tipo documento + numero + fecha + estado (35%) #}
+                                <div style="display: table-cell; vertical-align: top; text-align: right; width: 35%;">
+                                    <div style="font-size: 18px; font-weight: bold; color: #333; margin-bottom: 4px;">REMITO</div>
+                                    <div style="font-size: 14px; color: #555; margin-bottom: 3px;">#{{ current_year }}-000001</div>
+                                    <div style="font-size: 10px; color: #888;">Fecha: 01/01/{{ current_year }} 10:00</div>
+                                    <div style="margin-top: 4px;">
+                                        <span style="display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid #666; color: #333;">COMPLETADA</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <a href="{{ url_for('configuracion.preview_logo_pdf') }}"
+                           target="_blank" class="btn btn-sm btn-outline-secondary mt-2">
+                            <span class="material-symbols-rounded me-1" style="font-size: 18px; vertical-align: text-bottom;">picture_as_pdf</span>Descargar PDF de ejemplo
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center collapsible-header"
+                     data-bs-toggle="collapse" data-bs-target="#collapseMensajeCumple"
+                     aria-expanded="false" aria-controls="collapseMensajeCumple"
+                     role="button">
+                    <span>Mensaje de cumpleaños</span>
+                    <span class="material-symbols-rounded collapse-chevron">expand_more</span>
+                </div>
+                <div id="collapseMensajeCumple" class="collapse">
                 <div class="card-body">
                     <p class="text-muted small mb-3">
                         Configurá el mensaje que se enviará por WhatsApp cuando un cliente cumple años.
@@ -68,8 +199,14 @@
                         <div class="col-12">
                             <label class="form-label">{{ form.mensaje_cumpleanos.label.text }}</label>
                             {{ form.mensaje_cumpleanos() }}
+                            {% if form.mensaje_cumpleanos.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.mensaje_cumpleanos.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
+                </div>
                 </div>
             </div>
 
@@ -81,6 +218,12 @@
         </form>
     </div>
 </div>
+{% if logo_actual %}
+<form id="form-eliminar-logo" method="POST" action="{{ url_for('configuracion.eliminar_logo') }}" style="display: none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+{% endif %}
+
 <!-- Modal confirmación IVA -->
 <div class="modal fade" id="modalIva" tabindex="-1" aria-labelledby="modalIvaLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">

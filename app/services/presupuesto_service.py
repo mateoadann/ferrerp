@@ -24,10 +24,18 @@ from ..models import (
 from ..utils.helpers import ahora_argentina, generar_numero_presupuesto, generar_numero_venta
 
 
-def crear_presupuesto(items, usuario_id, empresa_id=None, cliente_id=None,
-                      cliente_nombre=None, cliente_telefono=None,
-                      descuento_porcentaje=0, descuento_monto_exacto=None,
-                      validez_dias=None, notas=None):
+def crear_presupuesto(
+    items,
+    usuario_id,
+    empresa_id=None,
+    cliente_id=None,
+    cliente_nombre=None,
+    cliente_telefono=None,
+    descuento_porcentaje=0,
+    descuento_monto_exacto=None,
+    validez_dias=None,
+    notas=None,
+):
     """Crea un nuevo presupuesto con sus líneas de detalle."""
     descuento_porcentaje = Decimal(str(descuento_porcentaje))
     if descuento_porcentaje < 0 or descuento_porcentaje > 100:
@@ -93,7 +101,7 @@ def crear_presupuesto(items, usuario_id, empresa_id=None, cliente_id=None,
             precio_unitario=precio,
             iva_porcentaje=producto.iva_porcentaje,
             descuento_porcentaje=desc_pct,
-            subtotal=item_subtotal
+            subtotal=item_subtotal,
         )
         presupuesto.detalles.append(detalle)
 
@@ -113,10 +121,17 @@ def crear_presupuesto(items, usuario_id, empresa_id=None, cliente_id=None,
     return presupuesto
 
 
-def actualizar_presupuesto(presupuesto, items, cliente_id=None, cliente_nombre=None,
-                           cliente_telefono=None, descuento_porcentaje=0,
-                           descuento_monto_exacto=None,
-                           validez_dias=None, notas=None):
+def actualizar_presupuesto(
+    presupuesto,
+    items,
+    cliente_id=None,
+    cliente_nombre=None,
+    cliente_telefono=None,
+    descuento_porcentaje=0,
+    descuento_monto_exacto=None,
+    validez_dias=None,
+    notas=None,
+):
     """Actualiza un presupuesto pendiente."""
     if not presupuesto.puede_editar:
         raise ValueError('El presupuesto no puede editarse en su estado actual.')
@@ -155,13 +170,15 @@ def actualizar_presupuesto(presupuesto, items, cliente_id=None, cliente_nombre=N
             except (ValueError, ArithmeticError):
                 precio_deseado = None
 
-        items_validados.append({
-            'producto': producto,
-            'cantidad': cantidad,
-            'precio': precio,
-            'desc_pct': desc_pct,
-            'precio_deseado': precio_deseado,
-        })
+        items_validados.append(
+            {
+                'producto': producto,
+                'cantidad': cantidad,
+                'precio': precio,
+                'desc_pct': desc_pct,
+                'precio_deseado': precio_deseado,
+            }
+        )
 
     # Validación pasó — aplicar cambios dentro de un SAVEPOINT para que
     # cualquier error posterior (constraint, flush, etc.) no deje los
@@ -170,9 +187,7 @@ def actualizar_presupuesto(presupuesto, items, cliente_id=None, cliente_nombre=N
         db.session.begin_nested()
 
         if validez_dias is not None:
-            presupuesto.fecha_vencimiento = presupuesto.fecha + timedelta(
-                days=int(validez_dias)
-            )
+            presupuesto.fecha_vencimiento = presupuesto.fecha + timedelta(days=int(validez_dias))
 
         presupuesto.cliente_id = cliente_id if cliente_id else None
         presupuesto.cliente_nombre = cliente_nombre
@@ -217,9 +232,7 @@ def actualizar_presupuesto(presupuesto, items, cliente_id=None, cliente_nombre=N
             # Modo "total deseado": usar monto exacto para evitar diferencia por redondeo
             presupuesto.descuento_monto = descuento_monto_exacto
         elif presupuesto.descuento_porcentaje > 0:
-            presupuesto.descuento_monto = subtotal * (
-                presupuesto.descuento_porcentaje / 100
-            )
+            presupuesto.descuento_monto = subtotal * (presupuesto.descuento_porcentaje / 100)
         else:
             presupuesto.descuento_monto = Decimal('0')
         presupuesto.total = subtotal - presupuesto.descuento_monto
@@ -242,8 +255,7 @@ def cambiar_estado(presupuesto, nuevo_estado):
     permitidos = transiciones.get(presupuesto.estado, [])
     if nuevo_estado not in permitidos:
         raise ValueError(
-            f'No se puede cambiar de "{presupuesto.estado_display}" '
-            f'a "{nuevo_estado}".'
+            f'No se puede cambiar de "{presupuesto.estado_display}" ' f'a "{nuevo_estado}".'
         )
 
     presupuesto.estado = nuevo_estado
@@ -251,8 +263,9 @@ def cambiar_estado(presupuesto, nuevo_estado):
     return presupuesto
 
 
-def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id,
-                      empresa_id=None, pago_dividido_json=None):
+def convertir_a_venta(
+    presupuesto, usuario_id, forma_pago, caja_id, empresa_id=None, pago_dividido_json=None
+):
     """Convierte un presupuesto aceptado en venta."""
     if not presupuesto.puede_convertir:
         raise ValueError('Solo presupuestos aceptados pueden convertirse a venta.')
@@ -316,7 +329,7 @@ def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id,
             precio_unitario=precio,
             iva_porcentaje=detalle.iva_porcentaje,
             descuento_porcentaje=desc_pct,
-            subtotal=item_subtotal
+            subtotal=item_subtotal,
         )
         venta.detalles.append(venta_detalle)
 
@@ -347,11 +360,13 @@ def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id,
 
     # Actualizar referencia en movimientos de stock
     for venta_det in venta.detalles:
-        mov = MovimientoStock.query.filter_by(
-            producto_id=venta_det.producto_id,
-            referencia_tipo='venta',
-            referencia_id=None
-        ).order_by(MovimientoStock.id.desc()).first()
+        mov = (
+            MovimientoStock.query.filter_by(
+                producto_id=venta_det.producto_id, referencia_tipo='venta', referencia_id=None
+            )
+            .order_by(MovimientoStock.id.desc())
+            .first()
+        )
         if mov:
             mov.referencia_id = venta.id
 
@@ -385,9 +400,7 @@ def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id,
             if pago_data['forma_pago'] == 'cuenta_corriente':
                 cliente = presupuesto.cliente
                 if not cliente:
-                    raise ValueError(
-                        'Se requiere un cliente registrado para cuenta corriente.'
-                    )
+                    raise ValueError('Se requiere un cliente registrado para cuenta corriente.')
                 monto_cc = Decimal(str(pago_data['monto']))
                 if not cliente.puede_comprar_a_credito(monto_cc):
                     raise ValueError(
@@ -410,9 +423,7 @@ def convertir_a_venta(presupuesto, usuario_id, forma_pago, caja_id,
 
             if fp == 'cuenta_corriente':
                 cliente = presupuesto.cliente
-                saldo_anterior, saldo_posterior = cliente.actualizar_saldo(
-                    monto, 'cargo'
-                )
+                saldo_anterior, saldo_posterior = cliente.actualizar_saldo(monto, 'cargo')
                 movimiento_cc = MovimientoCuentaCorriente(
                     cliente_id=cliente.id,
                     tipo='cargo',
@@ -498,8 +509,7 @@ def marcar_vencidos():
     """Marca como vencidos los presupuestos pendientes cuya fecha de vencimiento pasó."""
     ahora = ahora_argentina()
     vencidos = Presupuesto.query.filter(
-        Presupuesto.estado == 'pendiente',
-        Presupuesto.fecha_vencimiento < ahora
+        Presupuesto.estado == 'pendiente', Presupuesto.fecha_vencimiento < ahora
     ).all()
 
     for p in vencidos:
@@ -515,24 +525,21 @@ def generar_pdf(presupuesto):
     """Genera el PDF del presupuesto usando WeasyPrint."""
     from weasyprint import HTML
 
+    from .pdf_utils import obtener_config_negocio
+
     detalles = list(presupuesto.detalles)
 
-    config_negocio = {
-        'nombre': Configuracion.get('nombre_negocio', 'FerrERP'),
-        'cuit': Configuracion.get('cuit', ''),
-        'direccion': Configuracion.get('direccion', ''),
-        'telefono': Configuracion.get('telefono', ''),
-        'email': Configuracion.get('email', ''),
-        'texto_pie': Configuracion.get('presupuesto_texto_pie', ''),
-        'iva_porcentaje': Configuracion.get('iva_porcentaje', 21),
-        'precios_con_iva': Configuracion.get('precios_con_iva', True),
-    }
+    config_negocio = obtener_config_negocio(
+        texto_pie=Configuracion.get('presupuesto_texto_pie', ''),
+        iva_porcentaje=Configuracion.get('iva_porcentaje', 21),
+        precios_con_iva=Configuracion.get('precios_con_iva', True),
+    )
 
     html_string = render_template(
         'presupuestos/pdf/presupuesto.html',
         presupuesto=presupuesto,
         detalles=detalles,
-        config_negocio=config_negocio
+        config_negocio=config_negocio,
     )
 
     pdf = HTML(string=html_string).write_pdf()

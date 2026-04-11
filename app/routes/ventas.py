@@ -16,6 +16,7 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required
+from werkzeug.exceptions import HTTPException
 
 from ..extensions import db
 from ..forms.venta_forms import AnulacionVentaForm, VentaForm
@@ -59,6 +60,11 @@ def punto_de_venta():
             )
             items_json = request.form.get('items_json', '[]')
 
+            # Validar descuento global
+            if descuento_porcentaje < 0 or descuento_porcentaje > 100:
+                flash('El descuento debe estar entre 0% y 100%.', 'danger')
+                return redirect(url_for('ventas.punto_de_venta'))
+
             items = json.loads(items_json)
 
             if not items:
@@ -98,9 +104,13 @@ def punto_de_venta():
 
             # Procesar items
             for item in items:
-                producto = Producto.get_o_404(item['producto_id'])
+                producto = Producto.query.filter_by(
+                    id=item['producto_id'],
+                    empresa_id=current_user.empresa_id,
+                ).first()
                 if not producto:
-                    flash(f'Producto no encontrado: {item["producto_id"]}', 'danger')
+                    db.session.rollback()
+                    flash('Producto no encontrado en el carrito.', 'danger')
                     return redirect(url_for('ventas.punto_de_venta'))
 
                 cantidad = Decimal(str(item['cantidad']))
@@ -169,6 +179,13 @@ def punto_de_venta():
                     empresa_id=current_user.empresa_id,
                 )
                 db.session.add(movimiento_stock)
+
+            # Validar descuento monto exacto contra subtotal
+            if descuento_monto_exacto is not None and descuento_monto_exacto > Decimal('0'):
+                if descuento_monto_exacto > subtotal:
+                    db.session.rollback()
+                    flash('El descuento no puede superar el subtotal.', 'danger')
+                    return redirect(url_for('ventas.punto_de_venta'))
 
             # Calcular totales
             venta.subtotal = subtotal
@@ -368,6 +385,9 @@ def punto_de_venta():
                 return redirect(url_for('ventas.ticket', id=venta.id))
             return redirect(url_for('ventas.punto_de_venta'))
 
+        except HTTPException:
+            db.session.rollback()
+            raise
         except Exception as e:
             db.session.rollback()
             flash(f'Error al procesar la venta: {str(e)}', 'danger')

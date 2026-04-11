@@ -24,6 +24,7 @@ services:
       - APP_NAME=FerrERP
     volumes:
       - app_static:/app/app/static:ro
+      - uploads_data:/app/app/static/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -83,6 +84,7 @@ services:
 volumes:
   postgres_data:
   app_static:
+  uploads_data:
   certbot_webroot:
   certbot_certs:
 
