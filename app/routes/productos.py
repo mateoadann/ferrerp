@@ -1,14 +1,16 @@
 """Rutas de productos."""
 
+import json
 from decimal import Decimal
 
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from ..extensions import db
-from ..forms.producto_forms import ProductoForm
+from ..forms.producto_forms import ActualizacionMasivaPreciosForm, ProductoForm
 from ..models import Categoria, Producto
-from ..utils.decorators import empresa_aprobada_required
+from ..services import actualizacion_precio_service
+from ..utils.decorators import admin_required, empresa_aprobada_required
 from ..utils.helpers import es_peticion_htmx, paginar_query
 
 bp = Blueprint('productos', __name__, url_prefix='/productos')
@@ -89,6 +91,160 @@ def index():
     )
 
 
+@bp.route('/actualizacion-masiva')
+@login_required
+@empresa_aprobada_required
+@admin_required
+def actualizacion_masiva():
+    """Página de actualización masiva de precios por categoría."""
+    form = ActualizacionMasivaPreciosForm()
+
+    # Construir árbol de categorías para el template
+    categorias_padre = (
+        Categoria.query_empresa()
+        .filter_by(activa=True, padre_id=None)
+        .order_by(Categoria.nombre)
+        .all()
+    )
+
+    arbol_categorias = []
+    for padre in categorias_padre:
+        hijos = sorted(padre.subcategorias, key=lambda c: c.nombre)
+        hijos_activos = [h for h in hijos if h.activa]
+        arbol_categorias.append(
+            {
+                'id': padre.id,
+                'nombre': padre.nombre,
+                'hijos': [{'id': h.id, 'nombre': h.nombre} for h in hijos_activos],
+            }
+        )
+
+    return render_template(
+        'productos/actualizacion_masiva.html',
+        form=form,
+        arbol_categorias=arbol_categorias,
+    )
+
+
+@bp.route('/actualizacion-masiva/preview', methods=['POST'])
+@login_required
+@empresa_aprobada_required
+@admin_required
+def actualizacion_masiva_preview():
+    """Preview HTMX de actualización masiva de precios."""
+    try:
+        categorias_ids_raw = request.form.get('categorias_ids', '[]')
+        categorias_ids = json.loads(categorias_ids_raw)
+        categorias_ids = [int(cid) for cid in categorias_ids if cid]
+    except (json.JSONDecodeError, ValueError):
+        return render_template(
+            'productos/_preview_actualizacion.html',
+            error='Seleccioná al menos una categoría.',
+            preview=None,
+        )
+
+    if not categorias_ids:
+        return render_template(
+            'productos/_preview_actualizacion.html',
+            error='Seleccioná al menos una categoría.',
+            preview=None,
+        )
+
+    try:
+        porcentaje = Decimal(str(request.form.get('porcentaje', '0')))
+    except Exception:
+        return render_template(
+            'productos/_preview_actualizacion.html',
+            error='El porcentaje ingresado no es válido.',
+            preview=None,
+        )
+
+    actualizar_costo = request.form.get('actualizar_costo') == 'y'
+
+    # Validar que las categorías pertenezcan a la empresa
+    for cid in categorias_ids:
+        cat = Categoria.query.filter_by(id=cid, empresa_id=current_user.empresa_id).first()
+        if not cat:
+            return render_template(
+                'productos/_preview_actualizacion.html',
+                error=f'La categoría con ID {cid} no existe o no pertenece a tu empresa.',
+                preview=None,
+            )
+
+    productos = actualizacion_precio_service.obtener_productos_por_categorias(categorias_ids)
+
+    if not productos:
+        return render_template(
+            'productos/_preview_actualizacion.html',
+            error='No hay productos activos en las categorías seleccionadas.',
+            preview=None,
+        )
+
+    try:
+        preview = actualizacion_precio_service.previsualizar_actualizacion(
+            productos, porcentaje, actualizar_costo
+        )
+    except ValueError as e:
+        return render_template(
+            'productos/_preview_actualizacion.html',
+            error=str(e),
+            preview=None,
+        )
+
+    porcentaje_cero = porcentaje == 0
+
+    return render_template(
+        'productos/_preview_actualizacion.html',
+        preview=preview,
+        porcentaje=porcentaje,
+        actualizar_costo=actualizar_costo,
+        categorias_ids=categorias_ids,
+        porcentaje_cero=porcentaje_cero,
+        error=None,
+    )
+
+
+@bp.route('/actualizacion-masiva/aplicar', methods=['POST'])
+@login_required
+@empresa_aprobada_required
+@admin_required
+def actualizacion_masiva_aplicar():
+    """Aplica la actualización masiva de precios."""
+    try:
+        categorias_ids_raw = request.form.get('categorias_ids', '[]')
+        categorias_ids = json.loads(categorias_ids_raw)
+        categorias_ids = [int(cid) for cid in categorias_ids if cid]
+    except (json.JSONDecodeError, ValueError):
+        flash('Error al procesar las categorías seleccionadas.', 'danger')
+        return redirect(url_for('productos.actualizacion_masiva'))
+
+    try:
+        porcentaje = Decimal(str(request.form.get('porcentaje', '0')))
+    except Exception:
+        flash('El porcentaje ingresado no es válido.', 'danger')
+        return redirect(url_for('productos.actualizacion_masiva'))
+
+    actualizar_costo = request.form.get('actualizar_costo') == 'y'
+    notas = request.form.get('notas', '').strip() or None
+
+    try:
+        cantidad = actualizacion_precio_service.aplicar_actualizacion(
+            categorias_ids=categorias_ids,
+            porcentaje=porcentaje,
+            actualizar_costo=actualizar_costo,
+            notas=notas,
+        )
+        signo = '+' if porcentaje > 0 else ''
+        flash(
+            f'Se actualizaron {cantidad} productos con un {signo}{porcentaje}%.',
+            'success',
+        )
+    except ValueError as e:
+        flash(str(e), 'danger')
+
+    return redirect(url_for('productos.actualizacion_masiva'))
+
+
 @bp.route('/nuevo', methods=['GET', 'POST'])
 @login_required
 @empresa_aprobada_required
@@ -98,9 +254,7 @@ def nuevo():
 
     if form.validate_on_submit():
         # Verificar código único dentro de la empresa
-        existente = Producto.query_empresa().filter_by(
-            codigo=form.codigo.data
-        ).first()
+        existente = Producto.query_empresa().filter_by(codigo=form.codigo.data).first()
         if existente:
             flash('Ya existe un producto con ese código.', 'danger')
             categorias_padre = (
@@ -165,7 +319,12 @@ def nuevo():
 def detalle(id):
     """Ver detalle de producto."""
     producto = Producto.get_o_404(id)
-    return render_template('productos/detalle.html', producto=producto)
+    actualizaciones_precio = producto.actualizaciones_precio.limit(20).all()
+    return render_template(
+        'productos/detalle.html',
+        producto=producto,
+        actualizaciones_precio=actualizaciones_precio,
+    )
 
 
 @bp.route('/<int:id>/editar', methods=['GET', 'POST'])
@@ -202,9 +361,11 @@ def editar(id):
 
     if form.validate_on_submit():
         # Verificar código único (excluyendo el actual) dentro de la empresa
-        existente = Producto.query_empresa().filter(
-            Producto.codigo == form.codigo.data, Producto.id != id
-        ).first()
+        existente = (
+            Producto.query_empresa()
+            .filter(Producto.codigo == form.codigo.data, Producto.id != id)
+            .first()
+        )
         if existente:
             flash('Ya existe otro producto con ese código.', 'danger')
             return render_template(

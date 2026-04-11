@@ -10,14 +10,19 @@ from decimal import Decimal
 from app import create_app
 from app.extensions import db
 from app.models import (
+    ActualizacionPrecio,
     Caja,
     Categoria,
     Cliente,
     Configuracion,
+    Devolucion,
+    DevolucionDetalle,
     Empresa,
     MovimientoCaja,
     MovimientoCuentaCorriente,
     MovimientoStock,
+    OrdenCompra,
+    OrdenCompraDetalle,
     Presupuesto,
     PresupuestoDetalle,
     Producto,
@@ -36,15 +41,24 @@ def run_seeds():
 
     # Limpiar datos existentes (en orden inverso por las FK)
     print('Limpiando datos existentes...')
+    # Detalles y pagos primero (dependen de ventas, devoluciones, ordenes, productos)
     VentaPago.query.delete()
+    DevolucionDetalle.query.delete()
+    OrdenCompraDetalle.query.delete()
+    VentaDetalle.query.delete()
+    PresupuestoDetalle.query.delete()
+    # Movimientos (dependen de cajas, productos, clientes)
     MovimientoCaja.query.delete()
     MovimientoCuentaCorriente.query.delete()
     MovimientoStock.query.delete()
-    VentaDetalle.query.delete()
+    # Entidades principales (dependen de presupuestos, usuarios, proveedores, etc.)
+    Devolucion.query.delete()
+    OrdenCompra.query.delete()
     Venta.query.delete()
-    PresupuestoDetalle.query.delete()
     Presupuesto.query.delete()
     Caja.query.delete()
+    ActualizacionPrecio.query.delete()
+    # Maestros
     Producto.query.delete()
     Categoria.query.delete()
     Proveedor.query.delete()

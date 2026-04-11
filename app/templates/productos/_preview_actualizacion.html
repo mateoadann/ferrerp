@@ -1,0 +1,135 @@
+{% if error %}
+<div class="card border-danger">
+    <div class="card-body">
+        <div class="d-flex align-items-start text-danger">
+            <span class="material-symbols-rounded me-2">error</span>
+            <div>{{ error }}</div>
+        </div>
+    </div>
+</div>
+
+{% elif preview %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>
+            <span class="material-symbols-rounded me-2" style="vertical-align: middle;">preview</span>
+            Previsualización
+        </span>
+        <span class="badge bg-primary">{{ preview|length }} producto{{ 's' if preview|length != 1 else '' }}</span>
+    </div>
+
+    {% if porcentaje_cero %}
+    <div class="alert alert-warning m-3 mb-0 d-flex align-items-center">
+        <span class="material-symbols-rounded me-2">warning</span>
+        El porcentaje es 0%. No se realizarán cambios en los precios.
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Producto</th>
+                    {% if actualizar_costo %}
+                    <th class="text-end">P. Costo Actual</th>
+                    <th class="text-end">P. Costo Nuevo</th>
+                    {% endif %}
+                    <th class="text-end">P. Venta Actual</th>
+                    <th class="text-end">P. Venta Nuevo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in preview %}
+                <tr>
+                    <td><code>{{ item.producto.codigo }}</code></td>
+                    <td>{{ item.producto.nombre }}</td>
+                    {% if actualizar_costo %}
+                    <td class="text-end">${{ "%.2f"|format(item.precio_costo_anterior) }}</td>
+                    <td class="text-end {% if item.diferencia_costo > 0 %}text-danger{% elif item.diferencia_costo < 0 %}text-success{% endif %}">
+                        ${{ "%.2f"|format(item.precio_costo_nuevo) }}
+                    </td>
+                    {% endif %}
+                    <td class="text-end">${{ "%.2f"|format(item.precio_venta_anterior) }}</td>
+                    <td class="text-end {% if item.diferencia_venta > 0 %}text-danger{% elif item.diferencia_venta < 0 %}text-success{% endif %}">
+                        ${{ "%.2f"|format(item.precio_venta_nuevo) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if not porcentaje_cero %}
+    <div class="card-footer">
+        <form method="POST" action="{{ url_for('productos.actualizacion_masiva_aplicar') }}"
+              id="form-aplicar">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="categorias_ids" value='{{ categorias_ids | tojson }}'>
+            <input type="hidden" name="porcentaje" value="{{ porcentaje }}">
+            <input type="hidden" name="actualizar_costo" value="{{ 'y' if actualizar_costo else 'n' }}">
+            <input type="hidden" name="notas" value="{{ request.form.get('notas', '') }}">
+
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted">
+                    {% if porcentaje > 0 %}
+                    <span class="material-symbols-rounded me-1" style="vertical-align: middle; color: var(--bs-danger);">trending_up</span>
+                    Aumento del {{ porcentaje }}%
+                    {% elif porcentaje < 0 %}
+                    <span class="material-symbols-rounded me-1" style="vertical-align: middle; color: var(--bs-success);">trending_down</span>
+                    Descuento del {{ porcentaje|abs }}%
+                    {% endif %}
+                    sobre {{ preview|length }} producto{{ 's' if preview|length != 1 else '' }}
+                </span>
+                <button type="button" class="btn btn-success"
+                        data-bs-toggle="modal" data-bs-target="#modalConfirmarAplicacion">
+                    <span class="material-symbols-rounded me-2">check_circle</span>
+                    Aplicar actualización
+                </button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal confirmación aplicar actualización -->
+<div class="modal fade" id="modalConfirmarAplicacion" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">
+                    <span class="material-symbols-rounded me-2">warning</span>
+                    Confirmar actualización
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>
+                    ¿Estás seguro de aplicar esta actualización de precios?
+                    <strong>Esta acción no se puede deshacer.</strong>
+                </p>
+                <p class="mb-0 text-muted">
+                    {% if porcentaje > 0 %}
+                    <span class="material-symbols-rounded me-1" style="vertical-align: middle; color: var(--bs-danger);">trending_up</span>
+                    Aumento del {{ porcentaje }}%
+                    {% elif porcentaje < 0 %}
+                    <span class="material-symbols-rounded me-1" style="vertical-align: middle; color: var(--bs-success);">trending_down</span>
+                    Descuento del {{ porcentaje|abs }}%
+                    {% endif %}
+                    sobre <strong>{{ preview|length }}</strong> producto{{ 's' if preview|length != 1 else '' }}.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-danger"
+                        onclick="document.getElementById('form-aplicar').submit();">
+                    <span class="material-symbols-rounded me-1">check_circle</span>
+                    Aplicar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
