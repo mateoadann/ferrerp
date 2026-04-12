@@ -394,14 +394,11 @@ def punto_de_venta():
             return redirect(url_for('ventas.punto_de_venta'))
 
     # GET - Mostrar pantalla de POS
-    clientes = Cliente.query_empresa().filter_by(activo=True).order_by(Cliente.nombre).all()
-
     limpiar_carrito = session.pop('limpiar_carrito', False)
 
     return render_template(
         'ventas/punto_venta.html',
         form=form,
-        clientes=clientes,
         limpiar_carrito=limpiar_carrito
     )
 
@@ -436,17 +433,21 @@ def historial():
     query = query.order_by(Venta.fecha.desc())
     ventas = paginar_query(query, page)
 
-    # Obtener clientes para el filtro
-    clientes = Cliente.query_empresa().filter_by(activo=True).order_by(Cliente.nombre).all()
+    # Obtener nombre del cliente seleccionado (para el autocomplete)
+    cliente_nombre = ''
+    if cliente_id:
+        cliente_sel = Cliente.query.get(cliente_id)
+        if cliente_sel:
+            cliente_nombre = cliente_sel.nombre
 
     return render_template(
         'ventas/historial.html',
         ventas=ventas,
-        clientes=clientes,
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
         estado_filtro=estado,
-        cliente_id=cliente_id
+        cliente_id=cliente_id,
+        cliente_nombre=cliente_nombre,
     )
 
 

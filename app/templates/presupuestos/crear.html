@@ -183,12 +183,49 @@
 
                 <!-- Cliente registrado -->
                 <div x-show="tipoCliente === 'registrado'" x-cloak>
-                    <select class="form-select" x-model="clienteId">
-                        <option value="">Seleccionar cliente...</option>
-                        {% for cliente in clientes %}
-                        <option value="{{ cliente.id }}">{{ cliente.nombre }} ({{ cliente.dni_cuit or 'S/D' }})</option>
-                        {% endfor %}
-                    </select>
+                    <!-- Cliente seleccionado -->
+                    <div class="d-flex align-items-center gap-2 mb-2" x-show="clienteId">
+                        <span class="material-symbols-rounded" style="font-size: 18px;">person</span>
+                        <strong x-text="clienteNombreSeleccionado" class="small"></strong>
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                @click="clienteId = ''; clienteNombreSeleccionado = ''"
+                                style="font-size: 10px; padding: 1px 6px;">
+                            <span class="material-symbols-rounded" style="font-size: 14px;">close</span>
+                        </button>
+                    </div>
+                    <!-- Buscador de clientes -->
+                    <div class="position-relative">
+                        <input type="text"
+                               class="form-control form-control-sm"
+                               placeholder="Buscar cliente por nombre o DNI..."
+                               x-model="clienteQuery"
+                               @input.debounce.300ms="searchClientes()"
+                               @focus="if(clienteQuery.length >= 2) showClienteResults = true"
+                               @click.outside="showClienteResults = false"
+                               @keydown.arrow-down.prevent="clienteSelectedIndex = Math.min(clienteSelectedIndex + 1, clienteResults.length - 1)"
+                               @keydown.arrow-up.prevent="clienteSelectedIndex = Math.max(clienteSelectedIndex - 1, 0)"
+                               @keydown.enter.prevent="if(clienteSelectedIndex >= 0 && clienteResults[clienteSelectedIndex]) selectCliente(clienteResults[clienteSelectedIndex])"
+                               @keydown.escape="showClienteResults = false; clienteSelectedIndex = -1">
+                        <!-- Resultados -->
+                        <div class="position-absolute w-100 bg-white border rounded shadow-sm"
+                             style="z-index: 1050; max-height: 200px; overflow-y: auto;"
+                             x-show="showClienteResults && clienteResults.length > 0"
+                             x-cloak
+                             x-effect="if(clienteSelectedIndex >= 0) $el.children[clienteSelectedIndex]?.scrollIntoView({block: 'nearest'})">
+                            <template x-for="(cl, index) in clienteResults" :key="cl.id">
+                                <div class="px-3 py-2 border-bottom"
+                                     style="cursor: pointer;"
+                                     :class="{'bg-primary text-white': clienteSelectedIndex === index}"
+                                     @mouseenter="clienteSelectedIndex = index"
+                                     @mouseleave="clienteSelectedIndex = -1"
+                                     @click="selectCliente(cl)">
+                                    <div class="fw-bold small" x-text="cl.nombre"></div>
+                                    <div class="text-muted" style="font-size: 11px;"
+                                         x-text="cl.dni_cuit || 'Sin documento'"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Cliente ocasional -->
@@ -323,7 +360,12 @@ function presupuestoApp() {
         tipoCliente: {% if editando and presupuesto.cliente_id %}'registrado'{% elif editando and presupuesto.cliente_nombre %}'ocasional'{% else %}'sin'{% endif %},
         clienteId: '{{ presupuesto.cliente_id if editando and presupuesto.cliente_id else "" }}',
         clienteNombre: '{{ presupuesto.cliente_nombre if editando and presupuesto.cliente_nombre else "" }}',
+        clienteNombreSeleccionado: '{{ presupuesto.cliente.nombre if editando and presupuesto.cliente_id and presupuesto.cliente else "" }}',
         clienteTelefono: '{{ presupuesto.cliente_telefono if editando and presupuesto.cliente_telefono else "" }}',
+        clienteQuery: '',
+        clienteResults: [],
+        showClienteResults: false,
+        clienteSelectedIndex: -1,
         descuentoPorcentaje: {{ presupuesto.descuento_porcentaje if editando else 0 }},
         modoDescuento: 'porcentaje',
         totalDeseado: '',
@@ -582,6 +624,32 @@ function presupuestoApp() {
         clearSearch() {
             this.searchQuery = '';
             this.searchResults = [];
+        },
+
+        // Búsqueda de clientes por nombre o DNI
+        async searchClientes() {
+            if (this.clienteQuery.length < 2) {
+                this.clienteResults = [];
+                this.showClienteResults = false;
+                return;
+            }
+            try {
+                const response = await fetch(`{{ url_for('clientes.buscar') }}?q=${encodeURIComponent(this.clienteQuery)}&limit=15`);
+                this.clienteResults = await response.json();
+                this.clienteSelectedIndex = -1;
+                this.showClienteResults = true;
+            } catch (error) {
+                console.error('Error buscando clientes:', error);
+            }
+        },
+
+        // Seleccionar un cliente del autocompletado
+        selectCliente(cliente) {
+            this.clienteId = cliente.id;
+            this.clienteNombreSeleccionado = cliente.nombre;
+            this.clienteQuery = '';
+            this.clienteResults = [];
+            this.showClienteResults = false;
         },
 
         // Muestra alerta inline con auto-dismiss a 10 segundos
