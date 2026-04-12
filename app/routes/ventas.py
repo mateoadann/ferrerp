@@ -38,6 +38,20 @@ from ..utils.helpers import ahora_argentina, generar_numero_venta, paginar_query
 bp = Blueprint('ventas', __name__, url_prefix='/ventas')
 
 
+def _decimal_seguro(valor, default=Decimal('0')):
+    """Convierte un valor a Decimal de forma segura.
+
+    Maneja None, cadenas vacías y valores no numéricos
+    devolviendo el default en vez de lanzar ConversionSyntax.
+    """
+    if valor is None or (isinstance(valor, str) and valor.strip() == ''):
+        return default
+    try:
+        return Decimal(str(valor))
+    except (ValueError, ArithmeticError):
+        return default
+
+
 @bp.route('/punto-de-venta', methods=['GET', 'POST'])
 @login_required
 @empresa_aprobada_required
@@ -51,10 +65,10 @@ def punto_de_venta():
             # Obtener datos del formulario
             cliente_id = request.form.get('cliente_id', type=int)
             forma_pago = request.form.get('forma_pago', 'efectivo')
-            descuento_porcentaje = Decimal(request.form.get('descuento_porcentaje', '0'))
+            descuento_porcentaje = _decimal_seguro(request.form.get('descuento_porcentaje'))
             descuento_monto_exacto_str = request.form.get('descuento_monto_exacto', '').strip()
             descuento_monto_exacto = (
-                Decimal(descuento_monto_exacto_str)
+                _decimal_seguro(descuento_monto_exacto_str)
                 if descuento_monto_exacto_str
                 else None
             )
@@ -113,11 +127,21 @@ def punto_de_venta():
                     flash('Producto no encontrado en el carrito.', 'danger')
                     return redirect(url_for('ventas.punto_de_venta'))
 
-                cantidad = Decimal(str(item['cantidad']))
-                precio = Decimal(str(item['precio_unitario']))
-                desc_pct = Decimal(str(item.get('descuento_porcentaje', 0)))
+                cantidad = _decimal_seguro(item.get('cantidad'))
+                precio = _decimal_seguro(item.get('precio_unitario'))
+                desc_pct = _decimal_seguro(item.get('descuento_porcentaje'))
                 modo_descuento_item = item.get('modoDescuento', 'porcentaje')
                 precio_deseado_raw = item.get('precioDeseado')
+
+                # Validar que cantidad y precio sean positivos
+                if cantidad <= 0:
+                    raise ValueError(
+                        f'Cantidad invalida para "{producto.nombre}"'
+                    )
+                if precio <= 0:
+                    raise ValueError(
+                        f'Precio invalido para "{producto.nombre}"'
+                    )
 
                 if desc_pct < 0 or desc_pct > 100:
                     raise ValueError(
@@ -138,12 +162,9 @@ def punto_de_venta():
                 # para evitar diferencias por redondeo.
                 precio_deseado = None
                 if modo_descuento_item == 'total' and precio_deseado_raw not in (None, ''):
-                    try:
-                        pd = Decimal(str(precio_deseado_raw))
-                        if 0 <= pd < precio:
-                            precio_deseado = pd
-                    except (ValueError, ArithmeticError):
-                        precio_deseado = None
+                    pd = _decimal_seguro(precio_deseado_raw)
+                    if pd > 0 and pd < precio:
+                        precio_deseado = pd
 
                 if precio_deseado is not None:
                     item_subtotal = cantidad * precio_deseado
@@ -235,8 +256,8 @@ def punto_de_venta():
                     return redirect(url_for('ventas.punto_de_venta'))
 
                 # Validar montos > 0 y suma correcta
-                monto1 = Decimal(str(pagos_data[0]['monto']))
-                monto2 = Decimal(str(pagos_data[1]['monto']))
+                monto1 = _decimal_seguro(pagos_data[0].get('monto'))
+                monto2 = _decimal_seguro(pagos_data[1].get('monto'))
 
                 if monto1 <= 0 or monto2 <= 0:
                     db.session.rollback()
@@ -259,7 +280,7 @@ def punto_de_venta():
                             )
                             return redirect(url_for('ventas.punto_de_venta'))
                         cliente = Cliente.get_o_404(cliente_id)
-                        monto_cc = Decimal(str(pago_data['monto']))
+                        monto_cc = _decimal_seguro(pago_data.get('monto'))
                         if not cliente.puede_comprar_a_credito(monto_cc):
                             db.session.rollback()
                             flash(
@@ -273,7 +294,7 @@ def punto_de_venta():
                 # Crear VentaPago y movimientos por cada pago
                 for pago_data in pagos_data:
                     fp = pago_data['forma_pago']
-                    monto = Decimal(str(pago_data['monto']))
+                    monto = _decimal_seguro(pago_data.get('monto'))
 
                     venta_pago = VentaPago(
                         venta_id=venta.id,
