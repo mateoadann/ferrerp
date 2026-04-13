@@ -39,7 +39,20 @@
                         <td class="text-end">{{ mov.stock_anterior|stock(mov.producto.unidad_medida) }}</td>
                         <td class="text-end fw-bold">{{ mov.stock_posterior|stock(mov.producto.unidad_medida) }}</td>
                         <td>{{ mov.usuario.nombre if mov.usuario else '-' }}</td>
-                        <td>{{ mov.motivo or '-' }}</td>
+                        <td>
+                            {% if mov.referencia_tipo == 'venta' and mov.referencia_id %}
+                            <a href="{{ url_for('ventas.detalle', id=mov.referencia_id) }}">
+                                Venta #{{ mov.referencia_id }}
+                            </a>
+                            {% if mov.motivo %} — {{ mov.motivo }}{% endif %}
+                            {% elif mov.referencia_tipo == 'anulacion_venta' and mov.referencia_id %}
+                            <a href="{{ url_for('ventas.detalle', id=mov.referencia_id) }}">
+                                {{ mov.motivo or 'Anulación de venta #' ~ mov.referencia_id }}
+                            </a>
+                            {% else %}
+                            {{ mov.motivo or '-' }}
+                            {% endif %}
+                        </td>
                     </tr>
                     {% else %}
                     <tr><td colspan="8" class="text-center py-4 text-muted">Sin movimientos</td></tr>

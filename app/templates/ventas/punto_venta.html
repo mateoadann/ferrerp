@@ -4,6 +4,17 @@
 
 {% block content %}
 <div class="pos-container" x-data="posApp()">
+    <!-- Alerta de validación flotante -->
+    <div class="pos-alert-container" x-show="alertMessage" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:leave="transition ease-in duration-150">
+        <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-0" role="alert">
+            <span class="material-symbols-rounded me-2">error</span>
+            <span x-text="alertMessage"></span>
+            <button type="button" class="btn-close" @click="alertMessage = ''" aria-label="Cerrar"></button>
+        </div>
+    </div>
+
     <!-- Left Panel - Products and Cart -->
     <div class="pos-left">
         <!-- Header with Search -->
@@ -16,19 +27,24 @@
                        placeholder="Buscar producto por código o nombre... (F2)"
                        x-model="searchQuery"
                        @input.debounce.300ms="searchProducts()"
-                       @keydown.enter="addFirstResult()"
+                       @keydown.arrow-down.prevent="productSelectedIndex = Math.min(productSelectedIndex + 1, searchResults.length - 1)"
+                       @keydown.arrow-up.prevent="productSelectedIndex = Math.max(productSelectedIndex - 1, 0)"
+                       @keydown.enter.prevent="if(productSelectedIndex >= 0 && searchResults[productSelectedIndex]) addToCart(searchResults[productSelectedIndex]); else addFirstResult()"
                        @keydown.escape="clearSearch()">
 
                 <!-- Search Results Dropdown -->
                 <div class="search-results position-absolute bg-white shadow-lg rounded-2 mt-1 w-100"
                      x-show="searchResults.length > 0"
                      x-cloak
-                     style="z-index: 1000; max-height: 300px; overflow-y: auto;">
-                    <template x-for="product in searchResults" :key="product.id">
+                     style="z-index: 1000; max-height: 300px; overflow-y: auto;"
+                     x-effect="if(productSelectedIndex >= 0) $el.children[productSelectedIndex]?.scrollIntoView({block: 'nearest'})">
+                    <template x-for="(product, index) in searchResults" :key="product.id">
                         <div class="search-result-item p-3 border-bottom cursor-pointer"
                              @click="addToCart(product)"
                              style="cursor: pointer;"
-                             :class="{'bg-light': product.stock_actual <= 0}">
+                             :class="{'bg-primary text-white': productSelectedIndex === index, 'bg-light': productSelectedIndex !== index && product.stock_actual <= 0}"
+                             @mouseenter="productSelectedIndex = index"
+                             @mouseleave="productSelectedIndex = -1">
                             <div class="d-flex justify-content-between">
                                 <div>
                                     <span class="badge badge-secondary me-2" x-text="product.codigo"></span>
@@ -36,7 +52,7 @@
                                 </div>
                                 <div class="text-end">
                                     <strong x-text="formatCurrency(product.precio_venta)"></strong>
-                                    <small class="text-muted d-block">
+                                    <small class="d-block" :class="productSelectedIndex === index ? '' : 'text-muted'">
                                         Stock: <span x-text="formatStock(product.stock_actual, product.unidad_medida)"></span>
                                     </small>
                                 </div>
@@ -82,9 +98,10 @@
                                     <tr>
                                         <th>Producto</th>
                                         <th style="width: 100px;">Cantidad</th>
-                                        <th style="width: 120px;">P. Unit.</th>
-                                        <th style="width: 120px;">Subtotal</th>
-                                        <th style="width: 50px;"></th>
+                                        <th style="width: 100px;">P. Unit.</th>
+                                        <th style="width: 140px;">Desc.</th>
+                                        <th style="width: 100px;">Subtotal</th>
+                                        <th style="width: 40px;"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -111,7 +128,34 @@
                                                 </div>
                                             </td>
                                             <td x-text="formatCurrency(item.precio_unitario)"></td>
-                                            <td class="fw-bold" x-text="formatCurrency(item.cantidad * item.precio_unitario)"></td>
+                                            <td>
+                                                <!-- Descuento por item: input con prefijo clickeable que alterna % / $ -->
+                                                <div class="input-group input-group-sm descuento-input-group" style="width: 130px;">
+                                                    <button type="button"
+                                                            class="btn btn-outline-secondary px-2"
+                                                            @click="toggleModoDescuentoItem(item)"
+                                                            style="font-weight: 600;">
+                                                        <span x-text="(item.modoDescuento || 'porcentaje') === 'porcentaje' ? '%' : '$'"></span>
+                                                    </button>
+                                                    <input type="number"
+                                                           class="form-control text-end"
+                                                           x-show="(item.modoDescuento || 'porcentaje') === 'porcentaje'"
+                                                           x-model.number="item.descuento_porcentaje"
+                                                           min="0" max="100" step="0.5"
+                                                           placeholder="0">
+                                                    <input type="text"
+                                                           class="form-control text-end"
+                                                           x-show="(item.modoDescuento || 'porcentaje') === 'total'"
+                                                           x-cloak
+                                                           x-model="item.precioDeseado"
+                                                           x-init="initMoneyInput($el)"
+                                                           data-mask="money"
+                                                           inputmode="decimal"
+                                                           placeholder="0"
+                                                           @input="calcularDescuentoItemDesdeTotal(item)">
+                                                </div>
+                                            </td>
+                                            <td class="fw-bold" x-text="formatCurrency(subtotalLinea(item))"></td>
                                             <td>
                                                 <button class="btn btn-sm btn-outline-danger" @click="removeFromCart(index)">
                                                     <span class="material-symbols-rounded">delete</span>
@@ -136,12 +180,51 @@
             <!-- Cliente -->
             <div>
                 <label class="form-label small text-muted">Cliente</label>
-                <select class="form-select" x-model="clienteId">
-                    <option value="">Consumidor Final</option>
-                    {% for cliente in clientes %}
-                    <option value="{{ cliente.id }}">{{ cliente.nombre }} ({{ cliente.dni_cuit or 'S/D' }})</option>
-                    {% endfor %}
-                </select>
+                <!-- Cliente seleccionado -->
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="material-symbols-rounded" style="font-size: 18px;">person</span>
+                    <strong x-text="clienteNombre" class="small"></strong>
+                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                            x-show="clienteId"
+                            x-cloak
+                            @click="clienteId = ''; clienteNombre = 'Consumidor Final'"
+                            style="font-size: 10px; padding: 1px 6px;">
+                        <span class="material-symbols-rounded" style="font-size: 14px;">close</span>
+                    </button>
+                </div>
+                <!-- Buscador de clientes -->
+                <div class="position-relative">
+                    <input type="text"
+                           class="form-control form-control-sm"
+                           placeholder="Buscar cliente por nombre o DNI..."
+                           x-model="clienteQuery"
+                           @input.debounce.300ms="searchClientes()"
+                           @focus="if(clienteQuery.length >= 2) showClienteResults = true"
+                           @click.outside="showClienteResults = false"
+                           @keydown.arrow-down.prevent="clienteSelectedIndex = Math.min(clienteSelectedIndex + 1, clienteResults.length - 1)"
+                           @keydown.arrow-up.prevent="clienteSelectedIndex = Math.max(clienteSelectedIndex - 1, 0)"
+                           @keydown.enter.prevent="if(clienteSelectedIndex >= 0 && clienteResults[clienteSelectedIndex]) selectCliente(clienteResults[clienteSelectedIndex])"
+                           @keydown.escape="showClienteResults = false; clienteSelectedIndex = -1">
+                    <!-- Resultados -->
+                    <div class="position-absolute w-100 bg-white border rounded shadow-sm"
+                         style="z-index: 1050; max-height: 200px; overflow-y: auto;"
+                         x-show="showClienteResults && clienteResults.length > 0"
+                         x-cloak
+                         x-effect="if(clienteSelectedIndex >= 0) $el.children[clienteSelectedIndex]?.scrollIntoView({block: 'nearest'})">
+                        <template x-for="(cliente, index) in clienteResults" :key="cliente.id">
+                            <div class="px-3 py-2 border-bottom"
+                                 style="cursor: pointer;"
+                                 :class="{'bg-primary text-white': clienteSelectedIndex === index}"
+                                 @mouseenter="clienteSelectedIndex = index"
+                                 @mouseleave="clienteSelectedIndex = -1"
+                                 @click="selectCliente(cliente)">
+                                <div class="fw-bold small" x-text="cliente.nombre"></div>
+                                <div class="text-muted" style="font-size: 11px;"
+                                     x-text="cliente.dni_cuit || 'Sin documento'"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
             </div>
 
             <!-- Totales -->
@@ -152,11 +235,30 @@
                 </div>
                 <div class="summary-row mb-2">
                     <span class="text-muted">Descuento</span>
-                    <div class="input-group input-group-sm" style="width: 100px;">
-                        <input type="number" class="form-control text-end"
+                    <div class="input-group input-group-sm descuento-input-group" style="width: 130px;">
+                        <button type="button" class="btn btn-outline-secondary px-2"
+                                @click="toggleModoDescuentoGlobal()"
+                                :disabled="cart.length === 0"
+                                style="font-weight: 600;">
+                            <span x-text="modoDescuento === 'porcentaje' ? '%' : '$'"></span>
+                        </button>
+                        <input type="number"
+                               class="form-control text-end"
+                               x-show="modoDescuento === 'porcentaje'"
                                x-model.number="descuentoPorcentaje"
-                               min="0" max="100" step="0.5">
-                        <span class="input-group-text">%</span>
+                               min="0" max="100" step="0.5"
+                               :disabled="cart.length === 0">
+                        <input type="text"
+                               class="form-control text-end"
+                               x-show="modoDescuento === 'total'"
+                               x-cloak
+                               x-model="totalDeseado"
+                               x-init="initMoneyInput($el)"
+                               data-mask="money"
+                               @input="calcularDescuentoDesdeTotal()"
+                               :disabled="cart.length === 0"
+                               inputmode="decimal"
+                               placeholder="Total">
                     </div>
                 </div>
                 <hr>
@@ -220,10 +322,77 @@
                         <span class="material-symbols-rounded d-block mb-1">account_balance_wallet</span>
                         <small>Cta. Cte.</small>
                     </div>
+                    <div class="payment-method"
+                         :class="{'active': formaPago === 'dividido'}"
+                         @click="formaPago = 'dividido'">
+                        <span class="material-symbols-rounded d-block mb-1">call_split</span>
+                        <small>Dividido</small>
+                    </div>
                 </div>
             </div>
 
-            <!-- Cálculo de vuelto (solo efectivo) -->
+            <!-- Seccion pago dividido -->
+            <div x-show="formaPago === 'dividido'" x-cloak>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Metodo 1</label>
+                        <select x-model="pagoDividido1.forma" class="form-select form-select-sm">
+                            <option value="efectivo">Efectivo</option>
+                            <option value="tarjeta_debito">Tarjeta Debito</option>
+                            <option value="tarjeta_credito">Tarjeta Credito</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="qr">QR</option>
+                            <option value="cuenta_corriente">Cuenta Corriente</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Monto 1</label>
+                        <input type="text" class="form-control form-control-sm"
+                               data-mask="money" inputmode="decimal"
+                               x-model="pagoDividido1.monto"
+                               x-init="initMoneyInput($el)"
+                               @input="calcularMonto2()"
+                               placeholder="$0,00">
+                    </div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Metodo 2</label>
+                        <select x-model="pagoDividido2.forma" class="form-select form-select-sm">
+                            <option value="efectivo">Efectivo</option>
+                            <option value="tarjeta_debito">Tarjeta Debito</option>
+                            <option value="tarjeta_credito">Tarjeta Credito</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="qr">QR</option>
+                            <option value="cuenta_corriente">Cuenta Corriente</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Monto 2</label>
+                        <input type="text" class="form-control form-control-sm"
+                               data-mask="money" inputmode="decimal"
+                               x-model="pagoDividido2.monto"
+                               x-init="initMoneyInput($el)"
+                               @input="calcularMonto1()"
+                               placeholder="$0,00">
+                    </div>
+                </div>
+                <!-- Indicador de validacion -->
+                <div class="small px-1"
+                     :class="sumaValida ? 'text-success' : 'text-danger'">
+                    <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;"
+                          x-text="sumaValida ? 'check_circle' : 'error'"></span>
+                    <span x-text="sumaValida ? 'Los montos suman correctamente' : (!montosPositivos ? 'Cada monto debe ser mayor a 0' : 'Los montos no coinciden con el total')"></span>
+                </div>
+                <div class="small text-danger px-1 mt-1"
+                     x-show="pagoDividido1.forma === pagoDividido2.forma"
+                     x-cloak>
+                    <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;">error</span>
+                    Las formas de pago deben ser distintas
+                </div>
+            </div>
+
+            <!-- Calculo de vuelto (solo efectivo) -->
             <div x-show="formaPago === 'efectivo'" x-cloak>
                 <div class="row g-2">
                     <div class="col-6">
@@ -270,7 +439,10 @@
         <input type="hidden" name="cliente_id" x-model="clienteId">
         <input type="hidden" name="forma_pago" x-model="formaPago">
         <input type="hidden" name="descuento_porcentaje" x-model="descuentoPorcentaje">
+        <input type="hidden" name="descuento_monto_exacto"
+               :value="descuentoMontoExacto !== null ? descuentoMontoExacto.toFixed(2) : ''">
         <input type="hidden" name="items_json" :value="JSON.stringify(cart)">
+        <input type="hidden" name="pago_dividido_json" id="pago_dividido_json">
     </form>
 </div>
 {% endblock %}
@@ -285,16 +457,60 @@ function posApp() {
         searchResults: [],
         cart: [],
         clienteId: '',
+        clienteNombre: 'Consumidor Final',
+        clienteQuery: '',
+        clienteResults: [],
+        showClienteResults: false,
+        clienteSelectedIndex: -1,
+        productSelectedIndex: -1,
         formaPago: 'efectivo',
         descuentoPorcentaje: 0,
+        modoDescuento: 'porcentaje',
+        totalDeseado: '',
         montoRecibido: '',
+        pagoDividido1: { forma: 'efectivo', monto: '' },
+        pagoDividido2: { forma: 'qr', monto: '' },
         processing: false,
+        alertMessage: '',
+        alertTimer: null,
+
+        // Calcula el subtotal exacto de una línea respetando el modo de descuento.
+        // En modo '$' (total) usa cantidad * precioDeseado para evitar diferencias
+        // por redondeo del porcentaje.
+        subtotalLinea(item) {
+            const cantidad = Number(item.cantidad) || 0;
+            const precio = Number(item.precio_unitario) || 0;
+            const modo = item.modoDescuento || 'porcentaje';
+            if (modo === 'total') {
+                const deseado = parseMoneyNumber(item.precioDeseado);
+                if (!isNaN(deseado) && deseado >= 0 && deseado < precio) {
+                    return cantidad * deseado;
+                }
+            }
+            const desc = item.descuento_porcentaje || 0;
+            return cantidad * precio * (1 - desc / 100);
+        },
 
         get subtotal() {
-            return this.cart.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
+            return this.cart.reduce((sum, item) => {
+                return sum + this.subtotalLinea(item);
+            }, 0);
+        },
+
+        get descuentoMontoExacto() {
+            if (this.modoDescuento === 'total') {
+                const deseado = parseMoneyNumber(this.totalDeseado);
+                if (deseado > 0 && deseado < this.subtotal) {
+                    return this.subtotal - deseado;
+                }
+            }
+            return null;
         },
 
         get descuentoMonto() {
+            if (this.descuentoMontoExacto !== null) {
+                return this.descuentoMontoExacto;
+            }
             return this.subtotal * (this.descuentoPorcentaje / 100);
         },
 
@@ -310,8 +526,8 @@ function posApp() {
             
             this.cart.forEach(item => {
                 const ivaPct = item.iva_porcentaje || 21;
-                const itemSubtotal = item.cantidad * item.precio_unitario;
-                const proporcion = itemSubtotal / this.subtotal;
+                const itemSubtotal = this.subtotalLinea(item);
+                const proporcion = this.subtotal > 0 ? itemSubtotal / this.subtotal : 0;
                 const itemTotal = subtotalConDesc * proporcion;
                 
                 if (!grupos[ivaPct]) {
@@ -357,6 +573,90 @@ function posApp() {
             return Math.max(0, parseMoneyNumber(this.montoRecibido) - this.totalConIva);
         },
 
+        // Alterna el modo de descuento de un item entre porcentaje y precio final ($)
+        toggleModoDescuentoItem(item) {
+            const modoActual = item.modoDescuento || 'porcentaje';
+            if (modoActual === 'porcentaje') {
+                // Cambiar a modo $: poblar precioDeseado con el precio con descuento actual
+                const pct = Number(item.descuento_porcentaje) || 0;
+                const precioOriginal = parseMoneyNumber(item.precio_unitario);
+                item.precioDeseado = formatMoneyOnBlur((precioOriginal * (1 - pct / 100)).toFixed(2));
+                item.modoDescuento = 'total';
+            } else {
+                // Cambiar a modo %: se mantiene el descuento_porcentaje ya calculado
+                item.modoDescuento = 'porcentaje';
+            }
+        },
+
+        // Calcula el descuento_porcentaje de un item a partir del precio unitario deseado
+        calcularDescuentoItemDesdeTotal(item) {
+            const original = parseMoneyNumber(item.precio_unitario);
+            const deseado = parseMoneyNumber(item.precioDeseado);
+            if (original <= 0 || isNaN(deseado) || deseado < 0) {
+                item.descuento_porcentaje = 0;
+                return;
+            }
+            if (deseado >= original) {
+                // Precio deseado mayor o igual al original: sin descuento
+                item.descuento_porcentaje = 0;
+                return;
+            }
+            const porcentaje = ((original - deseado) / original) * 100;
+            item.descuento_porcentaje = Math.round(porcentaje * 100) / 100;
+        },
+
+        // Alterna el modo de descuento global entre porcentaje y total deseado ($)
+        toggleModoDescuentoGlobal() {
+            if (this.modoDescuento === 'porcentaje') {
+                // Cambiar a modo $: poblar totalDeseado con el total actual
+                this.totalDeseado = this.total > 0 ? formatMoneyOnBlur(this.total.toFixed(2)) : '';
+                this.modoDescuento = 'total';
+            } else {
+                // Cambiar a modo %: dejar el porcentaje calculado
+                this.modoDescuento = 'porcentaje';
+            }
+        },
+
+        calcularDescuentoDesdeTotal() {
+            const deseado = parseMoneyNumber(this.totalDeseado);
+            if (this.subtotal <= 0 || deseado <= 0) {
+                this.descuentoPorcentaje = 0;
+                return;
+            }
+            if (deseado >= this.subtotal) {
+                this.descuentoPorcentaje = 0;
+                return;
+            }
+            const porcentaje = ((this.subtotal - deseado) / this.subtotal) * 100;
+            this.descuentoPorcentaje = Math.round(porcentaje * 100) / 100;
+        },
+
+        get montosPositivos() {
+            const m1 = parseMoneyNumber(this.pagoDividido1.monto);
+            const m2 = parseMoneyNumber(this.pagoDividido2.monto);
+            return m1 > 0 && m2 > 0;
+        },
+
+        get sumaValida() {
+            if (this.formaPago !== 'dividido') return true;
+            if (!this.montosPositivos) return false;
+            const m1 = parseMoneyNumber(this.pagoDividido1.monto);
+            const m2 = parseMoneyNumber(this.pagoDividido2.monto);
+            return Math.abs((m1 + m2) - this.total) < 0.01;
+        },
+
+        calcularMonto2() {
+            const m1 = parseMoneyNumber(this.pagoDividido1.monto);
+            const raw = Math.max(0, (this.total - m1)).toFixed(2);
+            this.pagoDividido2.monto = formatMoneyOnBlur(raw);
+        },
+
+        calcularMonto1() {
+            const m2 = parseMoneyNumber(this.pagoDividido2.monto);
+            const raw = Math.max(0, (this.total - m2)).toFixed(2);
+            this.pagoDividido1.monto = formatMoneyOnBlur(raw);
+        },
+
         formatCurrency(value) {
             return new Intl.NumberFormat('es-AR', {
                 style: 'currency',
@@ -376,8 +676,13 @@ function posApp() {
             const payload = {
                 cart: this.cart,
                 clienteId: this.clienteId,
+                clienteNombre: this.clienteNombre,
                 formaPago: this.formaPago,
-                descuentoPorcentaje: this.descuentoPorcentaje
+                descuentoPorcentaje: this.descuentoPorcentaje,
+                modoDescuento: this.modoDescuento,
+                totalDeseado: this.totalDeseado,
+                pagoDividido1: this.pagoDividido1,
+                pagoDividido2: this.pagoDividido2,
             };
             localStorage.setItem(this.storageKey, JSON.stringify(payload));
         },
@@ -388,16 +693,35 @@ function posApp() {
             try {
                 const payload = JSON.parse(raw);
                 if (Array.isArray(payload.cart)) {
-                    this.cart = payload.cart;
+                    // Asegurar que todos los items tengan los campos de descuento por item
+                    this.cart = payload.cart.map((item) => ({
+                        ...item,
+                        modoDescuento: item.modoDescuento || 'porcentaje',
+                        precioDeseado: (item.precioDeseado !== undefined && item.precioDeseado !== null) ? item.precioDeseado : '',
+                    }));
                 }
                 if (payload.clienteId !== undefined && payload.clienteId !== null) {
                     this.clienteId = payload.clienteId;
+                }
+                if (payload.clienteNombre) {
+                    this.clienteNombre = payload.clienteNombre;
                 }
                 if (payload.formaPago) {
                     this.formaPago = payload.formaPago;
                 }
                 if (payload.descuentoPorcentaje !== undefined && payload.descuentoPorcentaje !== null) {
                     this.descuentoPorcentaje = payload.descuentoPorcentaje;
+                }
+                this.modoDescuento = payload.modoDescuento || 'porcentaje';
+                this.totalDeseado = payload.totalDeseado || '';
+                if (this.modoDescuento === 'total' && this.totalDeseado) {
+                    this.calcularDescuentoDesdeTotal();
+                }
+                if (payload.pagoDividido1) {
+                    this.pagoDividido1 = payload.pagoDividido1;
+                }
+                if (payload.pagoDividido2) {
+                    this.pagoDividido2 = payload.pagoDividido2;
                 }
             } catch (error) {
                 localStorage.removeItem(this.storageKey);
@@ -409,6 +733,7 @@ function posApp() {
         },
 
         async searchProducts() {
+            this.productSelectedIndex = -1;
             if (this.searchQuery.length < 2) {
                 this.searchResults = [];
                 return;
@@ -428,10 +753,17 @@ function posApp() {
             }
         },
 
+        // Muestra alerta inline con auto-dismiss a 10 segundos
+        mostrarAlerta(mensaje) {
+            if (this.alertTimer) clearTimeout(this.alertTimer);
+            this.alertMessage = mensaje;
+            this.alertTimer = setTimeout(() => { this.alertMessage = ''; }, 10000);
+        },
+
         addToCart(product) {
             // Verificar stock
             if (product.stock_actual <= 0) {
-                showAlert('Este producto no tiene stock disponible.');
+                this.mostrarAlerta('Este producto no tiene stock disponible.');
                 return;
             }
 
@@ -441,7 +773,7 @@ function posApp() {
             if (existingIndex >= 0) {
                 // Verificar que no exceda el stock
                 if (this.cart[existingIndex].cantidad + 1 > product.stock_actual) {
-                    showAlert('No hay suficiente stock disponible.');
+                    this.mostrarAlerta('No hay suficiente stock disponible.');
                     return;
                 }
                 this.cart[existingIndex].cantidad += 1;
@@ -455,6 +787,10 @@ function posApp() {
                     cantidad: 1,
                     precio_unitario: product.precio_venta,
                     iva_porcentaje: product.iva_porcentaje || 21,
+                    descuento_porcentaje: 0,
+                    // Modo de descuento por item: 'porcentaje' (default) o 'total' (precio deseado unitario)
+                    modoDescuento: 'porcentaje',
+                    precioDeseado: '',
                     stock_disponible: product.stock_actual
                 });
             }
@@ -488,13 +824,40 @@ function posApp() {
                 this.removeFromCart(index);
             } else if (item.cantidad > item.stock_disponible) {
                 item.cantidad = item.stock_disponible;
-                showAlert('Cantidad ajustada al stock disponible.');
+                this.mostrarAlerta('Cantidad ajustada al stock disponible.');
             }
         },
 
         clearSearch() {
             this.searchQuery = '';
             this.searchResults = [];
+            this.productSelectedIndex = -1;
+        },
+
+        // Búsqueda de clientes por nombre o DNI
+        async searchClientes() {
+            if (this.clienteQuery.length < 2) {
+                this.clienteResults = [];
+                this.showClienteResults = false;
+                return;
+            }
+            try {
+                const response = await fetch(`{{ url_for('clientes.buscar') }}?q=${encodeURIComponent(this.clienteQuery)}&limit=15`);
+                this.clienteResults = await response.json();
+                this.clienteSelectedIndex = -1;
+                this.showClienteResults = true;
+            } catch (error) {
+                console.error('Error buscando clientes:', error);
+            }
+        },
+
+        // Seleccionar un cliente del autocompletado
+        selectCliente(cliente) {
+            this.clienteId = cliente.id;
+            this.clienteNombre = cliente.nombre;
+            this.clienteQuery = '';
+            this.clienteResults = [];
+            this.showClienteResults = false;
         },
 
         async limpiarCarrito() {
@@ -508,26 +871,89 @@ function posApp() {
             if (ok) {
                 this.cart = [];
                 this.descuentoPorcentaje = 0;
+                this.modoDescuento = 'porcentaje';
+                this.totalDeseado = '';
                 this.montoRecibido = '';
                 this.clienteId = '';
+                this.clienteNombre = 'Consumidor Final';
                 this.formaPago = 'efectivo';
+                this.pagoDividido1 = { forma: 'efectivo', monto: '' };
+                this.pagoDividido2 = { forma: 'qr', monto: '' };
                 this.clearPersistedState();
             }
         },
 
         async confirmarVenta() {
             if (this.cart.length === 0) {
-                showAlert('El carrito está vacío.');
+                this.mostrarAlerta('El carrito está vacío.');
+                return;
+            }
+
+            // Normalizar valores monetarios formateados antes de validar y enviar
+            for (const item of this.cart) {
+                if (item.precioDeseado !== undefined && item.precioDeseado !== '') {
+                    item.precioDeseado = parseMoneyNumber(item.precioDeseado);
+                }
+                if (typeof item.precio_unitario === 'string') {
+                    item.precio_unitario = parseMoneyNumber(item.precio_unitario);
+                }
+            }
+            // Esperar a que Alpine recalcule los getters con los valores normalizados
+            await this.$nextTick();
+
+            // Validar descuentos por item antes de enviar
+            for (const item of this.cart) {
+                const desc = item.descuento_porcentaje || 0;
+                if (desc < 0 || desc > 100) {
+                    this.mostrarAlerta(
+                        `El descuento de "${item.nombre}" debe estar entre 0 y 100%.`
+                    );
+                    return;
+                }
+            }
+
+            // Validar descuento general
+            if (this.descuentoPorcentaje < 0 || this.descuentoPorcentaje > 100) {
+                this.mostrarAlerta('El descuento general debe estar entre 0 y 100%.');
                 return;
             }
 
             if (this.formaPago === 'cuenta_corriente' && !this.clienteId) {
-                showAlert('Debes seleccionar un cliente para pagar a cuenta corriente.');
+                this.mostrarAlerta('Debes seleccionar un cliente para pagar a cuenta corriente.');
                 return;
             }
 
+            if (this.formaPago === 'dividido') {
+                if (!this.sumaValida) {
+                    this.mostrarAlerta('Los montos no coinciden con el total.');
+                    return;
+                }
+                if (this.pagoDividido1.forma === this.pagoDividido2.forma) {
+                    this.mostrarAlerta('Las formas de pago deben ser distintas.');
+                    return;
+                }
+                const m1 = parseMoneyNumber(this.pagoDividido1.monto);
+                const m2 = parseMoneyNumber(this.pagoDividido2.monto);
+                if (m1 <= 0 || m2 <= 0) {
+                    this.mostrarAlerta('Cada monto debe ser mayor a 0.');
+                    return;
+                }
+                if (this.pagoDividido1.forma === 'cuenta_corriente' ||
+                    this.pagoDividido2.forma === 'cuenta_corriente') {
+                    if (!this.clienteId) {
+                        this.mostrarAlerta('Debe seleccionar un cliente para cuenta corriente.');
+                        return;
+                    }
+                }
+                // Serializar JSON al hidden field
+                document.getElementById('pago_dividido_json').value = JSON.stringify([
+                    { forma_pago: this.pagoDividido1.forma, monto: m1 },
+                    { forma_pago: this.pagoDividido2.forma, monto: m2 },
+                ]);
+            }
+
             if (this.formaPago === 'efectivo' && parseMoneyNumber(this.montoRecibido) < this.total) {
-                const ok = await showConfirm('El monto recibido es menor al total. ¿Deseas continuar?', {
+                const ok = await showConfirm('El monto recibido es menor al total. Deseas continuar?', {
                     title: 'Monto insuficiente',
                     confirmText: 'Continuar',
                     confirmClass: 'btn-warning',
@@ -550,8 +976,25 @@ function posApp() {
 
             this.$watch('cart', () => this.persistState());
             this.$watch('clienteId', () => this.persistState());
+            this.$watch('clienteNombre', () => this.persistState());
             this.$watch('formaPago', () => this.persistState());
             this.$watch('descuentoPorcentaje', () => this.persistState());
+            this.$watch('modoDescuento', () => this.persistState());
+            this.$watch('totalDeseado', () => this.persistState());
+            this.$watch('pagoDividido1', () => this.persistState(), { deep: true });
+            this.$watch('pagoDividido2', () => this.persistState(), { deep: true });
+
+            // Recalcular descuento cuando cambia el subtotal en modo total
+            this.$watch('subtotal', (newSubtotal) => {
+                if (this.modoDescuento === 'total' && this.totalDeseado) {
+                    if (newSubtotal <= 0) {
+                        this.descuentoPorcentaje = 0;
+                        this.totalDeseado = '';
+                    } else {
+                        this.calcularDescuentoDesdeTotal();
+                    }
+                }
+            });
 
             // Keyboard shortcuts
             document.addEventListener('keydown', (e) => {
@@ -575,5 +1018,16 @@ function posApp() {
 
 <style>
 [x-cloak] { display: none !important; }
+/* Contenedor POS necesita position para alojar la alerta absoluta */
+.pos-container { position: relative; }
+/* Alerta de validación flotante sobre el layout POS */
+.pos-alert-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    padding: 12px 24px;
+}
 </style>
 {% endblock %}

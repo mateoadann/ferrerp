@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+
+{% block title %}Actualización Masiva de Precios - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>Actualización Masiva de Precios</h2>
+        <span class="text-muted">Seleccioná categorías y aplicá un porcentaje de ajuste</span>
+    </div>
+    <a href="{{ url_for('productos.index') }}" class="btn btn-outline-secondary">
+        <span class="material-symbols-rounded me-2">arrow_back</span>
+        Volver a Productos
+    </a>
+</div>
+
+<div class="row g-4" x-data="arbolCategorias()" x-init="init()">
+    <!-- Formulario -->
+    <div class="col-lg-5">
+        <form id="form-actualizacion" method="POST">
+            {{ form.hidden_tag() }}
+
+            <!-- Árbol de categorías -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Categorías</span>
+                    <small class="text-muted" x-show="seleccionadas().length > 0"
+                           x-text="seleccionadas().length + ' seleccionada' + (seleccionadas().length > 1 ? 's' : '')">
+                    </small>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    <template x-if="categorias.length === 0">
+                        <p class="text-muted mb-0">No hay categorías disponibles.</p>
+                    </template>
+
+                    <template x-for="padre in categorias" :key="padre.id">
+                        <div class="mb-2">
+                            <!-- Categoría padre -->
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       :id="'cat-' + padre.id"
+                                       :checked="padreSeleccionado(padre)"
+                                       @change="togglePadre(padre, $event.target.checked)">
+                                <label class="form-check-label fw-bold" :for="'cat-' + padre.id"
+                                       x-text="padre.nombre"></label>
+                                <small class="text-muted ms-1"
+                                       x-show="padre.hijos.length > 0"
+                                       x-text="'(' + padre.hijos.length + ')'"></small>
+                            </div>
+
+                            <!-- Subcategorías -->
+                            <template x-for="hijo in padre.hijos" :key="hijo.id">
+                                <div class="form-check ms-4">
+                                    <input class="form-check-input" type="checkbox"
+                                           :id="'cat-' + hijo.id"
+                                           :checked="categoriaSeleccionada(hijo.id)"
+                                           @change="toggleHijo(hijo.id, $event.target.checked)">
+                                    <label class="form-check-label" :for="'cat-' + hijo.id"
+                                           x-text="hijo.nombre"></label>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Porcentaje y opciones -->
+            <div class="card mb-4">
+                <div class="card-header">Parámetros</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="porcentaje" class="form-label">Porcentaje de ajuste</label>
+                        <div class="input-group">
+                            {{ form.porcentaje(class="form-control", id="porcentaje") }}
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <div class="form-text">
+                            Positivo para aumento, negativo para descuento. Ej: 15 o -10.
+                        </div>
+                        {% for error in form.porcentaje.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox"
+                                   id="actualizar_costo" name="actualizar_costo" value="y"
+                                   checked x-ref="checkCosto"
+                                   @change="verificarCosto($event)">
+                            <label class="form-check-label" for="actualizar_costo">
+                                Actualizar precio de costo
+                            </label>
+                        </div>
+                        <div class="form-text">
+                            Si se desmarca, solo se actualiza el precio de venta.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="notas" class="form-label">Notas (opcional)</label>
+                        {{ form.notas(class="form-control", id="notas") }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input oculto con categorías seleccionadas (JSON) -->
+            <input type="hidden" name="categorias_ids" :value="JSON.stringify(seleccionadas())">
+
+            <!-- Botón previsualizar -->
+            <button type="button" class="btn btn-primary w-100"
+                    :disabled="seleccionadas().length === 0"
+                    hx-post="{{ url_for('productos.actualizacion_masiva_preview') }}"
+                    hx-target="#preview-container"
+                    hx-include="#form-actualizacion"
+                    hx-indicator="#preview-loading">
+                <span class="material-symbols-rounded me-2">preview</span>
+                Previsualizar cambios
+            </button>
+        </form>
+    </div>
+
+    <!-- Preview -->
+    <div class="col-lg-7">
+        <div id="preview-loading" class="htmx-indicator text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2 text-muted">Calculando precios...</p>
+        </div>
+        <div id="preview-container">
+            <div class="card">
+                <div class="card-body text-center text-muted py-5">
+                    <span class="material-symbols-rounded" style="font-size: 48px;">price_change</span>
+                    <p class="mt-3">Seleccioná categorías y hacé clic en "Previsualizar" para ver los cambios.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal confirmación desmarcar costo -->
+<div class="modal fade" id="modalConfirmarCosto" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">
+                    <span class="material-symbols-rounded me-2">warning</span>
+                    Atención
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>
+                    Si no actualizás el precio de costo, los <strong>márgenes de ganancia
+                    quedarán desactualizados</strong>.
+                </p>
+                <p>
+                    Esto puede generar información incorrecta en reportes de rentabilidad.
+                </p>
+                <p class="fw-bold mb-0">
+                    ¿Estás seguro de que querés continuar sin actualizar el costo?
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
+                        id="btn-cancelar-costo">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-warning" data-bs-dismiss="modal"
+                        id="btn-confirmar-costo">
+                    Entiendo, continuar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function arbolCategorias() {
+    return {
+        categorias: {{ arbol_categorias | tojson }},
+        ids_seleccionados: new Set(),
+
+        init() {},
+
+        seleccionadas() {
+            return Array.from(this.ids_seleccionados);
+        },
+
+        categoriaSeleccionada(id) {
+            return this.ids_seleccionados.has(id);
+        },
+
+        padreSeleccionado(padre) {
+            // Padre está seleccionado si su propio ID está en el set
+            return this.ids_seleccionados.has(padre.id);
+        },
+
+        togglePadre(padre, checked) {
+            if (checked) {
+                this.ids_seleccionados.add(padre.id);
+                padre.hijos.forEach(h => this.ids_seleccionados.add(h.id));
+            } else {
+                this.ids_seleccionados.delete(padre.id);
+                padre.hijos.forEach(h => this.ids_seleccionados.delete(h.id));
+            }
+            // Force reactivity
+            this.ids_seleccionados = new Set(this.ids_seleccionados);
+        },
+
+        toggleHijo(hijoId, checked) {
+            if (checked) {
+                this.ids_seleccionados.add(hijoId);
+            } else {
+                this.ids_seleccionados.delete(hijoId);
+            }
+            // Force reactivity
+            this.ids_seleccionados = new Set(this.ids_seleccionados);
+        },
+
+        verificarCosto(event) {
+            if (!event.target.checked) {
+                // Mostrar modal de confirmación
+                const modal = new bootstrap.Modal(document.getElementById('modalConfirmarCosto'));
+                modal.show();
+
+                // Si cancela, re-marcar el checkbox
+                document.getElementById('btn-cancelar-costo').onclick = () => {
+                    this.$refs.checkCosto.checked = true;
+                };
+                // Si confirma, dejar desmarcado
+                document.getElementById('btn-confirmar-costo').onclick = () => {
+                    // ya está desmarcado
+                };
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

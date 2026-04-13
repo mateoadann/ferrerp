@@ -21,8 +21,15 @@ bp = Blueprint('presupuestos', __name__, url_prefix='/presupuestos')
 
 @bp.before_request
 def _marcar_vencidos():
-    """Marca presupuestos vencidos antes de cada request."""
-    presupuesto_service.marcar_vencidos()
+    """Marca presupuestos vencidos antes de cada request GET de listado/detalle.
+
+    Se omite en requests POST para evitar que un presupuesto pase a 'vencido'
+    en medio de una operación de edición, lo cual generaría conflictos de
+    sesión y comportamiento inesperado.
+    Solo se ejecuta si el usuario está autenticado (multi-tenant).
+    """
+    if request.method == 'GET' and current_user.is_authenticated:
+        presupuesto_service.marcar_vencidos(empresa_id=current_user.empresa_id)
 
 
 # ─── Listado ─────────────────────────────────────────────────────────
@@ -111,6 +118,14 @@ def nuevo():
             cliente_nombre = request.form.get('cliente_nombre', '').strip()
             cliente_telefono = request.form.get('cliente_telefono', '').strip()
             descuento_porcentaje = Decimal(request.form.get('descuento_porcentaje', '0'))
+            descuento_monto_exacto_str = request.form.get(
+                'descuento_monto_exacto', ''
+            ).strip()
+            descuento_monto_exacto = (
+                Decimal(descuento_monto_exacto_str)
+                if descuento_monto_exacto_str
+                else None
+            )
             validez_dias = request.form.get('validez_dias', 15, type=int)
             notas = request.form.get('notas', '').strip()
             items_json = request.form.get('items_json', '[]')
@@ -129,6 +144,7 @@ def nuevo():
                 cliente_nombre=cliente_nombre or None,
                 cliente_telefono=cliente_telefono or None,
                 descuento_porcentaje=descuento_porcentaje,
+                descuento_monto_exacto=descuento_monto_exacto,
                 validez_dias=validez_dias,
                 notas=notas or None
             )
@@ -145,13 +161,11 @@ def nuevo():
             flash(f'Error al crear presupuesto: {str(e)}', 'danger')
             return redirect(url_for('presupuestos.nuevo'))
 
-    clientes = Cliente.query_empresa().filter_by(activo=True).order_by(Cliente.nombre).all()
     validez_default = Configuracion.get('presupuesto_validez_dias', 15)
 
     return render_template(
         'presupuestos/crear.html',
         form=form,
-        clientes=clientes,
         validez_default=validez_default
     )
 
@@ -191,6 +205,14 @@ def editar(id):
             cliente_nombre = request.form.get('cliente_nombre', '').strip()
             cliente_telefono = request.form.get('cliente_telefono', '').strip()
             descuento_porcentaje = Decimal(request.form.get('descuento_porcentaje', '0'))
+            descuento_monto_exacto_str = request.form.get(
+                'descuento_monto_exacto', ''
+            ).strip()
+            descuento_monto_exacto = (
+                Decimal(descuento_monto_exacto_str)
+                if descuento_monto_exacto_str
+                else None
+            )
             validez_dias = request.form.get('validez_dias', 15, type=int)
             notas = request.form.get('notas', '').strip()
             items_json = request.form.get('items_json', '[]')
@@ -208,6 +230,7 @@ def editar(id):
                 cliente_nombre=cliente_nombre or None,
                 cliente_telefono=cliente_telefono or None,
                 descuento_porcentaje=descuento_porcentaje,
+                descuento_monto_exacto=descuento_monto_exacto,
                 validez_dias=validez_dias,
                 notas=notas or None
             )
@@ -215,12 +238,18 @@ def editar(id):
             flash(f'Presupuesto #{presupuesto.numero_completo} actualizado.', 'success')
             return redirect(url_for('presupuestos.detalle', id=id))
 
-        except Exception as e:
+        except (ValueError, json.JSONDecodeError) as e:
+            # Error de validación: no hubo mutación, rollback preventivo
             db.session.rollback()
             flash(f'Error al actualizar: {str(e)}', 'danger')
             return redirect(url_for('presupuestos.editar', id=id))
 
-    clientes = Cliente.query_empresa().filter_by(activo=True).order_by(Cliente.nombre).all()
+        except Exception as e:
+            # Error inesperado (DB, etc.): rollback obligatorio
+            db.session.rollback()
+            flash(f'Error al actualizar: {str(e)}', 'danger')
+            return redirect(url_for('presupuestos.editar', id=id))
+
     detalles = list(presupuesto.detalles)
 
     # Preparar items existentes como JSON para Alpine.js
@@ -232,6 +261,7 @@ def editar(id):
             'nombre': d.producto.nombre,
             'cantidad': float(d.cantidad),
             'precio_unitario': float(d.precio_unitario),
+            'descuento_porcentaje': float(d.descuento_porcentaje),
             'stock_disponible': float(d.producto.stock_actual)
         })
 
@@ -240,7 +270,6 @@ def editar(id):
     return render_template(
         'presupuestos/crear.html',
         form=PresupuestoForm(obj=presupuesto),
-        clientes=clientes,
         presupuesto=presupuesto,
         items_existentes=json.dumps(items_existentes),
         validez_dias=validez_dias,
@@ -316,12 +345,15 @@ def convertir(id):
                 estado='abierta', empresa_id=current_user.empresa_id
             ).first()
 
+            pago_dividido_json = request.form.get('pago_dividido_json', '')
+
             venta = presupuesto_service.convertir_a_venta(
                 presupuesto=presupuesto,
                 usuario_id=current_user.id,
                 forma_pago=form.forma_pago.data,
                 caja_id=caja.id,
                 empresa_id=current_user.empresa_id,
+                pago_dividido_json=pago_dividido_json if form.forma_pago.data == 'dividido' else None,
             )
 
             flash(

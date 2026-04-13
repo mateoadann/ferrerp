@@ -60,7 +60,8 @@
 </table>
 
 {% if productos.pages > 1 %}
-<div class="p-3">
-    {% include 'components/pagination.html' %}
-</div>
+{% set pagination = productos %}
+{% set htmx = true %}
+{% set htmx_target = '#tabla-stock' %}
+{% include 'components/pagination.html' %}
 {% endif %}

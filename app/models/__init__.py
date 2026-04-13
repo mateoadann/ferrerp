@@ -3,6 +3,7 @@ Modelos de la aplicación FerrERP.
 Exporta todos los modelos para facilitar su uso.
 """
 
+from .actualizacion_precio import ActualizacionPrecio
 from .caja import Caja, MovimientoCaja
 from .categoria import Categoria
 from .cliente import Cliente
@@ -18,6 +19,7 @@ from .proveedor import Proveedor
 from .usuario import Usuario
 from .venta import Venta
 from .venta_detalle import VentaDetalle
+from .venta_pago import VentaPago
 
 __all__ = [
     'Empresa',
@@ -38,5 +40,7 @@ __all__ = [
     'MovimientoCuentaCorriente',
     'Configuracion',
     'Presupuesto',
-    'PresupuestoDetalle'
+    'PresupuestoDetalle',
+    'VentaPago',
+    'ActualizacionPrecio',
 ]

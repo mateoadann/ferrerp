@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
 {% block title %}Compras - {{ app_name }}{% endblock %}
 {% block content %}
+{# x-data compartido: mantiene el id de la orden seleccionada para el modal de PDF #}
+<div x-data="{ ordenId: null }">
 <div class="page-header">
     <h2>Órdenes de Compra</h2>
     <div class="d-flex gap-2">
@@ -65,9 +67,13 @@
                         <td>
                             <div class="action-icons">
                                 <a href="{{ url_for('compras.detalle', id=o.id) }}" class="action-icon"><span class="material-symbols-rounded">visibility</span></a>
-                                <a href="{{ url_for('compras.pdf', id=o.id) }}" class="action-icon" target="_blank" title="PDF">
+                                {# Abre el modal compartido con opciones "Con precios" / "Sin precios" #}
+                                <button type="button" class="action-icon" title="PDF"
+                                        style="background: none; border: none; padding: 0;"
+                                        data-bs-toggle="modal" data-bs-target="#modalPdfOrdenListado"
+                                        @click="ordenId = {{ o.id }}">
                                     <span class="material-symbols-rounded">picture_as_pdf</span>
-                                </a>
+                                </button>
                                 {% if o.puede_recibir %}
                                 <a href="{{ url_for('compras.recibir', id=o.id) }}" class="action-icon text-success"><span class="material-symbols-rounded">download</span></a>
                                 {% endif %}
@@ -82,5 +88,34 @@
         </div>
         {% if ordenes.pages > 1 %}{% set pagination = ordenes %}{% include 'components/pagination.html' %}{% endif %}
     </div>
+</div>
+
+{# Modal compartido para descargar PDF de orden de compra desde el listado #}
+<div class="modal fade" id="modalPdfOrdenListado" tabindex="-1" aria-labelledby="modalPdfOrdenListadoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalPdfOrdenListadoLabel">
+                    <span class="material-symbols-rounded me-2">picture_as_pdf</span>
+                    Descargar Orden de Compra
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Selecciona el tipo de PDF que deseas descargar:</p>
+                <div class="d-flex gap-3">
+                    <a :href="'{{ url_for('compras.index') }}' + '/' + ordenId + '/pdf'" class="btn btn-secondary flex-fill" target="_blank">
+                        <span class="material-symbols-rounded me-2">description</span>
+                        Con precios
+                    </a>
+                    <a :href="'{{ url_for('compras.index') }}' + '/' + ordenId + '/pdf?sin_precios=1'" class="btn btn-outline-secondary flex-fill" target="_blank">
+                        <span class="material-symbols-rounded me-2">hide_source</span>
+                        Sin precios
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 </div>
 {% endblock %}

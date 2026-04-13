@@ -24,7 +24,7 @@ class Venta(EmpresaMixin, db.Model):
     forma_pago = db.Column(
         db.Enum(
             'efectivo', 'tarjeta_debito', 'tarjeta_credito',
-            'transferencia', 'qr', 'cuenta_corriente',
+            'transferencia', 'qr', 'cuenta_corriente', 'dividido',
             name='forma_pago'
         ),
         nullable=False,
@@ -62,13 +62,15 @@ class Venta(EmpresaMixin, db.Model):
     @property
     def forma_pago_display(self):
         """Retorna la forma de pago en formato legible."""
+        if self.forma_pago == 'dividido':
+            return ' + '.join(p.forma_pago_display for p in self.pagos)
         opciones = {
             'efectivo': 'Efectivo',
-            'tarjeta_debito': 'Tarjeta Débito',
-            'tarjeta_credito': 'Tarjeta Crédito',
+            'tarjeta_debito': 'Tarjeta Debito',
+            'tarjeta_credito': 'Tarjeta Credito',
             'transferencia': 'Transferencia',
             'qr': 'QR',
-            'cuenta_corriente': 'Cuenta Corriente'
+            'cuenta_corriente': 'Cuenta Corriente',
         }
         return opciones.get(self.forma_pago, self.forma_pago)
 
@@ -104,7 +106,7 @@ class Venta(EmpresaMixin, db.Model):
 
     def to_dict(self):
         """Convierte la venta a diccionario."""
-        return {
+        resultado = {
             'id': self.id,
             'numero': self.numero,
             'numero_completo': self.numero_completo,
@@ -121,5 +123,15 @@ class Venta(EmpresaMixin, db.Model):
             'forma_pago_display': self.forma_pago_display,
             'estado': self.estado,
             'estado_display': self.estado_display,
-            'cantidad_items': self.cantidad_items
+            'cantidad_items': self.cantidad_items,
         }
+        if self.forma_pago == 'dividido':
+            resultado['pagos'] = [
+                {
+                    'forma_pago': p.forma_pago,
+                    'forma_pago_display': p.forma_pago_display,
+                    'monto': float(p.monto),
+                }
+                for p in self.pagos
+            ]
+        return resultado

@@ -2,7 +2,10 @@
     {% if messages %}
         <div class="alerts-container">
             {% for category, message in messages %}
-                <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show" role="alert">
+                {# Auto-ocultar después de 10 segundos #}
+                <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show"
+                     role="alert"
+                     x-data x-init="setTimeout(() => { $el.classList.remove('show'); setTimeout(() => $el.remove(), 150) }, 10000)">
                     {% if category == 'success' %}
                         <span class="material-symbols-rounded me-2">check_circle</span>
                     {% elif category == 'danger' %}

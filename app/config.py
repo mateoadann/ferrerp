@@ -26,6 +26,12 @@ class Config:
     WTF_CSRF_ENABLED = True
     WTF_CSRF_TIME_LIMIT = 3600  # 1 hora
 
+    # Uploads
+    MAX_CONTENT_LENGTH = 2 * 1024 * 1024  # 2 MB
+    UPLOAD_FOLDER = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads', 'logos'
+    )
+
 
 class DevelopmentConfig(Config):
     """Configuración de desarrollo."""
@@ -33,7 +39,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         'DATABASE_URL',
-        'sqlite:///ferrerp_dev.db'  # SQLite por defecto para desarrollo facil
+        'sqlite:///ferrerp_dev.db',  # SQLite por defecto para desarrollo facil
     )
     SQLALCHEMY_ECHO = os.environ.get('SQLALCHEMY_ECHO', 'false').lower() == 'true'
 
@@ -43,8 +49,7 @@ class TestingConfig(Config):
 
     TESTING = True
     SQLALCHEMY_DATABASE_URI = os.environ.get(
-        'TEST_DATABASE_URL',
-        'postgresql://postgres:postgres@localhost:5432/ferrerp_test'
+        'TEST_DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/ferrerp_test'
     )
     WTF_CSRF_ENABLED = False
     LOGIN_DISABLED = False
@@ -67,5 +72,5 @@ config = {
     'development': DevelopmentConfig,
     'testing': TestingConfig,
     'production': ProductionConfig,
-    'default': DevelopmentConfig
+    'default': DevelopmentConfig,
 }

@@ -104,14 +104,22 @@ def nueva():
             if cantidad <= 0:
                 continue
 
+            producto = Producto.get_o_404(int(prod_id))
+            if not producto:
+                continue
+
+            precio_unitario = Decimal(str(producto.precio_costo or 0))
             detalle = OrdenCompraDetalle(
                 orden_compra_id=orden.id,
-                producto_id=int(prod_id),
+                producto_id=producto.id,
                 cantidad_pedida=cantidad,
+                precio_unitario=precio_unitario,
+                subtotal=cantidad * precio_unitario,
             )
             db.session.add(detalle)
 
-        orden.total = Decimal('0')
+        db.session.flush()
+        orden.calcular_total()
         db.session.commit()
 
         flash(f'Orden de compra #{orden.numero} creada correctamente.', 'success')
@@ -151,8 +159,9 @@ def detalle(id):
 def pdf(id):
     """Descargar PDF de la orden de compra."""
     orden = OrdenCompra.get_o_404(id)
+    sin_precios = request.args.get('sin_precios', '0') == '1'
 
-    pdf_bytes = orden_compra_service.generar_pdf(orden)
+    pdf_bytes = orden_compra_service.generar_pdf(orden, sin_precios=sin_precios)
 
     response = make_response(pdf_bytes)
     response.headers['Content-Type'] = 'application/pdf'
@@ -325,10 +334,13 @@ def generar_orden_sugerencia():
         if cantidad <= 0:
             continue
 
+        precio_unitario = Decimal(str(producto.precio_costo or 0))
         detalle = OrdenCompraDetalle(
             orden_compra_id=orden.id,
             producto_id=producto.id,
             cantidad_pedida=cantidad,
+            precio_unitario=precio_unitario,
+            subtotal=cantidad * precio_unitario,
         )
         db.session.add(detalle)
         items_agregados += 1
@@ -338,7 +350,8 @@ def generar_orden_sugerencia():
         flash('No se seleccionó ningún producto válido.', 'danger')
         return redirect(url_for('compras.sugerencia'))
 
-    orden.total = Decimal('0')
+    db.session.flush()
+    orden.calcular_total()
     db.session.commit()
 
     flash(f'Orden #{orden.numero} creada desde sugerencia con {items_agregados} producto(s).', 'success')

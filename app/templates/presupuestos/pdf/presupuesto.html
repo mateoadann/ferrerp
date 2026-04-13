@@ -27,22 +27,46 @@
             line-height: 1.4;
         }
 
-        /* Header */
+        /* Header - layout tabla para compatibilidad con WeasyPrint */
         .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 8px;
-            padding-bottom: 0;
+            display: table;
+            width: 100%;
+            margin-bottom: 10px;
         }
 
         .header-left {
-            width: 55%;
+            display: table-cell;
+            vertical-align: top;
+            width: 65%;
         }
 
         .header-right {
-            width: 40%;
+            display: table-cell;
+            vertical-align: top;
             text-align: right;
+            width: 35%;
+        }
+
+        .header-left-content {
+            display: table;
+        }
+
+        .logo-cell {
+            display: table-cell;
+            vertical-align: middle;
+            padding-right: 12px;
+            width: 80px;
+        }
+
+        .logo-img {
+            max-height: 70px;
+            max-width: 80px;
+            object-fit: contain;
+        }
+
+        .company-info-cell {
+            display: table-cell;
+            vertical-align: middle;
         }
 
         .logo-text {
@@ -52,10 +76,10 @@
             letter-spacing: 1px;
         }
 
-        .negocio-info {
+        .company-details {
             font-size: 10px;
             color: #666;
-            margin-top: 5px;
+            margin-top: 3px;
             line-height: 1.6;
         }
 
@@ -146,20 +170,25 @@
         }
 
         .productos-table .col-codigo {
-            width: 80px;
+            width: 70px;
             font-family: monospace;
             font-size: 9px;
             color: #666;
         }
 
         .productos-table .col-cantidad {
-            width: 70px;
+            width: 60px;
+            text-align: center;
+        }
+
+        .productos-table .col-descuento {
+            width: 50px;
             text-align: center;
         }
 
         .productos-table .col-precio,
         .productos-table .col-subtotal {
-            width: 100px;
+            width: 90px;
             text-align: right;
         }
 
@@ -255,11 +284,22 @@
     <!-- Header -->
     <div class="header">
         <div class="header-left">
-            <div class="logo-text">{{ config_negocio.nombre or 'FerrERP' }}</div>
-            <div class="negocio-info">
-                {% if config_negocio.cuit %}CUIT: {{ config_negocio.cuit }}<br>{% endif %}
-                {% if config_negocio.direccion %}{{ config_negocio.direccion }}<br>{% endif %}
-                {% if config_negocio.telefono %}Tel: {{ config_negocio.telefono }}{% endif %}
+            <div class="header-left-content">
+                {% if config_negocio.logo_base64 %}
+                <div class="logo-cell">
+                    <img src="{{ config_negocio.logo_base64 }}"
+                         class="logo-img"
+                         alt="{{ config_negocio.nombre }}">
+                </div>
+                {% endif %}
+                <div class="company-info-cell">
+                    <div class="logo-text">{{ config_negocio.nombre or 'FerrERP' }}</div>
+                    <div class="company-details">
+                        {% if config_negocio.cuit %}CUIT: {{ config_negocio.cuit }}<br>{% endif %}
+                        {% if config_negocio.direccion %}{{ config_negocio.direccion }}<br>{% endif %}
+                        {% if config_negocio.telefono %}Tel: {{ config_negocio.telefono }}{% endif %}
+                    </div>
+                </div>
             </div>
         </div>
         <div class="header-right">
@@ -268,7 +308,7 @@
             <div class="presupuesto-fecha">
                 Fecha: {{ presupuesto.fecha.strftime('%d/%m/%Y %H:%M') }}
             </div>
-            <div style="margin-top: 6px;">
+            <div style="margin-top: 4px;">
                 <span class="estado-badge estado-{{ presupuesto.estado }}">
                     {{ presupuesto.estado_display }}
                 </span>
@@ -316,6 +356,7 @@
                 <th>Descripción</th>
                 <th class="col-cantidad">Cant.</th>
                 <th class="col-precio">P. Unitario</th>
+                <th class="col-descuento">Desc.</th>
                 <th class="col-subtotal">Subtotal</th>
             </tr>
         </thead>
@@ -326,6 +367,7 @@
                 <td>{{ detalle.producto.nombre }}</td>
                 <td class="col-cantidad">{{ detalle.cantidad|stock(detalle.producto.unidad_medida) }}</td>
                 <td class="col-precio">${{ '{:,.2f}'.format(detalle.precio_unitario) }}</td>
+                <td class="col-descuento">{% if detalle.descuento_porcentaje and detalle.descuento_porcentaje > 0 %}{{ detalle.descuento_porcentaje }}%{% else %}-{% endif %}</td>
                 <td class="col-subtotal">${{ '{:,.2f}'.format(detalle.subtotal) }}</td>
             </tr>
             {% endfor %}
@@ -419,7 +461,10 @@
     <!-- Footer -->
     <div class="footer">
         <div class="gracias">Gracias por su consulta</div>
-        <p>{{ config_negocio.nombre or 'FerrERP' }}{% if config_negocio.telefono %} | Tel: {{ config_negocio.telefono }}{% endif %}{% if config_negocio.email %} | {{ config_negocio.email }}{% endif %}</p>
+        <p>{{ config_negocio.nombre or 'FerrERP' }}{% if config_negocio.telefono %} | Tel: {{ config_negocio.telefono }}{% endif %}</p>
+        <div style="text-align: center; font-size: 7px; color: #999; margin-top: 5px;">
+            Generado por <a href="https://ferrerp.app/" style="color: #999; text-decoration: none;">FerrERP.app</a> by <a href="https://adain.dev" style="color: #999; text-decoration: none;">AD&#x039B;IN.DEV</a>
+        </div>
     </div>
 </body>
 </html>
