@@ -23,7 +23,7 @@ services:
       - DATABASE_URL=postgresql://ferrerp:${DB_PASSWORD:-ferrerp123}@db:5432/ferrerp
       - APP_NAME=FerrERP
     volumes:
-      - app_static:/app/app/static:ro
+      - app_static:/app/app/static
       - uploads_data:/app/app/static/uploads
     depends_on:
       db:
