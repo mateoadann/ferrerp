@@ -159,7 +159,12 @@
                         </a>
                     </td>
                     <td>{{ venta.fecha|datetime }}</td>
-                    <td>{{ venta.cliente.nombre if venta.cliente else 'Consumidor Final' }}</td>
+                    <td>
+                        <span class="d-inline-block text-truncate" style="max-width: 250px;"
+                              title="{{ venta.cliente.nombre if venta.cliente else 'Consumidor Final' }}">
+                            {{ venta.cliente.nombre if venta.cliente else 'Consumidor Final' }}
+                        </span>
+                    </td>
                     <td>
                         {% if venta.forma_pago == 'efectivo' %}
                         <span class="badge badge-success">Efectivo</span>

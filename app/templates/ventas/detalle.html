@@ -45,22 +45,22 @@
 
 <div class="row g-4">
     <!-- Info de la venta -->
-    <div class="col-lg-8">
+    <div class="col-lg-8" style="min-width: 0;">
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span>Detalle de Productos</span>
                 <span class="badge badge-secondary">{{ venta.detalles.count() }} items</span>
             </div>
             <div class="table-responsive">
-                <table class="table mb-0">
+                <table class="table mb-0" style="table-layout: auto;">
                     <thead>
                         <tr>
                             <th>Codigo</th>
-                            <th>Producto</th>
-                            <th class="text-center">Cantidad</th>
-                            <th class="text-end">P. Unitario</th>
+                            <th style="min-width: 150px;">Producto</th>
+                            <th class="text-center text-nowrap">Cant.</th>
+                            <th class="text-end text-nowrap">P. Unit.</th>
                             <th class="text-center">Desc.</th>
-                            <th class="text-end">Subtotal</th>
+                            <th class="text-end text-nowrap">Subtotal</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -68,22 +68,22 @@
                         <tr>
                             <td class="table-code">{{ detalle.producto.codigo }}</td>
                             <td>{{ detalle.producto.nombre }}</td>
-                            <td class="text-center">{{ detalle.cantidad|stock(detalle.producto.unidad_medida) }}</td>
-                            <td class="text-end">{{ detalle.precio_unitario|currency }}</td>
+                            <td class="text-center text-nowrap">{{ detalle.cantidad|stock(detalle.producto.unidad_medida) }}</td>
+                            <td class="text-end text-nowrap">{{ detalle.precio_unitario|currency }}</td>
                             <td class="text-center">{% if detalle.descuento_porcentaje and detalle.descuento_porcentaje > 0 %}{{ detalle.descuento_porcentaje }}%{% else %}-{% endif %}</td>
-                            <td class="text-end fw-bold">{{ detalle.subtotal|currency }}</td>
+                            <td class="text-end text-nowrap fw-bold">{{ detalle.subtotal|currency }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr>
                             <td colspan="5" class="text-end">Subtotal:</td>
-                            <td class="text-end">{{ venta.subtotal|currency }}</td>
+                            <td class="text-end text-nowrap">{{ venta.subtotal|currency }}</td>
                         </tr>
                         {% if venta.descuento_monto > 0 %}
                         <tr>
                             <td colspan="5" class="text-end">Descuento ({{ venta.descuento_porcentaje }}%):</td>
-                            <td class="text-end text-danger">-{{ venta.descuento_monto|currency }}</td>
+                            <td class="text-end text-nowrap text-danger">-{{ venta.descuento_monto|currency }}</td>
                         </tr>
                         {% endif %}
                         {% set con_iva = precios_con_iva|default(true) %}
@@ -118,17 +118,17 @@
 
                         <tr>
                             <td colspan="5" class="text-end">Neto gravado:</td>
-                            <td class="text-end">{{ ns.neto_total|currency }}</td>
+                            <td class="text-end text-nowrap">{{ ns.neto_total|currency }}</td>
                         </tr>
                         {% for pct, datos in ns.iva_agrupado.items() %}
                         <tr>
                             <td colspan="5" class="text-end">IVA ({{ pct }}%):</td>
-                            <td class="text-end">{{ datos.iva|currency }}</td>
+                            <td class="text-end text-nowrap">{{ datos.iva|currency }}</td>
                         </tr>
                         {% endfor %}
                         <tr class="table-light">
                             <td colspan="5" class="text-end fw-bold">TOTAL:</td>
-                            <td class="text-end fw-bold" style="font-size: 1.2em;">
+                            <td class="text-end text-nowrap fw-bold" style="font-size: 1.2em;">
                                 {% if con_iva %}
                                     {{ venta.total|currency }}
                                 {% else %}
@@ -209,7 +209,7 @@
             <div class="card-header">Cliente</div>
             <div class="card-body">
                 {% if venta.cliente %}
-                <h5 class="mb-2">{{ venta.cliente.nombre }}</h5>
+                <h5 class="mb-2" style="word-break: break-word;">{{ venta.cliente.nombre }}</h5>
                 <p class="text-muted mb-1">
                     <span class="material-symbols-rounded me-1" style="font-size: 16px;">badge</span>
                     {{ venta.cliente.dni_cuit or 'Sin documento' }}

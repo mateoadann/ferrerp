@@ -25,44 +25,8 @@
 </div>
 
 <div class="card">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table mb-0">
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>CUIT</th>
-                        <th>Teléfono</th>
-                        <th>Condición Pago</th>
-                        <th class="text-center">Estado</th>
-                        <th class="text-center">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in proveedores.items %}
-                    <tr>
-                        <td><a href="{{ url_for('proveedores.detalle', id=p.id) }}">{{ p.nombre }}</a></td>
-                        <td>{{ p.cuit or '-' }}</td>
-                        <td>{{ p.telefono or '-' }}</td>
-                        <td>{{ p.condicion_pago_display }}</td>
-                        <td class="text-center">
-                            {% if p.activo %}<span class="badge badge-success">Activo</span>
-                            {% else %}<span class="badge badge-secondary">Inactivo</span>{% endif %}
-                        </td>
-                        <td>
-                            <div class="action-icons">
-                                <a href="{{ url_for('proveedores.editar', id=p.id) }}" class="action-icon"><span class="material-symbols-rounded">edit</span></a>
-                                <a href="{{ url_for('proveedores.detalle', id=p.id) }}" class="action-icon"><span class="material-symbols-rounded">visibility</span></a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="6" class="text-center py-4 text-muted">No se encontraron proveedores</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% if proveedores.pages > 1 %}{% set pagination = proveedores %}{% include 'components/pagination.html' %}{% endif %}
+    <div class="card-body p-0" id="tabla-proveedores">
+        {% include 'proveedores/_tabla.html' %}
     </div>
 </div>
 {% endblock %}

@@ -49,7 +49,8 @@ def index():
         return render_template(
             'clientes/_tabla.html',
             clientes=clientes,
-            busqueda=busqueda
+            busqueda=busqueda,
+            pagination=clientes,
         )
 
     cantidad_cumpleanos = contar_cumpleanos_hoy(current_user.empresa_id)
