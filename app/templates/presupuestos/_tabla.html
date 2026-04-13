@@ -22,7 +22,12 @@
                 </td>
                 <td>{{ p.fecha|datetime }}</td>
                 <td>{{ p.fecha_vencimiento|date }}</td>
-                <td>{{ p.nombre_cliente_display }}</td>
+                <td>
+                    <span class="d-inline-block text-truncate" style="max-width: 250px;"
+                          title="{{ p.nombre_cliente_display }}">
+                        {{ p.nombre_cliente_display }}
+                    </span>
+                </td>
                 <td class="text-end fw-bold">{{ p.total|currency }}</td>
                 <td>
                     {% if p.estado == 'pendiente' %}

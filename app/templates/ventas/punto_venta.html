@@ -27,19 +27,24 @@
                        placeholder="Buscar producto por código o nombre... (F2)"
                        x-model="searchQuery"
                        @input.debounce.300ms="searchProducts()"
-                       @keydown.enter="addFirstResult()"
+                       @keydown.arrow-down.prevent="productSelectedIndex = Math.min(productSelectedIndex + 1, searchResults.length - 1)"
+                       @keydown.arrow-up.prevent="productSelectedIndex = Math.max(productSelectedIndex - 1, 0)"
+                       @keydown.enter.prevent="if(productSelectedIndex >= 0 && searchResults[productSelectedIndex]) addToCart(searchResults[productSelectedIndex]); else addFirstResult()"
                        @keydown.escape="clearSearch()">
 
                 <!-- Search Results Dropdown -->
                 <div class="search-results position-absolute bg-white shadow-lg rounded-2 mt-1 w-100"
                      x-show="searchResults.length > 0"
                      x-cloak
-                     style="z-index: 1000; max-height: 300px; overflow-y: auto;">
-                    <template x-for="product in searchResults" :key="product.id">
+                     style="z-index: 1000; max-height: 300px; overflow-y: auto;"
+                     x-effect="if(productSelectedIndex >= 0) $el.children[productSelectedIndex]?.scrollIntoView({block: 'nearest'})">
+                    <template x-for="(product, index) in searchResults" :key="product.id">
                         <div class="search-result-item p-3 border-bottom cursor-pointer"
                              @click="addToCart(product)"
                              style="cursor: pointer;"
-                             :class="{'bg-light': product.stock_actual <= 0}">
+                             :class="{'bg-primary text-white': productSelectedIndex === index, 'bg-light': productSelectedIndex !== index && product.stock_actual <= 0}"
+                             @mouseenter="productSelectedIndex = index"
+                             @mouseleave="productSelectedIndex = -1">
                             <div class="d-flex justify-content-between">
                                 <div>
                                     <span class="badge badge-secondary me-2" x-text="product.codigo"></span>
@@ -47,7 +52,7 @@
                                 </div>
                                 <div class="text-end">
                                     <strong x-text="formatCurrency(product.precio_venta)"></strong>
-                                    <small class="text-muted d-block">
+                                    <small class="d-block" :class="productSelectedIndex === index ? '' : 'text-muted'">
                                         Stock: <span x-text="formatStock(product.stock_actual, product.unidad_medida)"></span>
                                     </small>
                                 </div>
@@ -138,12 +143,13 @@
                                                            x-model.number="item.descuento_porcentaje"
                                                            min="0" max="100" step="0.5"
                                                            placeholder="0">
-                                                    <input type="number"
+                                                    <input type="text"
                                                            class="form-control text-end"
                                                            x-show="(item.modoDescuento || 'porcentaje') === 'total'"
                                                            x-cloak
-                                                           x-model.number="item.precioDeseado"
-                                                           min="0" step="0.01"
+                                                           x-model="item.precioDeseado"
+                                                           x-init="initMoneyInput($el)"
+                                                           data-mask="money"
                                                            inputmode="decimal"
                                                            placeholder="0"
                                                            @input="calcularDescuentoItemDesdeTotal(item)">
@@ -247,6 +253,8 @@
                                x-show="modoDescuento === 'total'"
                                x-cloak
                                x-model="totalDeseado"
+                               x-init="initMoneyInput($el)"
+                               data-mask="money"
                                @input="calcularDescuentoDesdeTotal()"
                                :disabled="cart.length === 0"
                                inputmode="decimal"
@@ -339,11 +347,12 @@
                     </div>
                     <div class="col-6">
                         <label class="form-label small text-muted">Monto 1</label>
-                        <input type="number" class="form-control form-control-sm"
+                        <input type="text" class="form-control form-control-sm"
+                               data-mask="money" inputmode="decimal"
                                x-model="pagoDividido1.monto"
+                               x-init="initMoneyInput($el)"
                                @input="calcularMonto2()"
-                               step="0.01" min="0.01"
-                               placeholder="$0.00">
+                               placeholder="$0,00">
                     </div>
                 </div>
                 <div class="row g-2 mb-2">
@@ -360,11 +369,12 @@
                     </div>
                     <div class="col-6">
                         <label class="form-label small text-muted">Monto 2</label>
-                        <input type="number" class="form-control form-control-sm"
+                        <input type="text" class="form-control form-control-sm"
+                               data-mask="money" inputmode="decimal"
                                x-model="pagoDividido2.monto"
+                               x-init="initMoneyInput($el)"
                                @input="calcularMonto1()"
-                               step="0.01" min="0.01"
-                               placeholder="$0.00">
+                               placeholder="$0,00">
                     </div>
                 </div>
                 <!-- Indicador de validacion -->
@@ -452,6 +462,7 @@ function posApp() {
         clienteResults: [],
         showClienteResults: false,
         clienteSelectedIndex: -1,
+        productSelectedIndex: -1,
         formaPago: 'efectivo',
         descuentoPorcentaje: 0,
         modoDescuento: 'porcentaje',
@@ -471,7 +482,7 @@ function posApp() {
             const precio = Number(item.precio_unitario) || 0;
             const modo = item.modoDescuento || 'porcentaje';
             if (modo === 'total') {
-                const deseado = parseFloat(item.precioDeseado);
+                const deseado = parseMoneyNumber(item.precioDeseado);
                 if (!isNaN(deseado) && deseado >= 0 && deseado < precio) {
                     return cantidad * deseado;
                 }
@@ -569,7 +580,7 @@ function posApp() {
                 // Cambiar a modo $: poblar precioDeseado con el precio con descuento actual
                 const pct = Number(item.descuento_porcentaje) || 0;
                 const precioOriginal = parseMoneyNumber(item.precio_unitario);
-                item.precioDeseado = (precioOriginal * (1 - pct / 100)).toFixed(2);
+                item.precioDeseado = formatMoneyOnBlur((precioOriginal * (1 - pct / 100)).toFixed(2));
                 item.modoDescuento = 'total';
             } else {
                 // Cambiar a modo %: se mantiene el descuento_porcentaje ya calculado
@@ -580,7 +591,7 @@ function posApp() {
         // Calcula el descuento_porcentaje de un item a partir del precio unitario deseado
         calcularDescuentoItemDesdeTotal(item) {
             const original = parseMoneyNumber(item.precio_unitario);
-            const deseado = parseFloat(item.precioDeseado);
+            const deseado = parseMoneyNumber(item.precioDeseado);
             if (original <= 0 || isNaN(deseado) || deseado < 0) {
                 item.descuento_porcentaje = 0;
                 return;
@@ -598,7 +609,7 @@ function posApp() {
         toggleModoDescuentoGlobal() {
             if (this.modoDescuento === 'porcentaje') {
                 // Cambiar a modo $: poblar totalDeseado con el total actual
-                this.totalDeseado = this.total > 0 ? this.total.toFixed(2) : '';
+                this.totalDeseado = this.total > 0 ? formatMoneyOnBlur(this.total.toFixed(2)) : '';
                 this.modoDescuento = 'total';
             } else {
                 // Cambiar a modo %: dejar el porcentaje calculado
@@ -621,27 +632,29 @@ function posApp() {
         },
 
         get montosPositivos() {
-            const m1 = parseFloat(this.pagoDividido1.monto) || 0;
-            const m2 = parseFloat(this.pagoDividido2.monto) || 0;
+            const m1 = parseMoneyNumber(this.pagoDividido1.monto);
+            const m2 = parseMoneyNumber(this.pagoDividido2.monto);
             return m1 > 0 && m2 > 0;
         },
 
         get sumaValida() {
             if (this.formaPago !== 'dividido') return true;
             if (!this.montosPositivos) return false;
-            const m1 = parseFloat(this.pagoDividido1.monto) || 0;
-            const m2 = parseFloat(this.pagoDividido2.monto) || 0;
+            const m1 = parseMoneyNumber(this.pagoDividido1.monto);
+            const m2 = parseMoneyNumber(this.pagoDividido2.monto);
             return Math.abs((m1 + m2) - this.total) < 0.01;
         },
 
         calcularMonto2() {
-            const m1 = parseFloat(this.pagoDividido1.monto) || 0;
-            this.pagoDividido2.monto = Math.max(0, (this.total - m1)).toFixed(2);
+            const m1 = parseMoneyNumber(this.pagoDividido1.monto);
+            const raw = Math.max(0, (this.total - m1)).toFixed(2);
+            this.pagoDividido2.monto = formatMoneyOnBlur(raw);
         },
 
         calcularMonto1() {
-            const m2 = parseFloat(this.pagoDividido2.monto) || 0;
-            this.pagoDividido1.monto = Math.max(0, (this.total - m2)).toFixed(2);
+            const m2 = parseMoneyNumber(this.pagoDividido2.monto);
+            const raw = Math.max(0, (this.total - m2)).toFixed(2);
+            this.pagoDividido1.monto = formatMoneyOnBlur(raw);
         },
 
         formatCurrency(value) {
@@ -720,6 +733,7 @@ function posApp() {
         },
 
         async searchProducts() {
+            this.productSelectedIndex = -1;
             if (this.searchQuery.length < 2) {
                 this.searchResults = [];
                 return;
@@ -817,6 +831,7 @@ function posApp() {
         clearSearch() {
             this.searchQuery = '';
             this.searchResults = [];
+            this.productSelectedIndex = -1;
         },
 
         // Búsqueda de clientes por nombre o DNI
@@ -874,6 +889,18 @@ function posApp() {
                 return;
             }
 
+            // Normalizar valores monetarios formateados antes de validar y enviar
+            for (const item of this.cart) {
+                if (item.precioDeseado !== undefined && item.precioDeseado !== '') {
+                    item.precioDeseado = parseMoneyNumber(item.precioDeseado);
+                }
+                if (typeof item.precio_unitario === 'string') {
+                    item.precio_unitario = parseMoneyNumber(item.precio_unitario);
+                }
+            }
+            // Esperar a que Alpine recalcule los getters con los valores normalizados
+            await this.$nextTick();
+
             // Validar descuentos por item antes de enviar
             for (const item of this.cart) {
                 const desc = item.descuento_porcentaje || 0;
@@ -905,8 +932,8 @@ function posApp() {
                     this.mostrarAlerta('Las formas de pago deben ser distintas.');
                     return;
                 }
-                const m1 = parseFloat(this.pagoDividido1.monto) || 0;
-                const m2 = parseFloat(this.pagoDividido2.monto) || 0;
+                const m1 = parseMoneyNumber(this.pagoDividido1.monto);
+                const m2 = parseMoneyNumber(this.pagoDividido2.monto);
                 if (m1 <= 0 || m2 <= 0) {
                     this.mostrarAlerta('Cada monto debe ser mayor a 0.');
                     return;
