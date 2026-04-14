@@ -2,13 +2,23 @@
 
 from decimal import Decimal
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    flash,
+    jsonify,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from flask_login import current_user, login_required
 from sqlalchemy import func
 
 from ..extensions import db
 from ..forms.cliente_forms import ClienteForm, PagoCuentaCorrienteForm
 from ..models import Caja, Cliente, MovimientoCaja, MovimientoCuentaCorriente
+from ..services import cuenta_corriente_service
 from ..services.cumpleanos_service import (
     contar_cumpleanos_hoy,
     generar_url_whatsapp_cumpleanos,
@@ -35,7 +45,7 @@ def index():
             db.or_(
                 Cliente.nombre.ilike(f'%{busqueda}%'),
                 Cliente.dni_cuit.ilike(f'%{busqueda}%'),
-                Cliente.email.ilike(f'%{busqueda}%')
+                Cliente.email.ilike(f'%{busqueda}%'),
             )
         )
 
@@ -72,13 +82,13 @@ def cumpleanos():
 
     datos_cumpleanos = []
     for cliente in clientes:
-        url_whatsapp = generar_url_whatsapp_cumpleanos(
-            cliente, current_user.empresa_id
+        url_whatsapp = generar_url_whatsapp_cumpleanos(cliente, current_user.empresa_id)
+        datos_cumpleanos.append(
+            {
+                'cliente': cliente,
+                'url_whatsapp': url_whatsapp,
+            }
         )
-        datos_cumpleanos.append({
-            'cliente': cliente,
-            'url_whatsapp': url_whatsapp,
-        })
 
     return render_template(
         'clientes/_contenido_cumpleanos.html',
@@ -141,10 +151,7 @@ def editar(id):
         return redirect(url_for('clientes.index'))
 
     return render_template(
-        'clientes/form.html',
-        form=form,
-        titulo='Editar Cliente',
-        cliente=cliente
+        'clientes/form.html', form=form, titulo='Editar Cliente', cliente=cliente
     )
 
 
@@ -155,18 +162,19 @@ def cuenta_corriente(id):
     cliente = Cliente.get_o_404(id)
     page = request.args.get('page', 1, type=int)
 
-    movimientos = MovimientoCuentaCorriente.query_empresa().filter_by(
-        cliente_id=id
-    ).order_by(
-        MovimientoCuentaCorriente.created_at.desc()
-    ).paginate(page=page, per_page=20)
+    movimientos = (
+        MovimientoCuentaCorriente.query_empresa()
+        .filter_by(cliente_id=id)
+        .order_by(MovimientoCuentaCorriente.created_at.desc())
+        .paginate(page=page, per_page=20)
+    )
 
     movimientos_ids = [mov.id for mov in movimientos.items if mov.tipo == 'pago']
     formas_pago = {}
     if movimientos_ids:
         movimientos_caja = MovimientoCaja.query.filter(
             MovimientoCaja.referencia_tipo == 'pago_cc',
-            MovimientoCaja.referencia_id.in_(movimientos_ids)
+            MovimientoCaja.referencia_id.in_(movimientos_ids),
         ).all()
         formas_pago = {mov.referencia_id: mov.forma_pago_display for mov in movimientos_caja}
 
@@ -177,8 +185,23 @@ def cuenta_corriente(id):
         cliente=cliente,
         movimientos=movimientos,
         form=form,
-        formas_pago=formas_pago
+        formas_pago=formas_pago,
     )
+
+
+@bp.route('/<int:id>/estado-cuenta-pdf')
+@login_required
+@empresa_aprobada_required
+def estado_cuenta_pdf(id):
+    """Descargar PDF del estado de cuenta del cliente."""
+    cliente = Cliente.get_o_404(id)
+
+    pdf_bytes = cuenta_corriente_service.generar_estado_cuenta_pdf(cliente)
+
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=estado_cuenta_{cliente.id}.pdf'
+    return response
 
 
 @bp.route('/<int:id>/registrar-pago', methods=['POST'])
@@ -198,9 +221,7 @@ def registrar_pago(id):
             return redirect(url_for('clientes.cuenta_corriente', id=id))
 
         # Verificar caja abierta
-        caja = Caja.query.filter_by(
-            estado='abierta', empresa_id=current_user.empresa_id
-        ).first()
+        caja = Caja.query.filter_by(estado='abierta', empresa_id=current_user.empresa_id).first()
         if not caja:
             flash('No hay caja abierta. Abre la caja para registrar el pago.', 'warning')
             return redirect(url_for('caja.index'))
@@ -235,7 +256,7 @@ def registrar_pago(id):
             forma_pago=forma_pago,
             referencia_tipo='pago_cc',
             referencia_id=movimiento_cc.id,
-            usuario_id=current_user.id
+            usuario_id=current_user.id,
         )
         db.session.add(movimiento_caja)
 
@@ -252,27 +273,26 @@ def deudores():
     """Listado de clientes con deuda."""
     page = request.args.get('page', 1, type=int)
 
-    clientes = Cliente.query_empresa().filter(
-        Cliente.activo.is_(True),
-        Cliente.saldo_cuenta_corriente > 0
-    ).order_by(
-        Cliente.saldo_cuenta_corriente.desc()
-    ).paginate(page=page, per_page=20)
+    clientes = (
+        Cliente.query_empresa()
+        .filter(Cliente.activo.is_(True), Cliente.saldo_cuenta_corriente > 0)
+        .order_by(Cliente.saldo_cuenta_corriente.desc())
+        .paginate(page=page, per_page=20)
+    )
 
     # Total de deudas
-    total_deudas = db.session.query(
-        func.sum(Cliente.saldo_cuenta_corriente)
-    ).filter(
-        Cliente.empresa_id == current_user.empresa_id,
-        Cliente.activo.is_(True),
-        Cliente.saldo_cuenta_corriente > 0
-    ).scalar() or 0
-
-    return render_template(
-        'clientes/deudores.html',
-        clientes=clientes,
-        total_deudas=total_deudas
+    total_deudas = (
+        db.session.query(func.sum(Cliente.saldo_cuenta_corriente))
+        .filter(
+            Cliente.empresa_id == current_user.empresa_id,
+            Cliente.activo.is_(True),
+            Cliente.saldo_cuenta_corriente > 0,
+        )
+        .scalar()
+        or 0
     )
+
+    return render_template('clientes/deudores.html', clientes=clientes, total_deudas=total_deudas)
 
 
 @bp.route('/buscar')
@@ -285,13 +305,15 @@ def buscar():
     if len(q) < 2:
         return jsonify([])
 
-    clientes = Cliente.query_empresa().filter(
-        Cliente.activo.is_(True),
-        db.or_(
-            Cliente.nombre.ilike(f'%{q}%'),
-            Cliente.dni_cuit.ilike(f'%{q}%')
+    clientes = (
+        Cliente.query_empresa()
+        .filter(
+            Cliente.activo.is_(True),
+            db.or_(Cliente.nombre.ilike(f'%{q}%'), Cliente.dni_cuit.ilike(f'%{q}%')),
         )
-    ).limit(limit).all()
+        .limit(limit)
+        .all()
+    )
 
     return jsonify([c.to_dict() for c in clientes])
 

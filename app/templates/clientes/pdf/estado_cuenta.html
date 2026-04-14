@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Estado de Cuenta - {{ cliente.nombre }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1cm 1.5cm;
+            @bottom-center {
+                content: "Página " counter(page) " de " counter(pages);
+                font-size: 9px;
+                color: #999;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 11px;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        /* Header - layout tabla para compatibilidad con WeasyPrint */
+        .header {
+            display: table;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .header-left {
+            display: table-cell;
+            vertical-align: top;
+            width: 65%;
+        }
+
+        .header-right {
+            display: table-cell;
+            vertical-align: top;
+            text-align: right;
+            width: 35%;
+        }
+
+        .header-left-content {
+            display: table;
+        }
+
+        .logo-cell {
+            display: table-cell;
+            vertical-align: middle;
+            padding-right: 12px;
+            width: 80px;
+        }
+
+        .logo-img {
+            max-height: 70px;
+            max-width: 80px;
+            object-fit: contain;
+        }
+
+        .company-info-cell {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .logo-text {
+            font-size: 22px;
+            font-weight: bold;
+            color: #333;
+            letter-spacing: 1px;
+        }
+
+        .company-details {
+            font-size: 10px;
+            color: #666;
+            margin-top: 3px;
+            line-height: 1.6;
+        }
+
+        .ec-titulo {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .ec-referencia {
+            font-size: 11px;
+            color: #555;
+            margin-bottom: 3px;
+        }
+
+        .ec-fecha {
+            font-size: 10px;
+            color: #888;
+        }
+
+        /* Info boxes */
+        .info-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            gap: 15px;
+        }
+
+        .info-box {
+            width: 48%;
+            border-radius: 4px;
+            padding: 6px 10px;
+            border-left: 3px solid #999;
+        }
+
+        .info-box-label {
+            font-size: 8px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #555;
+            letter-spacing: 0.5px;
+            margin-bottom: 3px;
+        }
+
+        .info-box p {
+            margin: 1px 0;
+            font-size: 9px;
+            color: #555;
+            line-height: 1.3;
+        }
+
+        .info-box .nombre {
+            font-size: 11px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* Resumen financiero */
+        .resumen-financiero {
+            border: 1.5px solid #333;
+            border-radius: 4px;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+        }
+
+        .resumen-financiero-titulo {
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #555;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .resumen-financiero-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 11px;
+        }
+
+        .resumen-financiero-row.saldo {
+            font-size: 14px;
+            font-weight: bold;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 6px;
+            margin-bottom: 4px;
+        }
+
+        .resumen-financiero-row .valor-deuda {
+            color: #c0392b;
+        }
+
+        .resumen-financiero-row .valor-disponible {
+            color: #27ae60;
+        }
+
+        /* Tablas */
+        .section-title {
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 6px;
+            margin-top: 15px;
+            padding-bottom: 3px;
+            border-bottom: 2px solid #333;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+
+        .data-table thead th {
+            padding: 6px 8px;
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            text-align: left;
+            color: #333;
+            border-bottom: 2px solid #333;
+        }
+
+        .data-table tbody td {
+            padding: 5px 8px;
+            border-bottom: 1px solid #ddd;
+            font-size: 10px;
+        }
+
+        .data-table .text-right {
+            text-align: right;
+        }
+
+        .data-table .text-center {
+            text-align: center;
+        }
+
+        .data-table .text-danger {
+            color: #c0392b;
+        }
+
+        .data-table .text-success {
+            color: #27ae60;
+        }
+
+        .data-table .font-bold {
+            font-weight: bold;
+        }
+
+        .empty-message {
+            text-align: center;
+            padding: 15px;
+            color: #999;
+            font-size: 10px;
+        }
+
+        /* Ventas pendientes */
+        .venta-header {
+            background-color: #f5f5f5;
+            padding: 5px 8px;
+            margin-top: 8px;
+            margin-bottom: 0;
+            font-size: 10px;
+            font-weight: bold;
+            color: #333;
+            border: 1px solid #ddd;
+            border-bottom: none;
+        }
+
+        .venta-detalles-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+            border: 1px solid #ddd;
+        }
+
+        .venta-detalles-table thead th {
+            padding: 4px 8px;
+            font-size: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            text-align: left;
+            color: #555;
+            border-bottom: 1px solid #ddd;
+            background-color: #fafafa;
+        }
+
+        .venta-detalles-table tbody td {
+            padding: 3px 8px;
+            border-bottom: 1px solid #eee;
+            font-size: 9px;
+        }
+
+        .venta-detalles-table .text-right {
+            text-align: right;
+        }
+
+        .venta-total-row {
+            background-color: #f9f9f9;
+            font-weight: bold;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            font-size: 9px;
+            color: #999;
+        }
+
+        .footer .aviso-pie {
+            font-size: 10px;
+            color: #333;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <div class="header-left-content">
+                {% if config_negocio.logo_base64 %}
+                <div class="logo-cell">
+                    <img src="{{ config_negocio.logo_base64 }}"
+                         class="logo-img"
+                         alt="{{ config_negocio.nombre }}">
+                </div>
+                {% endif %}
+                <div class="company-info-cell">
+                    <div class="logo-text">{{ config_negocio.nombre or 'FerrERP' }}</div>
+                    <div class="company-details">
+                        {% if config_negocio.cuit %}CUIT: {{ config_negocio.cuit }}<br>{% endif %}
+                        {% if config_negocio.direccion %}{{ config_negocio.direccion }}<br>{% endif %}
+                        {% if config_negocio.telefono %}Tel: {{ config_negocio.telefono }}{% endif %}
+                        {% if config_negocio.email %}<br>{{ config_negocio.email }}{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="ec-titulo">ESTADO DE CUENTA</div>
+            <div class="ec-referencia">{{ referencia }}</div>
+            <div class="ec-fecha">
+                Fecha: {{ fecha_generacion.strftime('%d/%m/%Y %H:%M') }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Section: Cliente -->
+    <div class="info-section">
+        <div class="info-box">
+            <div class="info-box-label">Cliente</div>
+            <p class="nombre">{{ cliente.nombre }}</p>
+            {% if cliente.dni_cuit %}
+            <p>DNI/CUIT: {{ cliente.dni_cuit }}</p>
+            {% endif %}
+            {% if cliente.telefono %}
+            <p>Tel: {{ cliente.telefono }}</p>
+            {% endif %}
+            {% if cliente.direccion %}
+            <p>{{ cliente.direccion }}</p>
+            {% endif %}
+        </div>
+
+        <div class="info-box">
+            <div class="info-box-label">Cuenta Corriente</div>
+            <p><strong>Cliente desde:</strong> {{ cliente.created_at.strftime('%d/%m/%Y') if cliente.created_at else '-' }}</p>
+            <p><strong>Estado:</strong> {% if cliente.tiene_deuda %}Con deuda{% else %}Sin deuda{% endif %}</p>
+        </div>
+    </div>
+
+    <!-- Resumen financiero -->
+    <div class="resumen-financiero">
+        <div class="resumen-financiero-titulo">Resumen Financiero</div>
+        <div class="resumen-financiero-row saldo">
+            <span>Saldo actual (deuda):</span>
+            <span class="valor-deuda">${{ '{:,.2f}'.format(cliente.saldo_cuenta_corriente) }}</span>
+        </div>
+        {% if cliente.limite_credito > 0 %}
+        <div class="resumen-financiero-row">
+            <span>Límite de crédito:</span>
+            <span>${{ '{:,.2f}'.format(cliente.limite_credito) }}</span>
+        </div>
+        <div class="resumen-financiero-row">
+            <span>Crédito disponible:</span>
+            <span class="valor-disponible">${{ '{:,.2f}'.format(cliente.credito_disponible) }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Movimientos -->
+    <div class="section-title">Últimos Movimientos</div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Descripción</th>
+                <th class="text-right">Monto</th>
+                <th class="text-right">Saldo</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for mov in movimientos %}
+            <tr>
+                <td>{{ mov.created_at.strftime('%d/%m/%Y %H:%M') if mov.created_at else '-' }}</td>
+                <td>{{ mov.tipo_display }}</td>
+                <td>{{ mov.descripcion or '-' }}</td>
+                <td class="text-right {% if mov.tipo == 'cargo' %}text-danger{% else %}text-success{% endif %}">
+                    {% if mov.tipo == 'cargo' %}+{% else %}-{% endif %}${{ '{:,.2f}'.format(mov.monto) }}
+                </td>
+                <td class="text-right">${{ '{:,.2f}'.format(mov.saldo_posterior) }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="empty-message">Sin movimientos registrados</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Detalle de compras pendientes -->
+    {% if ventas_con_detalles %}
+    <div class="section-title">Detalle de Compras en Cuenta Corriente</div>
+    {% for vc in ventas_con_detalles %}
+    <div class="venta-header">
+        Venta #{{ vc.venta.numero_completo }}
+        — {{ vc.venta.fecha.strftime('%d/%m/%Y') }}
+        — {{ vc.venta.forma_pago_display }}
+        — Total: ${{ '{:,.2f}'.format(vc.venta.total) }}
+    </div>
+    <table class="venta-detalles-table">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th class="text-right">Cantidad</th>
+                <th class="text-right">P. Unitario</th>
+                <th class="text-right">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for detalle in vc.detalles %}
+            <tr>
+                <td>{{ detalle.producto.nombre if detalle.producto else 'Producto eliminado' }}</td>
+                <td class="text-right">{{ '{:,.3f}'.format(detalle.cantidad) }}</td>
+                <td class="text-right">${{ '{:,.2f}'.format(detalle.precio_unitario) }}</td>
+                <td class="text-right">${{ '{:,.2f}'.format(detalle.subtotal) }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="venta-total-row">
+                <td colspan="3" class="text-right">Total venta:</td>
+                <td class="text-right">${{ '{:,.2f}'.format(vc.venta.total) }}</td>
+            </tr>
+        </tbody>
+    </table>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>{{ config_negocio.nombre or 'FerrERP' }}{% if config_negocio.telefono %} | Tel: {{ config_negocio.telefono }}{% endif %}</p>
+        <p class="aviso-pie">Documento no válido como factura</p>
+        <p style="margin-top: 3px;">Generado el {{ fecha_generacion.strftime('%d/%m/%Y a las %H:%M') }}</p>
+        <div style="text-align: center; font-size: 7px; color: #999; margin-top: 5px;">
+            Generado por <a href="https://ferrerp.app/" style="color: #999; text-decoration: none;">FerrERP.app</a> by <a href="https://adain.dev" style="color: #999; text-decoration: none;">AD&#x039B;IN.DEV</a>
+        </div>
+    </div>
+</body>
+</html>
