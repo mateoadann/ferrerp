@@ -61,6 +61,43 @@
     </div>
 
     {% if not porcentaje_cero %}
+    <!-- Opcion de ajustar deudas CC -->
+    <div class="card-body border-top">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox"
+                   id="ajustar_cc" name="ajustar_cc" value="y"
+                   hx-post="{{ url_for('productos.actualizacion_masiva_preview_cc') }}"
+                   hx-target="#preview-cc-container"
+                   hx-indicator="#preview-cc-loading"
+                   hx-trigger="change[this.checked]"
+                   hx-vals='{"categorias_ids": "{{ categorias_ids | tojson | e }}", "porcentaje": "{{ porcentaje }}"}'>
+            <label class="form-check-label" for="ajustar_cc">
+                <span class="material-symbols-rounded me-1" style="vertical-align: middle; font-size: 20px;">account_balance</span>
+                Recalcular deudas de cuenta corriente con los precios nuevos
+            </label>
+            <div class="form-text">
+                Si se marca, se ajustaran los saldos de CC de clientes con ventas pendientes
+                que incluyan productos de las categorias seleccionadas.
+            </div>
+        </div>
+
+        <div id="preview-cc-loading" class="htmx-indicator text-center py-3">
+            <div class="spinner-border spinner-border-sm text-warning" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <small class="ms-2 text-muted">Calculando ajustes de cuenta corriente...</small>
+        </div>
+        <div id="preview-cc-container"></div>
+    </div>
+
+    <script>
+        document.getElementById('ajustar_cc').addEventListener('change', function() {
+            if (!this.checked) {
+                document.getElementById('preview-cc-container').replaceChildren();
+            }
+        });
+    </script>
+
     <div class="card-footer">
         <form method="POST" action="{{ url_for('productos.actualizacion_masiva_aplicar') }}"
               id="form-aplicar">
@@ -69,6 +106,7 @@
             <input type="hidden" name="porcentaje" value="{{ porcentaje }}">
             <input type="hidden" name="actualizar_costo" value="{{ 'y' if actualizar_costo else 'n' }}">
             <input type="hidden" name="notas" value="{{ request.form.get('notas', '') }}">
+            <input type="hidden" name="ajustar_cc" id="ajustar_cc_hidden" value="n">
 
             <div class="d-flex justify-content-between align-items-center">
                 <span class="text-muted">
@@ -89,6 +127,13 @@
             </div>
         </form>
     </div>
+
+    <script>
+        // Sincronizar el checkbox visible con el hidden del form de aplicacion
+        document.getElementById('ajustar_cc').addEventListener('change', function() {
+            document.getElementById('ajustar_cc_hidden').value = this.checked ? 'y' : 'n';
+        });
+    </script>
     {% endif %}
 </div>
 
