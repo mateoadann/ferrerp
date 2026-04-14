@@ -78,18 +78,22 @@ def _guardar_logo(archivo, empresa_id):
     filepath = os.path.join(upload_dir, filename)
     archivo.save(filepath)
 
-    # Redimensionar si excede el ancho maximo
-    try:
-        from PIL import Image
+    # Validar que el archivo sea una imagen real y redimensionar
+    from PIL import Image
 
+    try:
         with Image.open(filepath) as img:
-            if img.width > MAX_LOGO_WIDTH:
-                ratio = MAX_LOGO_WIDTH / img.width
-                nuevo_alto = int(img.height * ratio)
-                img = img.resize((MAX_LOGO_WIDTH, nuevo_alto), Image.LANCZOS)
-                img.save(filepath)
-    except ImportError:
-        pass  # Pillow no disponible, se guarda sin redimensionar
+            img.verify()
+    except Exception:
+        os.remove(filepath)
+        raise ValueError('El archivo no es una imagen válida.')
+
+    with Image.open(filepath) as img:
+        if img.width > MAX_LOGO_WIDTH:
+            ratio = MAX_LOGO_WIDTH / img.width
+            nuevo_alto = int(img.height * ratio)
+            img = img.resize((MAX_LOGO_WIDTH, nuevo_alto), Image.LANCZOS)
+            img.save(filepath)
 
     return filename
 
