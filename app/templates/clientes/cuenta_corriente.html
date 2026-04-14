@@ -23,10 +23,16 @@
         <div class="card mb-4">
             <div class="card-header">Resumen</div>
             <div class="card-body text-center">
-                <h2 class="{% if cliente.tiene_deuda %}text-danger{% else %}text-success{% endif %}">
-                    {{ cliente.saldo_cuenta_corriente|currency }}
-                </h2>
-                <p class="text-muted mb-0">Saldo actual</p>
+                {% if cliente.tiene_saldo_a_favor %}
+                <h2 class="text-info">{{ cliente.saldo_a_favor|currency }}</h2>
+                <p class="text-muted mb-0">Saldo a favor</p>
+                {% elif cliente.tiene_deuda %}
+                <h2 class="text-danger">{{ cliente.saldo_cuenta_corriente|currency }}</h2>
+                <p class="text-muted mb-0">Saldo deuda</p>
+                {% else %}
+                <h2 class="text-success">{{ cliente.saldo_cuenta_corriente|currency }}</h2>
+                <p class="text-muted mb-0">Sin saldo</p>
+                {% endif %}
                 {% if cliente.limite_credito > 0 %}
                 <hr>
                 <div class="d-flex justify-content-between small">
@@ -69,6 +75,36 @@
             </div>
         </div>
         {% endif %}
+
+        <div class="card mt-3">
+            <div class="card-header bg-info text-white">
+                <span class="material-symbols-rounded align-middle me-1">savings</span>
+                Registrar Adelanto
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('clientes.registrar_adelanto', id=cliente.id) }}">
+                    {{ form_adelanto.hidden_tag() }}
+                    <input type="hidden" name="forma_pago" id="formaPagoAdelantoInput" value="{{ form_adelanto.forma_pago.data or 'efectivo' }}">
+                    <div class="mb-3">
+                        <label class="form-label">Monto *</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            {{ form_adelanto.monto(class="form-control") }}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Motivo</label>
+                        {{ form_adelanto.motivo(class="form-control") }}
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <span class="text-muted small">Forma de pago: <strong id="formaPagoAdelantoLabel">Efectivo</strong></span>
+                    </div>
+                    <button type="button" class="btn btn-info text-white w-100" id="registrarAdelantoBtn">
+                        <span class="material-symbols-rounded me-2">savings</span>Registrar Adelanto
+                    </button>
+                </form>
+            </div>
+        </div>
     </div>
 
     <div class="col-lg-8">
@@ -85,6 +121,7 @@
                                 <th>Forma Pago</th>
                                 <th class="text-end">Monto</th>
                                 <th class="text-end">Saldo</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -92,14 +129,20 @@
                             <tr>
                                 <td>{{ mov.created_at|datetime }}</td>
                                 <td>
-                                    {% if mov.tipo == 'cargo' %}
+                                    {% if mov.referencia_tipo == 'adelanto' %}
+                                    <span class="badge bg-info">Adelanto</span>
+                                    {% elif mov.referencia_tipo == 'anulacion_adelanto' %}
+                                    <span class="badge bg-secondary">Anulacion Adelanto</span>
+                                    {% elif mov.referencia_tipo == 'consumo_saldo_favor' %}
+                                    <span class="badge bg-warning text-dark">Consumo Saldo</span>
+                                    {% elif mov.tipo == 'cargo' %}
                                     <span class="badge badge-danger">Cargo</span>
                                     {% else %}
                                     <span class="badge badge-success">Pago</span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if mov.referencia_tipo == 'venta' and mov.referencia_id %}
+                                    {% if mov.referencia_tipo in ('venta', 'consumo_saldo_favor') and mov.referencia_id %}
                                     <a href="{{ url_for('ventas.detalle', id=mov.referencia_id) }}">
                                         {{ mov.descripcion }}
                                     </a>
@@ -118,9 +161,19 @@
                                     {% if mov.tipo == 'cargo' %}+{% else %}-{% endif %}{{ mov.monto|currency }}
                                 </td>
                                 <td class="text-end">{{ mov.saldo_posterior|currency }}</td>
+                                <td>
+                                    {% if mov.referencia_tipo == 'adelanto' and current_user.es_administrador %}
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger"
+                                            title="Anular adelanto"
+                                            onclick="confirmAction('{{ url_for('clientes.anular_adelanto', id=cliente.id, movimiento_id=mov.id) }}', '¿Anular este adelanto? Se revertira el saldo del cliente.', 'Anular', 'btn-danger')">
+                                        <span class="material-symbols-rounded" style="font-size: 16px;">undo</span>
+                                    </button>
+                                    {% endif %}
+                                </td>
                             </tr>
                             {% else %}
-                            <tr><td colspan="6" class="text-center py-4 text-muted">Sin movimientos</td></tr>
+                            <tr><td colspan="7" class="text-center py-4 text-muted">Sin movimientos</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -173,57 +226,136 @@
         </div>
     </div>
 </div>
+<!-- Modal de forma de pago (Adelanto) -->
+<div class="modal fade" id="adelantoCtaModal" tabindex="-1" aria-labelledby="adelantoCtaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="material-symbols-rounded" style="font-size: 24px;">savings</span>
+                    <h5 class="modal-title mb-0" id="adelantoCtaModalLabel">Seleccionar forma de pago</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="payment-methods">
+                    <div class="payment-method" data-value="efectivo">
+                        <span class="material-symbols-rounded">payments</span>
+                        <div>Efectivo</div>
+                    </div>
+                    <div class="payment-method" data-value="tarjeta_debito">
+                        <span class="material-symbols-rounded">credit_card</span>
+                        <div>Tarjeta Debito</div>
+                    </div>
+                    <div class="payment-method" data-value="tarjeta_credito">
+                        <span class="material-symbols-rounded">credit_card</span>
+                        <div>Tarjeta Credito</div>
+                    </div>
+                    <div class="payment-method" data-value="transferencia">
+                        <span class="material-symbols-rounded">account_balance</span>
+                        <div>Transferencia</div>
+                    </div>
+                    <div class="payment-method" data-value="qr">
+                        <span class="material-symbols-rounded">qr_code_2</span>
+                        <div>QR</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-info text-white" id="confirmarAdelantoBtn">Continuar</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const modalEl = document.getElementById('pagoCtaModal');
-    const modal = new bootstrap.Modal(modalEl);
-    const form = document.querySelector('form[action="{{ url_for('clientes.registrar_pago', id=cliente.id) }}"]');
-    const formaPagoInput = document.getElementById('formaPagoInput');
-    const formaPagoLabel = document.getElementById('formaPagoLabel');
-    const registrarBtn = document.getElementById('registrarPagoBtn');
-    const confirmarBtn = document.getElementById('confirmarPagoBtn');
-    const methodEls = modalEl.querySelectorAll('.payment-method');
-
-    if (!form || !formaPagoInput || !formaPagoLabel || !registrarBtn || !confirmarBtn) {
-        return;
-    }
-
     const labelMap = {
         efectivo: 'Efectivo',
-        tarjeta_debito: 'Tarjeta Débito',
-        tarjeta_credito: 'Tarjeta Crédito',
+        tarjeta_debito: 'Tarjeta Debito',
+        tarjeta_credito: 'Tarjeta Credito',
         transferencia: 'Transferencia',
         qr: 'QR'
     };
 
-    function setActive(value) {
-        methodEls.forEach((el) => {
-            el.classList.toggle('active', el.dataset.value === value);
-        });
-        formaPagoInput.value = value;
-        formaPagoLabel.textContent = labelMap[value] || value;
+    // --- Pago ---
+    const pagoModalEl = document.getElementById('pagoCtaModal');
+    if (pagoModalEl) {
+        const pagoModal = new bootstrap.Modal(pagoModalEl);
+        const pagoForm = document.querySelector('form[action="{{ url_for("clientes.registrar_pago", id=cliente.id) }}"]');
+        const formaPagoInput = document.getElementById('formaPagoInput');
+        const formaPagoLabel = document.getElementById('formaPagoLabel');
+        const registrarPagoBtn = document.getElementById('registrarPagoBtn');
+        const confirmarPagoBtn = document.getElementById('confirmarPagoBtn');
+        const pagoMethodEls = pagoModalEl.querySelectorAll('.payment-method');
+
+        if (pagoForm && formaPagoInput && formaPagoLabel && registrarPagoBtn && confirmarPagoBtn) {
+            function setPagoActive(value) {
+                pagoMethodEls.forEach((el) => {
+                    el.classList.toggle('active', el.dataset.value === value);
+                });
+                formaPagoInput.value = value;
+                formaPagoLabel.textContent = labelMap[value] || value;
+            }
+
+            setPagoActive(formaPagoInput.value || 'efectivo');
+
+            pagoMethodEls.forEach((el) => {
+                el.addEventListener('click', () => setPagoActive(el.dataset.value));
+            });
+
+            registrarPagoBtn.addEventListener('click', () => {
+                setPagoActive(formaPagoInput.value || 'efectivo');
+                pagoModal.show();
+            });
+
+            confirmarPagoBtn.addEventListener('click', () => {
+                pagoModal.hide();
+                pagoForm.requestSubmit();
+            });
+        }
     }
 
-    setActive(formaPagoInput.value || 'efectivo');
+    // --- Adelanto ---
+    const adelantoModalEl = document.getElementById('adelantoCtaModal');
+    if (adelantoModalEl) {
+        const adelantoModal = new bootstrap.Modal(adelantoModalEl);
+        const adelantoForm = document.querySelector('form[action="{{ url_for("clientes.registrar_adelanto", id=cliente.id) }}"]');
+        const formaPagoAdelantoInput = document.getElementById('formaPagoAdelantoInput');
+        const formaPagoAdelantoLabel = document.getElementById('formaPagoAdelantoLabel');
+        const registrarAdelantoBtn = document.getElementById('registrarAdelantoBtn');
+        const confirmarAdelantoBtn = document.getElementById('confirmarAdelantoBtn');
+        const adelantoMethodEls = adelantoModalEl.querySelectorAll('.payment-method');
 
-    methodEls.forEach((el) => {
-        el.addEventListener('click', () => {
-            setActive(el.dataset.value);
-        });
-    });
+        if (adelantoForm && formaPagoAdelantoInput && formaPagoAdelantoLabel && registrarAdelantoBtn && confirmarAdelantoBtn) {
+            function setAdelantoActive(value) {
+                adelantoMethodEls.forEach((el) => {
+                    el.classList.toggle('active', el.dataset.value === value);
+                });
+                formaPagoAdelantoInput.value = value;
+                formaPagoAdelantoLabel.textContent = labelMap[value] || value;
+            }
 
-    registrarBtn.addEventListener('click', () => {
-        setActive(formaPagoInput.value || 'efectivo');
-        modal.show();
-    });
+            setAdelantoActive(formaPagoAdelantoInput.value || 'efectivo');
 
-    confirmarBtn.addEventListener('click', () => {
-        modal.hide();
-        form.requestSubmit();
-    });
+            adelantoMethodEls.forEach((el) => {
+                el.addEventListener('click', () => setAdelantoActive(el.dataset.value));
+            });
+
+            registrarAdelantoBtn.addEventListener('click', () => {
+                setAdelantoActive(formaPagoAdelantoInput.value || 'efectivo');
+                adelantoModal.show();
+            });
+
+            confirmarAdelantoBtn.addEventListener('click', () => {
+                adelantoModal.hide();
+                adelantoForm.requestSubmit();
+            });
+        }
+    }
 });
 </script>
 {% endblock %}
