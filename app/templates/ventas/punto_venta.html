@@ -187,10 +187,15 @@
                     <button type="button" class="btn btn-sm btn-outline-secondary"
                             x-show="clienteId"
                             x-cloak
-                            @click="clienteId = ''; clienteNombre = 'Consumidor Final'"
+                            @click="clienteId = ''; clienteNombre = 'Consumidor Final'; clienteData = null; montoSaldoFavor = 0"
                             style="font-size: 10px; padding: 1px 6px;">
                         <span class="material-symbols-rounded" style="font-size: 14px;">close</span>
                     </button>
+                    <span class="badge bg-info ms-1"
+                          x-show="clienteData && clienteData.tiene_saldo_a_favor"
+                          x-cloak>
+                        Saldo a favor: <span x-text="clienteData ? formatCurrency(clienteData.saldo_a_favor) : '$0,00'"></span>
+                    </span>
                 </div>
                 <!-- Buscador de clientes -->
                 <div class="position-relative">
@@ -392,6 +397,38 @@
                 </div>
             </div>
 
+            <!-- Sección consumo de saldo a favor -->
+            <template x-if="mostrarSaldoFavor">
+                <div class="border border-info rounded p-2 mt-2 mb-2" style="background: #e8f4fd;">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="small fw-bold text-info">
+                            <span class="material-symbols-rounded align-middle" style="font-size: 16px;">savings</span>
+                            Saldo a favor: <span x-text="clienteData ? formatCurrency(clienteData.saldo_a_favor) : '$0,00'"></span>
+                        </span>
+                    </div>
+                    <div class="d-flex align-items-center gap-1">
+                        <span class="small text-muted text-nowrap">Consumir:</span>
+                        <input type="number"
+                               x-model.number="montoSaldoFavor"
+                               class="form-control form-control-sm"
+                               step="0.01"
+                               min="0"
+                               :max="clienteData ? Math.min(clienteData.saldo_a_favor, montoCC) : 0"
+                               placeholder="0.00"
+                               style="max-width: 120px;">
+                        <button type="button"
+                                class="btn btn-info btn-sm text-nowrap"
+                                @click="montoSaldoFavor = clienteData ? Math.min(clienteData.saldo_a_favor, montoCC) : 0">
+                            Todo
+                        </button>
+                    </div>
+                    <div class="small text-muted mt-1"
+                         x-show="formaPago === 'dividido'">
+                        Aplica sobre porción Cta. Cte. (<span x-text="formatCurrency(montoCC)"></span>)
+                    </div>
+                </div>
+            </template>
+
             <!-- Calculo de vuelto (solo efectivo) -->
             <div x-show="formaPago === 'efectivo'" x-cloak>
                 <div class="row g-2">
@@ -442,6 +479,7 @@
         <input type="hidden" name="descuento_monto_exacto"
                :value="descuentoMontoExacto !== null ? descuentoMontoExacto.toFixed(2) : ''">
         <input type="hidden" name="items_json" :value="JSON.stringify(cart)">
+        <input type="hidden" name="monto_saldo_favor" :value="mostrarSaldoFavor ? montoSaldoFavor : 0">
         <input type="hidden" name="pago_dividido_json" id="pago_dividido_json">
     </form>
 </div>
@@ -458,12 +496,14 @@ function posApp() {
         cart: [],
         clienteId: '',
         clienteNombre: 'Consumidor Final',
+        clienteData: null,
         clienteQuery: '',
         clienteResults: [],
         showClienteResults: false,
         clienteSelectedIndex: -1,
         productSelectedIndex: -1,
         formaPago: 'efectivo',
+        montoSaldoFavor: 0,
         descuentoPorcentaje: 0,
         modoDescuento: 'porcentaje',
         totalDeseado: '',
@@ -573,6 +613,38 @@ function posApp() {
             return Math.max(0, parseMoneyNumber(this.montoRecibido) - this.totalConIva);
         },
 
+        // Indica si alguna porción de la venta se paga con cuenta corriente
+        get tieneParteCC() {
+            if (this.formaPago === 'cuenta_corriente') return true;
+            if (this.formaPago === 'dividido') {
+                return this.pagoDividido1.forma === 'cuenta_corriente' ||
+                       this.pagoDividido2.forma === 'cuenta_corriente';
+            }
+            return false;
+        },
+
+        // Monto de la porción CC (total si es CC simple, monto parcial si dividido)
+        get montoCC() {
+            if (this.formaPago === 'cuenta_corriente') return this.total;
+            if (this.formaPago === 'dividido') {
+                if (this.pagoDividido1.forma === 'cuenta_corriente') {
+                    return parseMoneyNumber(this.pagoDividido1.monto) || 0;
+                }
+                if (this.pagoDividido2.forma === 'cuenta_corriente') {
+                    return parseMoneyNumber(this.pagoDividido2.monto) || 0;
+                }
+            }
+            return 0;
+        },
+
+        // Indica si debe mostrarse la sección de consumo de saldo a favor
+        get mostrarSaldoFavor() {
+            return this.clienteId &&
+                   this.clienteData &&
+                   this.clienteData.tiene_saldo_a_favor &&
+                   this.tieneParteCC;
+        },
+
         // Alterna el modo de descuento de un item entre porcentaje y precio final ($)
         toggleModoDescuentoItem(item) {
             const modoActual = item.modoDescuento || 'porcentaje';
@@ -677,6 +749,8 @@ function posApp() {
                 cart: this.cart,
                 clienteId: this.clienteId,
                 clienteNombre: this.clienteNombre,
+                clienteData: this.clienteData,
+                montoSaldoFavor: this.montoSaldoFavor,
                 formaPago: this.formaPago,
                 descuentoPorcentaje: this.descuentoPorcentaje,
                 modoDescuento: this.modoDescuento,
@@ -705,6 +779,12 @@ function posApp() {
                 }
                 if (payload.clienteNombre) {
                     this.clienteNombre = payload.clienteNombre;
+                }
+                if (payload.clienteData) {
+                    this.clienteData = payload.clienteData;
+                }
+                if (payload.montoSaldoFavor !== undefined && payload.montoSaldoFavor !== null) {
+                    this.montoSaldoFavor = payload.montoSaldoFavor;
                 }
                 if (payload.formaPago) {
                     this.formaPago = payload.formaPago;
@@ -855,6 +935,8 @@ function posApp() {
         selectCliente(cliente) {
             this.clienteId = cliente.id;
             this.clienteNombre = cliente.nombre;
+            this.clienteData = cliente;
+            this.montoSaldoFavor = 0;
             this.clienteQuery = '';
             this.clienteResults = [];
             this.showClienteResults = false;
@@ -876,6 +958,8 @@ function posApp() {
                 this.montoRecibido = '';
                 this.clienteId = '';
                 this.clienteNombre = 'Consumidor Final';
+                this.clienteData = null;
+                this.montoSaldoFavor = 0;
                 this.formaPago = 'efectivo';
                 this.pagoDividido1 = { forma: 'efectivo', monto: '' };
                 this.pagoDividido2 = { forma: 'qr', monto: '' };
@@ -952,6 +1036,18 @@ function posApp() {
                 ]);
             }
 
+            // Validar monto de saldo a favor
+            if (this.mostrarSaldoFavor && this.montoSaldoFavor > 0) {
+                if (this.clienteData && this.montoSaldoFavor > this.clienteData.saldo_a_favor) {
+                    this.mostrarAlerta('El monto a consumir no puede superar el saldo a favor del cliente.');
+                    return;
+                }
+                if (this.montoSaldoFavor > this.montoCC) {
+                    this.mostrarAlerta('El monto a consumir no puede superar el monto de cuenta corriente.');
+                    return;
+                }
+            }
+
             if (this.formaPago === 'efectivo' && parseMoneyNumber(this.montoRecibido) < this.total) {
                 const ok = await showConfirm('El monto recibido es menor al total. Deseas continuar?', {
                     title: 'Monto insuficiente',
@@ -983,6 +1079,19 @@ function posApp() {
             this.$watch('totalDeseado', () => this.persistState());
             this.$watch('pagoDividido1', () => this.persistState(), { deep: true });
             this.$watch('pagoDividido2', () => this.persistState(), { deep: true });
+            this.$watch('montoSaldoFavor', () => this.persistState());
+
+            // Establecer default inteligente cuando se activa saldo a favor
+            this.$watch('mostrarSaldoFavor', (show) => {
+                if (show && this.clienteData) {
+                    this.montoSaldoFavor = Math.min(
+                        this.clienteData.saldo_a_favor,
+                        this.montoCC
+                    );
+                } else {
+                    this.montoSaldoFavor = 0;
+                }
+            });
 
             // Recalcular descuento cuando cambia el subtotal en modo total
             this.$watch('subtotal', (newSubtotal) => {
