@@ -662,7 +662,7 @@ def anular(id):
                 tipo='cargo',
                 empresa_id=current_user.empresa_id,
             ).first()
-            monto_a_revertir = mov_venta_cc.monto if mov_venta_cc else venta.total
+            monto_a_revertir = mov_venta_cc.monto if mov_venta_cc else Decimal('0')
 
             if monto_a_revertir > 0:
                 saldo_anterior, saldo_posterior = venta.cliente.actualizar_saldo(
