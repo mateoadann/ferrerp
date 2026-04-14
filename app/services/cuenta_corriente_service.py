@@ -1,6 +1,6 @@
 """Servicio de cuenta corriente: estado de cuenta PDF y ajuste de precios CC."""
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 from flask import render_template
 
@@ -202,9 +202,7 @@ def calcular_ajustes_cc(categoria_ids, porcentaje, empresa_id):
             subtotal_original = bruto_original - desc_linea
 
             # Subtotal recalculado con nuevo precio
-            nuevo_precio = (precio_unitario * factor).quantize(
-                DOS_DECIMALES, ROUND_HALF_UP
-            )
+            nuevo_precio = (precio_unitario * factor).quantize(DOS_DECIMALES, ROUND_HALF_UP)
             bruto_nuevo = nuevo_precio * cantidad
             desc_linea_nuevo = bruto_nuevo * descuento_pct / Decimal('100')
             subtotal_nuevo = bruto_nuevo - desc_linea_nuevo
@@ -212,22 +210,18 @@ def calcular_ajustes_cc(categoria_ids, porcentaje, empresa_id):
             total_original += subtotal_original
             total_recalculado += subtotal_nuevo
 
-            info_detalles.append({
-                'detalle': detalle,
-                'precio_original': precio_unitario,
-                'precio_nuevo': nuevo_precio,
-                'subtotal_original': subtotal_original.quantize(
-                    DOS_DECIMALES, ROUND_HALF_UP
-                ),
-                'subtotal_nuevo': subtotal_nuevo.quantize(
-                    DOS_DECIMALES, ROUND_HALF_UP
-                ),
-            })
+            info_detalles.append(
+                {
+                    'detalle': detalle,
+                    'precio_original': precio_unitario,
+                    'precio_nuevo': nuevo_precio,
+                    'subtotal_original': subtotal_original.quantize(DOS_DECIMALES, ROUND_HALF_UP),
+                    'subtotal_nuevo': subtotal_nuevo.quantize(DOS_DECIMALES, ROUND_HALF_UP),
+                }
+            )
 
         total_original = total_original.quantize(DOS_DECIMALES, ROUND_HALF_UP)
-        total_recalculado = total_recalculado.quantize(
-            DOS_DECIMALES, ROUND_HALF_UP
-        )
+        total_recalculado = total_recalculado.quantize(DOS_DECIMALES, ROUND_HALF_UP)
 
         # Aplicar descuento global de la venta proporcionalmente
         descuento_global = Decimal(str(venta.descuento_porcentaje or 0))
@@ -242,14 +236,16 @@ def calcular_ajustes_cc(categoria_ids, porcentaje, empresa_id):
         if monto_ajuste <= 0:
             continue
 
-        resultados.append({
-            'cliente': venta.cliente,
-            'venta': venta,
-            'total_original': total_original,
-            'total_recalculado': total_recalculado,
-            'monto_ajuste': monto_ajuste,
-            'detalles_afectados': info_detalles,
-        })
+        resultados.append(
+            {
+                'cliente': venta.cliente,
+                'venta': venta,
+                'total_original': total_original,
+                'total_recalculado': total_recalculado,
+                'monto_ajuste': monto_ajuste,
+                'detalles_afectados': info_detalles,
+            }
+        )
 
     return resultados
 
@@ -257,20 +253,80 @@ def calcular_ajustes_cc(categoria_ids, porcentaje, empresa_id):
 def aplicar_ajustes_cc(ajustes, usuario_id, fecha_actualizacion, porcentaje):
     """Aplica los ajustes de precio a las deudas CC, creando registros de auditoría.
 
-    Por cada ajuste: crea MovimientoCuentaCorriente (cargo) y
-    AjustePrecioCuentaCorriente (auditoría), luego actualiza saldo del cliente.
-    Verifica duplicados por (venta_id, actualizacion_fecha).
+    Por cada ajuste: actualiza saldo del cliente, crea MovimientoCuentaCorriente
+    (cargo) y AjustePrecioCuentaCorriente (auditoría).
+    Verifica duplicados por (venta_id, actualizacion_fecha, empresa_id).
+
+    NO hace commit — el caller (route handler) lo hace en una sola transacción
+    junto con la actualización de precios de productos.
 
     Args:
         ajustes: lista de dicts generados por calcular_ajustes_cc().
         usuario_id: ID del usuario que ejecuta la operación.
         fecha_actualizacion: datetime de la actualización de precios.
-        porcentaje: porcentaje aplicado (Decimal).
+        porcentaje: porcentaje aplicado (número o Decimal).
 
     Returns:
         int con la cantidad de ajustes aplicados.
     """
-    pass
+    porcentaje_decimal = Decimal(str(porcentaje))
+    aplicados = 0
+
+    for ajuste in ajustes:
+        venta = ajuste['venta']
+        cliente = ajuste['cliente']
+
+        # Verificar duplicado por venta + fecha de actualización + empresa
+        existe = AjustePrecioCuentaCorriente.query.filter_by(
+            venta_id=venta.id,
+            actualizacion_fecha=fecha_actualizacion,
+            empresa_id=venta.empresa_id,
+        ).first()
+        if existe:
+            continue
+
+        # 1. Actualizar saldo del cliente
+        saldo_anterior, saldo_posterior = cliente.actualizar_saldo(
+            ajuste['monto_ajuste'], tipo='cargo'
+        )
+
+        # 2. Crear movimiento de cuenta corriente
+        movimiento = MovimientoCuentaCorriente(
+            cliente_id=cliente.id,
+            tipo='cargo',
+            monto=ajuste['monto_ajuste'],
+            saldo_anterior=saldo_anterior,
+            saldo_posterior=saldo_posterior,
+            referencia_tipo='ajuste_precio',
+            referencia_id=venta.id,
+            descripcion=(
+                f'Ajuste por actualización de precios ({porcentaje_decimal}%)'
+                f' \u2014 Venta #{venta.numero_completo}'
+            ),
+            usuario_id=usuario_id,
+            empresa_id=venta.empresa_id,
+        )
+        db.session.add(movimiento)
+        db.session.flush()  # obtener movimiento.id
+
+        # 3. Crear registro de auditoría
+        ajuste_registro = AjustePrecioCuentaCorriente(
+            cliente_id=cliente.id,
+            venta_id=venta.id,
+            movimiento_cc_id=movimiento.id,
+            actualizacion_fecha=fecha_actualizacion,
+            porcentaje_aplicado=porcentaje_decimal,
+            total_original=ajuste['total_original'],
+            total_recalculado=ajuste['total_recalculado'],
+            monto_ajuste=ajuste['monto_ajuste'],
+            usuario_id=usuario_id,
+            empresa_id=venta.empresa_id,
+        )
+        db.session.add(ajuste_registro)
+
+        aplicados += 1
+
+    return aplicados
 
 
 def venta_esta_congelada(venta):
