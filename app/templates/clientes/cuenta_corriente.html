@@ -23,15 +23,17 @@
         <div class="card mb-4">
             <div class="card-header">Resumen</div>
             <div class="card-body text-center">
-                {% if cliente.tiene_saldo_a_favor %}
-                <h2 class="text-info">{{ cliente.saldo_a_favor|currency }}</h2>
-                <p class="text-muted mb-0">Saldo a favor</p>
-                {% elif cliente.tiene_deuda %}
+                {% if cliente.tiene_deuda %}
                 <h2 class="text-danger">{{ cliente.saldo_cuenta_corriente|currency }}</h2>
                 <p class="text-muted mb-0">Saldo deuda</p>
                 {% else %}
-                <h2 class="text-success">{{ cliente.saldo_cuenta_corriente|currency }}</h2>
-                <p class="text-muted mb-0">Sin saldo</p>
+                <h2 class="text-success">$0,00</h2>
+                <p class="text-muted mb-0">Sin deuda</p>
+                {% endif %}
+                {% if cliente.tiene_saldo_a_favor %}
+                <hr>
+                <h4 class="text-info mb-0">{{ cliente.saldo_a_favor|currency }}</h4>
+                <p class="text-muted mb-0">Saldo a favor</p>
                 {% endif %}
                 {% if cliente.limite_credito > 0 %}
                 <hr>
@@ -55,12 +57,38 @@
                     {{ form.hidden_tag() }}
                     <input type="hidden" name="forma_pago" id="formaPagoInput" value="{{ form.forma_pago.data or 'efectivo' }}">
                     <div class="mb-3">
-                        <label class="form-label">Monto *</label>
+                        <label class="form-label">Monto en efectivo/tarjeta</label>
                         <div class="input-group">
                             <span class="input-group-text">$</span>
                             {{ form.monto(class="form-control") }}
                         </div>
                     </div>
+                    {% if cliente.tiene_saldo_a_favor %}
+                    <div class="mb-3 p-2 border border-info rounded bg-light">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="usarSaldoFavor" name="usar_saldo_favor">
+                            <label class="form-check-label text-info" for="usarSaldoFavor">
+                                <span class="material-symbols-rounded align-middle" style="font-size: 16px;">savings</span>
+                                Usar saldo a favor ({{ cliente.saldo_a_favor|currency }})
+                            </label>
+                        </div>
+                        <div id="saldoFavorSection" style="display: none;">
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="small text-muted text-nowrap">Monto:</span>
+                                <div class="input-group input-group-sm" style="max-width: 150px;">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" id="montoSaldoFavor"
+                                           name="monto_saldo_favor" step="0.01" min="0"
+                                           max="{{ [cliente.saldo_a_favor, cliente.saldo_cuenta_corriente]|min }}"
+                                           value="0" placeholder="0.00">
+                                </div>
+                                <button type="button" class="btn btn-info btn-sm text-nowrap text-white" id="btnSaldoFavorTodo">
+                                    Todo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                     <div class="mb-3">
                         <label class="form-label">Descripción</label>
                         {{ form.descripcion(class="form-control") }}
@@ -281,6 +309,27 @@ document.addEventListener('DOMContentLoaded', () => {
         qr: 'QR'
     };
 
+    // --- Saldo a favor ---
+    const usarSaldoFavor = document.getElementById('usarSaldoFavor');
+    const saldoFavorSection = document.getElementById('saldoFavorSection');
+    const montoSaldoFavor = document.getElementById('montoSaldoFavor');
+    const btnSaldoFavorTodo = document.getElementById('btnSaldoFavorTodo');
+
+    if (usarSaldoFavor && saldoFavorSection && montoSaldoFavor) {
+        usarSaldoFavor.addEventListener('change', () => {
+            saldoFavorSection.style.display = usarSaldoFavor.checked ? 'block' : 'none';
+            if (!usarSaldoFavor.checked) {
+                montoSaldoFavor.value = '0';
+            }
+        });
+
+        if (btnSaldoFavorTodo) {
+            btnSaldoFavorTodo.addEventListener('click', () => {
+                montoSaldoFavor.value = montoSaldoFavor.max;
+            });
+        }
+    }
+
     // --- Pago ---
     const pagoModalEl = document.getElementById('pagoCtaModal');
     if (pagoModalEl) {
@@ -308,6 +357,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             registrarPagoBtn.addEventListener('click', () => {
+                const montoField = pagoForm.querySelector('[name="monto"]');
+                const montoVal = parseFloat(montoField?.value) || 0;
+                if (montoVal <= 0 && usarSaldoFavor && usarSaldoFavor.checked) {
+                    // Solo saldo a favor, no necesita forma de pago
+                    pagoForm.requestSubmit();
+                    return;
+                }
                 setPagoActive(formaPagoInput.value || 'efectivo');
                 pagoModal.show();
             });

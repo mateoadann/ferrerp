@@ -1,5 +1,7 @@
 """Formularios de clientes."""
 
+from decimal import Decimal
+
 from flask_wtf import FlaskForm
 from wtforms import (
     BooleanField,
@@ -98,13 +100,15 @@ class PagoCuentaCorrienteForm(FlaskForm):
     monto = DecimalField(
         'Monto a Pagar',
         validators=[
-            DataRequired(message='El monto es requerido'),
-            NumberRange(min=0.01, message='El monto debe ser mayor a 0'),
+            Optional(),
+            NumberRange(min=0, message='El monto debe ser mayor o igual a 0'),
         ],
+        default=Decimal('0'),
         places=2,
         render_kw={
             'placeholder': '0,00',
             'step': '0.01',
+            'min': '0',
             'data-mask': 'money',
             'inputmode': 'decimal',
         },

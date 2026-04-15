@@ -219,56 +219,110 @@ def registrar_pago(id):
     form = PagoCuentaCorrienteForm()
 
     if form.validate_on_submit():
-        monto = Decimal(str(form.monto.data))
+        monto = Decimal(str(form.monto.data or 0))
 
-        # Verificar que el monto no exceda la deuda
-        if monto > cliente.saldo_cuenta_corriente:
-            flash('El monto no puede ser mayor que la deuda.', 'danger')
+        # Leer monto de saldo a favor
+        usar_saldo_favor = request.form.get('usar_saldo_favor')
+        monto_saldo_favor = Decimal('0')
+        if usar_saldo_favor and cliente.tiene_saldo_a_favor:
+            monto_saldo_favor_raw = request.form.get('monto_saldo_favor', '0')
+            try:
+                monto_saldo_favor = Decimal(str(monto_saldo_favor_raw))
+            except Exception:
+                monto_saldo_favor = Decimal('0')
+
+            # Validaciones de saldo a favor
+            if monto_saldo_favor < 0:
+                monto_saldo_favor = Decimal('0')
+            if monto_saldo_favor > cliente.saldo_a_favor:
+                monto_saldo_favor = cliente.saldo_a_favor
+
+        monto_total = monto + monto_saldo_favor
+
+        # Verificar que se pague algo
+        if monto_total <= 0:
+            flash('Debe ingresar un monto a pagar.', 'danger')
             return redirect(url_for('clientes.cuenta_corriente', id=id))
 
-        # Verificar caja abierta
-        caja = Caja.query.filter_by(estado='abierta', empresa_id=current_user.empresa_id).first()
-        if not caja:
-            flash('No hay caja abierta. Abre la caja para registrar el pago.', 'warning')
-            return redirect(url_for('caja.index'))
+        # Verificar que el monto total no exceda la deuda
+        if monto_total > cliente.saldo_cuenta_corriente:
+            flash('El monto total no puede ser mayor que la deuda.', 'danger')
+            return redirect(url_for('clientes.cuenta_corriente', id=id))
 
-        # Actualizar saldo del cliente
-        saldo_anterior, saldo_posterior = cliente.actualizar_saldo(monto, tipo='pago')
+        # Verificar caja abierta si hay pago en efectivo/tarjeta
+        caja = None
+        if monto > 0:
+            caja = Caja.query.filter_by(
+                estado='abierta', empresa_id=current_user.empresa_id
+            ).first()
+            if not caja:
+                flash(
+                    'No hay caja abierta. Abre la caja para registrar el pago.',
+                    'warning',
+                )
+                return redirect(url_for('caja.index'))
 
-        # Registrar movimiento de cuenta corriente
-        movimiento_cc = MovimientoCuentaCorriente(
-            cliente_id=cliente.id,
-            tipo='pago',
-            monto=monto,
-            saldo_anterior=saldo_anterior,
-            saldo_posterior=saldo_posterior,
-            referencia_tipo='pago',
-            descripcion=form.descripcion.data or 'Pago de cuenta corriente',
-            usuario_id=current_user.id,
-            empresa_id=current_user.empresa_id,
-        )
-        db.session.add(movimiento_cc)
-        db.session.flush()
+        descripcion_base = form.descripcion.data or 'Pago de cuenta corriente'
 
-        # Registrar ingreso en caja
-        forma_pago = form.forma_pago.data or 'efectivo'
+        # 1) Consumir saldo a favor (no pasa por caja)
+        if monto_saldo_favor > 0:
+            sf_anterior, sf_nuevo = cliente.actualizar_saldo_favor(monto_saldo_favor, 'cargo')
+            saldo_ant, saldo_post = cliente.actualizar_saldo(monto_saldo_favor, tipo='pago')
+            mov_sf = MovimientoCuentaCorriente(
+                cliente_id=cliente.id,
+                tipo='pago',
+                monto=monto_saldo_favor,
+                saldo_anterior=saldo_ant,
+                saldo_posterior=saldo_post,
+                referencia_tipo='consumo_saldo_favor',
+                descripcion='Pago con saldo a favor',
+                usuario_id=current_user.id,
+                empresa_id=current_user.empresa_id,
+            )
+            db.session.add(mov_sf)
 
-        movimiento_caja = MovimientoCaja(
-            caja_id=caja.id,
-            tipo='ingreso',
-            concepto='cobro_cuenta_corriente',
-            descripcion=f'Pago de {cliente.nombre}',
-            monto=monto,
-            forma_pago=forma_pago,
-            referencia_tipo='pago_cc',
-            referencia_id=movimiento_cc.id,
-            usuario_id=current_user.id,
-        )
-        db.session.add(movimiento_caja)
+        # 2) Pago en efectivo/tarjeta (pasa por caja)
+        if monto > 0:
+            saldo_anterior, saldo_posterior = cliente.actualizar_saldo(monto, tipo='pago')
+
+            movimiento_cc = MovimientoCuentaCorriente(
+                cliente_id=cliente.id,
+                tipo='pago',
+                monto=monto,
+                saldo_anterior=saldo_anterior,
+                saldo_posterior=saldo_posterior,
+                referencia_tipo='pago',
+                descripcion=descripcion_base,
+                usuario_id=current_user.id,
+                empresa_id=current_user.empresa_id,
+            )
+            db.session.add(movimiento_cc)
+            db.session.flush()
+
+            forma_pago = form.forma_pago.data or 'efectivo'
+            movimiento_caja = MovimientoCaja(
+                caja_id=caja.id,
+                tipo='ingreso',
+                concepto='cobro_cuenta_corriente',
+                descripcion=f'Pago de {cliente.nombre}',
+                monto=monto,
+                forma_pago=forma_pago,
+                referencia_tipo='pago_cc',
+                referencia_id=movimiento_cc.id,
+                usuario_id=current_user.id,
+            )
+            db.session.add(movimiento_caja)
 
         db.session.commit()
 
-        flash(f'Pago de ${monto:.2f} registrado correctamente.', 'success')
+        # Mensaje flash descriptivo
+        partes = []
+        if monto_saldo_favor > 0:
+            partes.append(f'${monto_saldo_favor:.2f} de saldo a favor')
+        if monto > 0:
+            partes.append(f'${monto:.2f} en efectivo/tarjeta')
+        detalle = ' + '.join(partes)
+        flash(f'Pago registrado: {detalle}.', 'success')
 
     return redirect(url_for('clientes.cuenta_corriente', id=id))
 
@@ -293,8 +347,8 @@ def registrar_adelanto(id):
             )
             return redirect(url_for('caja.index'))
 
-        # Actualizar saldo del cliente (pago reduce saldo)
-        saldo_anterior, saldo_posterior = cliente.actualizar_saldo(monto, tipo='pago')
+        # Actualizar saldo a favor del cliente (adelanto suma saldo a favor)
+        saldo_anterior, saldo_posterior = cliente.actualizar_saldo_favor(monto, tipo='adelanto')
 
         # Registrar movimiento de cuenta corriente
         movimiento_cc = MovimientoCuentaCorriente(
@@ -376,8 +430,8 @@ def anular_adelanto(id, movimiento_id):
         )
         return redirect(url_for('caja.index'))
 
-    # Revertir saldo (cargo aumenta saldo/deuda)
-    saldo_anterior, saldo_posterior = cliente.actualizar_saldo(movimiento.monto, tipo='cargo')
+    # Revertir saldo a favor (cargo consume saldo a favor)
+    saldo_anterior, saldo_posterior = cliente.actualizar_saldo_favor(movimiento.monto, tipo='cargo')
 
     # Registrar movimiento de anulación en cuenta corriente
     movimiento_cc = MovimientoCuentaCorriente(
@@ -429,19 +483,19 @@ def con_saldo_a_favor():
         Cliente.query_empresa()
         .filter(
             Cliente.activo.is_(True),
-            Cliente.saldo_cuenta_corriente < 0,
+            Cliente.saldo_a_favor_monto > 0,
         )
-        .order_by(Cliente.saldo_cuenta_corriente.asc())
+        .order_by(Cliente.saldo_a_favor_monto.desc())
         .paginate(page=page, per_page=20)
     )
 
     # Total de saldo a favor
     total_saldo_a_favor = (
-        db.session.query(func.sum(func.abs(Cliente.saldo_cuenta_corriente)))
+        db.session.query(func.sum(Cliente.saldo_a_favor_monto))
         .filter(
             Cliente.empresa_id == current_user.empresa_id,
             Cliente.activo.is_(True),
-            Cliente.saldo_cuenta_corriente < 0,
+            Cliente.saldo_a_favor_monto > 0,
         )
         .scalar()
         or 0

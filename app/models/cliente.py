@@ -21,6 +21,7 @@ class Cliente(EmpresaMixin, db.Model):
     direccion = db.Column(db.String(200))
     limite_credito = db.Column(db.Numeric(12, 2), default=0, nullable=False)
     saldo_cuenta_corriente = db.Column(db.Numeric(12, 2), default=0, nullable=False)
+    saldo_a_favor_monto = db.Column(db.Numeric(12, 2), default=0, nullable=False)
     notas = db.Column(db.Text)
     fecha_nacimiento = db.Column(db.Date, nullable=True)
     activo = db.Column(db.Boolean, default=True, nullable=False)
@@ -48,14 +49,12 @@ class Cliente(EmpresaMixin, db.Model):
     @property
     def tiene_saldo_a_favor(self):
         """Retorna True si el cliente tiene saldo a favor (crédito)."""
-        return self.saldo_cuenta_corriente < 0
+        return self.saldo_a_favor_monto > 0
 
     @property
     def saldo_a_favor(self):
         """Retorna el monto de saldo a favor, o 0 si no tiene."""
-        if self.saldo_cuenta_corriente < 0:
-            return abs(self.saldo_cuenta_corriente)
-        return Decimal('0')
+        return self.saldo_a_favor_monto
 
     @property
     def es_cumpleanos_hoy(self):
@@ -81,7 +80,10 @@ class Cliente(EmpresaMixin, db.Model):
 
     def actualizar_saldo(self, monto, tipo='cargo'):
         """
-        Actualiza el saldo de cuenta corriente.
+        Actualiza el saldo de cuenta corriente (deuda).
+
+        Solo opera sobre saldo_cuenta_corriente (deuda >= 0).
+        No toca saldo_a_favor_monto.
 
         Args:
             monto: Monto a modificar
@@ -96,9 +98,36 @@ class Cliente(EmpresaMixin, db.Model):
         if tipo == 'cargo':
             self.saldo_cuenta_corriente += monto_decimal
         elif tipo == 'pago':
-            self.saldo_cuenta_corriente -= monto_decimal
+            self.saldo_cuenta_corriente = max(
+                Decimal('0'), self.saldo_cuenta_corriente - monto_decimal
+            )
 
         return saldo_anterior, self.saldo_cuenta_corriente
+
+    def actualizar_saldo_favor(self, monto, tipo='adelanto'):
+        """
+        Actualiza el saldo a favor del cliente.
+
+        Opera sobre saldo_a_favor_monto (crédito >= 0).
+        No toca saldo_cuenta_corriente.
+
+        Args:
+            monto: Monto a modificar
+            tipo: 'adelanto'/'pago' para aumentar saldo a favor,
+                  'cargo' para consumir saldo a favor
+
+        Returns:
+            Tuple con (saldo_anterior, saldo_nuevo)
+        """
+        saldo_anterior = self.saldo_a_favor_monto
+        monto_decimal = Decimal(str(monto))
+
+        if tipo in ('adelanto', 'pago'):
+            self.saldo_a_favor_monto += monto_decimal
+        elif tipo == 'cargo':
+            self.saldo_a_favor_monto = max(Decimal('0'), self.saldo_a_favor_monto - monto_decimal)
+
+        return saldo_anterior, self.saldo_a_favor_monto
 
     def to_dict(self):
         """Convierte el cliente a diccionario."""
@@ -112,6 +141,9 @@ class Cliente(EmpresaMixin, db.Model):
             'limite_credito': float(self.limite_credito) if self.limite_credito else 0,
             'saldo_cuenta_corriente': float(self.saldo_cuenta_corriente)
             if self.saldo_cuenta_corriente
+            else 0,
+            'saldo_a_favor_monto': float(self.saldo_a_favor_monto)
+            if self.saldo_a_favor_monto
             else 0,
             'tiene_deuda': self.tiene_deuda,
             'fecha_nacimiento': (
