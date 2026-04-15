@@ -100,7 +100,9 @@ def previsualizar_actualizacion(productos, porcentaje, actualizar_costo=True):
     return resultado
 
 
-def aplicar_actualizacion(categorias_ids, porcentaje, actualizar_costo=True, notas=None):
+def aplicar_actualizacion(
+    categorias_ids, porcentaje, actualizar_costo=True, notas=None, auto_commit=True
+):
     """Aplica actualización masiva de precios.
 
     Args:
@@ -151,5 +153,6 @@ def aplicar_actualizacion(categorias_ids, porcentaje, actualizar_costo=True, not
         if actualizar_costo:
             producto.precio_costo = item['precio_costo_nuevo']
 
-    db.session.commit()
+    if auto_commit:
+        db.session.commit()
     return len(preview)

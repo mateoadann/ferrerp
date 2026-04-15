@@ -22,10 +22,12 @@
             <td>{{ cliente.telefono or '-' }}</td>
             <td>{{ cliente.email or '-' }}</td>
             <td class="text-end">
-                {% if cliente.saldo_cuenta_corriente > 0 %}
+                {% if cliente.tiene_deuda %}
                 <span class="text-danger fw-bold">{{ cliente.saldo_cuenta_corriente|currency }}</span>
+                {% elif cliente.tiene_saldo_a_favor %}
+                <span class="fw-bold" style="color: #fbad42;">{{ cliente.saldo_a_favor|currency }}</span>
                 {% else %}
-                {{ cliente.saldo_cuenta_corriente|currency }}
+                <span class="text-muted">$0,00</span>
                 {% endif %}
             </td>
             <td>

@@ -95,6 +95,8 @@
                                 <td>
                                     {% if mov.venta_id %}
                                     <a href="{{ url_for('ventas.detalle', id=mov.venta_id) }}"{% if mov.tipo == 'egreso' %} class="text-danger"{% endif %}>{{ mov.descripcion or '-' }}</a>
+                                    {% elif mov.cliente_id %}
+                                    <a href="{{ url_for('clientes.cuenta_corriente', id=mov.cliente_id) }}">{{ mov.descripcion or '-' }}</a>
                                     {% else %}
                                     {{ mov.descripcion or '-' }}
                                     {% endif %}
