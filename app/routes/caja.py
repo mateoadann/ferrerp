@@ -6,7 +6,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 
 from ..extensions import db
-from ..models import Caja, MovimientoCaja, Venta, VentaPago
+from ..models import Caja, MovimientoCaja, MovimientoCuentaCorriente, Venta, VentaPago
 from ..forms.caja_forms import AperturaCajaForm, CierreCajaForm, EgresoCajaForm
 from ..utils.helpers import ahora_argentina, paginar_query
 from ..utils.decorators import admin_required, empresa_aprobada_required
@@ -134,6 +134,18 @@ def index():
             if venta_div not in todas_ventas_cc:
                 todas_ventas_cc.append(venta_div)
 
+        # Resolver cliente_id para adelantos de CC
+        adelanto_cc_ids = [
+            mov.referencia_id for mov in movimientos_caja
+            if mov.concepto == 'adelanto_cliente' and mov.referencia_tipo == 'pago_cc' and mov.referencia_id
+        ]
+        cc_cliente_map = {}
+        if adelanto_cc_ids:
+            cc_movs = MovimientoCuentaCorriente.query.filter(
+                MovimientoCuentaCorriente.id.in_(adelanto_cc_ids)
+            ).all()
+            cc_cliente_map = {m.id: m.cliente_id for m in cc_movs}
+
         movimientos = [
             {
                 'fecha': mov.created_at,
@@ -148,6 +160,11 @@ def index():
                 'venta_id': (
                     mov.referencia_id
                     if mov.referencia_tipo in ('venta', 'anulacion_venta')
+                    else None
+                ),
+                'cliente_id': (
+                    cc_cliente_map.get(mov.referencia_id)
+                    if mov.concepto == 'adelanto_cliente' and mov.referencia_tipo == 'pago_cc'
                     else None
                 ),
             }
@@ -384,6 +401,18 @@ def detalle(id):
         if venta_div not in todas_ventas_cc:
             todas_ventas_cc.append(venta_div)
 
+    # Resolver cliente_id para adelantos de CC
+    adelanto_cc_ids = [
+        mov.referencia_id for mov in movimientos_caja
+        if mov.concepto == 'adelanto_cliente' and mov.referencia_tipo == 'pago_cc' and mov.referencia_id
+    ]
+    cc_cliente_map = {}
+    if adelanto_cc_ids:
+        cc_movs = MovimientoCuentaCorriente.query.filter(
+            MovimientoCuentaCorriente.id.in_(adelanto_cc_ids)
+        ).all()
+        cc_cliente_map = {m.id: m.cliente_id for m in cc_movs}
+
     movimientos = [
         {
             'fecha': mov.created_at,
@@ -398,6 +427,11 @@ def detalle(id):
             'venta_id': (
                 mov.referencia_id
                 if mov.referencia_tipo in ('venta', 'anulacion_venta')
+                else None
+            ),
+            'cliente_id': (
+                cc_cliente_map.get(mov.referencia_id)
+                if mov.concepto == 'adelanto_cliente' and mov.referencia_tipo == 'pago_cc'
                 else None
             ),
         }

@@ -1,5 +1,6 @@
 """Rutas de inventario."""
 
+import json
 from decimal import Decimal
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
@@ -78,7 +79,7 @@ def bajo_minimo():
 @login_required
 @empresa_aprobada_required
 def ajuste():
-    """Formulario de ajuste de stock."""
+    """Formulario de ajuste de stock (individual o masivo)."""
     form = AjusteStockForm()
 
     # Pre-seleccionar producto si viene en la URL
@@ -87,54 +88,92 @@ def ajuste():
         form.producto_id.data = producto_id
 
     if form.validate_on_submit():
-        if not form.producto_id.data:
-            flash('Selecciona un producto.', 'danger')
+        # Determinar IDs de productos: masivo (producto_ids) o individual (producto_id)
+        producto_ids_json = request.form.get('producto_ids', '')
+        producto_ids = []
+
+        if producto_ids_json:
+            try:
+                producto_ids = json.loads(producto_ids_json)
+                if not isinstance(producto_ids, list):
+                    producto_ids = []
+            except (json.JSONDecodeError, TypeError):
+                producto_ids = []
+
+        # Fallback a producto_id individual (compatibilidad)
+        if not producto_ids and form.producto_id.data:
+            producto_ids = [form.producto_id.data]
+
+        if not producto_ids:
+            flash('Seleccioná al menos un producto.', 'danger')
             return render_template('inventario/ajuste.html', form=form)
 
-        producto = Producto.get_o_404(form.producto_id.data)
-
         tipo = form.tipo_ajuste.data
-        cantidad = Decimal(str(form.cantidad.data))
+        cantidad_base = Decimal(str(form.cantidad.data))
+        errores = []
+        ajustados = 0
 
-        # Calcular nueva cantidad
-        if tipo == 'ajuste_negativo':
-            cantidad = -cantidad
+        for pid in producto_ids:
+            producto = Producto.query_empresa().filter_by(id=pid, activo=True).first()
+            if not producto:
+                errores.append(f'Producto ID {pid} no encontrado')
+                continue
+
+            cantidad = cantidad_base if tipo == 'ajuste_positivo' else -cantidad_base
 
             # Verificar que no quede stock negativo
-            if producto.stock_actual + cantidad < 0:
-                flash('No se puede reducir más stock del disponible.', 'danger')
-                return render_template('inventario/ajuste.html', form=form)
+            if tipo == 'ajuste_negativo' and producto.stock_actual + cantidad < 0:
+                errores.append(
+                    f'"{producto.nombre}": stock insuficiente ' f'(actual: {producto.stock_actual})'
+                )
+                continue
 
-        # Realizar ajuste
-        stock_anterior, stock_posterior = producto.actualizar_stock(cantidad, tipo)
+            # Realizar ajuste
+            stock_anterior, stock_posterior = producto.actualizar_stock(cantidad, tipo)
 
-        # Registrar movimiento
-        movimiento = MovimientoStock(
-            producto_id=producto.id,
-            tipo=tipo,
-            cantidad=cantidad,
-            stock_anterior=stock_anterior,
-            stock_posterior=stock_posterior,
-            referencia_tipo='ajuste',
-            motivo=form.motivo.data,
-            usuario_id=current_user.id,
-            empresa_id=current_user.empresa_id,
-        )
+            # Registrar movimiento
+            movimiento = MovimientoStock(
+                producto_id=producto.id,
+                tipo=tipo,
+                cantidad=cantidad,
+                stock_anterior=stock_anterior,
+                stock_posterior=stock_posterior,
+                referencia_tipo='ajuste',
+                motivo=form.motivo.data,
+                usuario_id=current_user.id,
+                empresa_id=current_user.empresa_id,
+            )
+            db.session.add(movimiento)
+            ajustados += 1
 
-        db.session.add(movimiento)
-        db.session.commit()
+        if errores:
+            for error in errores:
+                flash(error, 'danger')
 
-        def _fmt(valor):
-            if producto.unidad_medida in ('unidad', 'par'):
-                return str(int(valor))
-            return f'{float(valor):.2f}'
+        if ajustados > 0:
+            db.session.commit()
+            if ajustados == 1 and len(producto_ids) == 1:
+                # Mensaje detallado para ajuste individual
+                producto = Producto.query.get(producto_ids[0])
 
-        flash(
-            f'Ajuste realizado. Stock de "{producto.nombre}": '
-            f'{_fmt(stock_anterior)} → {_fmt(stock_posterior)}',
-            'success',
-        )
-        return redirect(url_for('inventario.index'))
+                def _fmt(valor):
+                    if producto.unidad_medida in ('unidad', 'par'):
+                        return str(int(valor))
+                    return f'{float(valor):.2f}'
+
+                ultimo_mov = (
+                    MovimientoStock.query.filter_by(producto_id=producto.id)
+                    .order_by(MovimientoStock.created_at.desc())
+                    .first()
+                )
+                flash(
+                    f'Ajuste realizado. Stock de "{producto.nombre}": '
+                    f'{_fmt(ultimo_mov.stock_anterior)} → {_fmt(ultimo_mov.stock_posterior)}',
+                    'success',
+                )
+            else:
+                flash(f'Ajuste de stock aplicado a {ajustados} productos.', 'success')
+            return redirect(url_for('inventario.index'))
 
     return render_template('inventario/ajuste.html', form=form)
 

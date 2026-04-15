@@ -55,7 +55,7 @@
                 {% endif %}
                 {% if cliente.tiene_saldo_a_favor %}
                 <hr>
-                <h4 class="text-info mb-0">{{ cliente.saldo_a_favor|currency }}</h4>
+                <h4 class="mb-0" style="color: #fbad42;">{{ cliente.saldo_a_favor|currency }}</h4>
                 <p class="text-muted mb-0">Saldo a favor</p>
                 {% endif %}
                 {% if cliente.limite_credito > 0 %}
@@ -100,17 +100,17 @@
                         {{ form.hidden_tag() }}
                         <input type="hidden" name="forma_pago" id="formaPagoInput" value="{{ form.forma_pago.data or 'efectivo' }}">
                         <div class="mb-3">
-                            <label class="form-label">Monto en efectivo/tarjeta</label>
+                            <label class="form-label">Monto del pago</label>
                             <div class="input-group">
                                 <span class="input-group-text">$</span>
                                 {{ form.monto(class="form-control") }}
                             </div>
                         </div>
                         {% if cliente.tiene_saldo_a_favor %}
-                        <div class="mb-3 p-2 border border-info rounded bg-light">
+                        <div class="mb-3 p-2 rounded bg-light" style="border: 1px solid #fbad42;">
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="checkbox" id="usarSaldoFavor" name="usar_saldo_favor">
-                                <label class="form-check-label text-info" for="usarSaldoFavor">
+                                <label class="form-check-label" style="color: #fbad42;" for="usarSaldoFavor">
                                     <span class="material-symbols-rounded align-middle" style="font-size: 16px;">savings</span>
                                     Usar saldo a favor ({{ cliente.saldo_a_favor|currency }})
                                 </label>
@@ -125,7 +125,7 @@
                                                max="{{ [cliente.saldo_a_favor, cliente.saldo_cuenta_corriente]|min }}"
                                                value="0" placeholder="0.00">
                                     </div>
-                                    <button type="button" class="btn btn-info btn-sm text-nowrap text-white" id="btnSaldoFavorTodo">
+                                    <button type="button" class="btn btn-adelanto btn-sm text-nowrap" id="btnSaldoFavorTodo">
                                         Todo
                                     </button>
                                 </div>
@@ -194,11 +194,11 @@
                                 <td>{{ mov.created_at|datetime }}</td>
                                 <td>
                                     {% if mov.referencia_tipo == 'adelanto' %}
-                                    <span class="badge bg-info">Adelanto</span>
+                                    <span class="badge text-white" style="background-color: #fbad42;">Adelanto</span>
                                     {% elif mov.referencia_tipo == 'anulacion_adelanto' %}
                                     <span class="badge bg-secondary" style="white-space: normal;">Anulación Adelanto</span>
                                     {% elif mov.referencia_tipo == 'consumo_saldo_favor' %}
-                                    <span class="badge bg-warning text-dark">Consumo Saldo</span>
+                                    <span class="badge bg-primary">Consumo Saldo</span>
                                     {% elif mov.tipo == 'cargo' %}
                                     <span class="badge badge-danger">Cargo</span>
                                     {% else %}
@@ -521,18 +521,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const pagoModal = new bootstrap.Modal(pagoModalEl);
         const pagoForm = document.querySelector('form[action="{{ url_for("clientes.registrar_pago", id=cliente.id) }}"]');
         const formaPagoInput = document.getElementById('formaPagoInput');
-        const formaPagoLabel = document.getElementById('formaPagoLabel');
         const registrarPagoBtn = document.getElementById('registrarPagoBtn');
         const confirmarPagoBtn = document.getElementById('confirmarPagoBtn');
         const pagoMethodEls = pagoModalEl.querySelectorAll('.payment-method');
 
-        if (pagoForm && formaPagoInput && formaPagoLabel && registrarPagoBtn && confirmarPagoBtn) {
+        if (pagoForm && formaPagoInput && registrarPagoBtn && confirmarPagoBtn) {
             function setPagoActive(value) {
                 pagoMethodEls.forEach((el) => {
                     el.classList.toggle('active', el.dataset.value === value);
                 });
                 formaPagoInput.value = value;
-                formaPagoLabel.textContent = labelMap[value] || value;
             }
 
             setPagoActive(formaPagoInput.value || 'efectivo');
@@ -566,18 +564,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const adelantoModal = new bootstrap.Modal(adelantoModalEl);
         const adelantoForm = document.querySelector('form[action="{{ url_for("clientes.registrar_adelanto", id=cliente.id) }}"]');
         const formaPagoAdelantoInput = document.getElementById('formaPagoAdelantoInput');
-        const formaPagoAdelantoLabel = document.getElementById('formaPagoAdelantoLabel');
         const registrarAdelantoBtn = document.getElementById('registrarAdelantoBtn');
         const confirmarAdelantoBtn = document.getElementById('confirmarAdelantoBtn');
         const adelantoMethodEls = adelantoModalEl.querySelectorAll('.payment-method');
 
-        if (adelantoForm && formaPagoAdelantoInput && formaPagoAdelantoLabel && registrarAdelantoBtn && confirmarAdelantoBtn) {
+        if (adelantoForm && formaPagoAdelantoInput && registrarAdelantoBtn && confirmarAdelantoBtn) {
             function setAdelantoActive(value) {
                 adelantoMethodEls.forEach((el) => {
                     el.classList.toggle('active', el.dataset.value === value);
                 });
                 formaPagoAdelantoInput.value = value;
-                formaPagoAdelantoLabel.textContent = labelMap[value] || value;
             }
 
             setAdelantoActive(formaPagoAdelantoInput.value || 'efectivo');

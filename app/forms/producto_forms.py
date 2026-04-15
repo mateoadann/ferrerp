@@ -275,11 +275,12 @@ class CategoriaForm(FlaskForm):
 
 
 class AjusteStockForm(FlaskForm):
-    """Formulario de ajuste de stock."""
+    """Formulario de ajuste de stock.
 
-    producto_id = IntegerField(
-        'Producto', validators=[DataRequired(message='Selecciona un producto')]
-    )
+    Soporta ajuste individual (producto_id) o masivo (producto_ids como JSON).
+    """
+
+    producto_id = IntegerField('Producto', validators=[Optional()])
 
     tipo_ajuste = SelectField(
         'Tipo de Ajuste',
@@ -313,15 +314,15 @@ class AjusteStockForm(FlaskForm):
     submit = SubmitField('Realizar Ajuste')
 
     def validate_producto_id(self, field):
-        """Valida que el producto exista y pertenezca a la empresa."""
+        """Valida que el producto exista y pertenezca a la empresa.
+
+        Solo valida si se envía producto_id individual (modo legacy).
+        En modo masivo se envía producto_ids y este campo queda vacío.
+        """
         if not field.data:
-            raise ValidationError('Selecciona un producto')
+            return  # Se valida en la ruta si viene producto_ids
         from ..models import Producto
 
-        producto = (
-            Producto.query_empresa()
-            .filter_by(id=field.data, activo=True)
-            .first()
-        )
+        producto = Producto.query_empresa().filter_by(id=field.data, activo=True).first()
         if not producto:
             raise ValidationError('El producto seleccionado no es válido')

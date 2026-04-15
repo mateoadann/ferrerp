@@ -9,16 +9,16 @@
 </div>
 
 <div class="row justify-content-center">
-    <div class="col-md-6">
+    <div class="col-md-8">
         <div class="card">
             <div class="card-header">Realizar Ajuste</div>
-            <div class="card-body">
-                <form method="POST">
+            <div class="card-body" x-data="ajusteMasivo()">
+                <form method="POST" @submit="prepararEnvio()">
                     {{ form.hidden_tag() }}
 
-                    {# --- Autocomplete de producto --- #}
-                    <div class="mb-3" x-data="productoAutocomplete()" @click.outside="cerrar()">
-                        <label class="form-label">{{ form.producto_id.label.text }} *</label>
+                    {# --- Buscador de productos --- #}
+                    <div class="mb-3" @click.outside="cerrar()">
+                        <label class="form-label">Productos *</label>
                         <div class="position-relative">
                             <div class="input-group">
                                 <span class="input-group-text">
@@ -26,7 +26,7 @@
                                 </span>
                                 <input type="text"
                                        class="form-control"
-                                       placeholder="Buscar producto por código o nombre..."
+                                       placeholder="Buscar producto por codigo o nombre..."
                                        x-model="query"
                                        @input.debounce.300ms="buscar()"
                                        @keydown.arrow-down.prevent="selectedIdx = Math.min(selectedIdx + 1, resultados.length - 1)"
@@ -38,11 +38,15 @@
                                        autocomplete="off">
                             </div>
 
-                            {# Input oculto que envía el producto_id al backend #}
+                            {# Input oculto con JSON de producto_ids #}
+                            <input type="hidden"
+                                   name="producto_ids"
+                                   :value="JSON.stringify(productos.map(p => p.id))">
+
+                            {# Compatibilidad: si hay un solo producto, enviar tambien producto_id #}
                             <input type="hidden"
                                    name="producto_id"
-                                   id="producto_id"
-                                   x-model="productoId">
+                                   :value="productos.length === 1 ? productos[0].id : ''">
 
                             {# Dropdown de resultados #}
                             <div class="position-absolute bg-white shadow-lg rounded-2 mt-1 w-100 border"
@@ -54,13 +58,16 @@
                                 <template x-for="(prod, idx) in resultados" :key="prod.id">
                                     <div class="p-2 px-3 border-bottom cursor-pointer"
                                          style="cursor: pointer;"
-                                         :class="{'bg-primary text-white': selectedIdx === idx}"
+                                         :class="{'bg-primary text-white': selectedIdx === idx, 'opacity-50': yaAgregado(prod.id)}"
                                          @mouseenter="selectedIdx = idx"
                                          @click="seleccionar(prod)">
                                         <div class="d-flex justify-content-between align-items-center">
                                             <div>
                                                 <span class="badge bg-secondary me-2" x-text="prod.codigo"></span>
                                                 <span x-text="prod.nombre"></span>
+                                                <template x-if="yaAgregado(prod.id)">
+                                                    <span class="badge bg-success-subtle text-success ms-2">ya agregado</span>
+                                                </template>
                                             </div>
                                             <div class="text-end">
                                                 <small :class="selectedIdx === idx ? '' : 'text-muted'">
@@ -81,17 +88,53 @@
                                 No se encontraron productos
                             </div>
                         </div>
+                    </div>
 
-                        {# Producto seleccionado #}
-                        <div class="mt-2" x-show="productoSeleccionado" x-cloak>
-                            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
-                                <span class="material-symbols-rounded me-1" style="font-size:16px; vertical-align: middle;">check_circle</span>
-                                <span x-text="productoSeleccionado"></span>
-                                <button type="button" class="btn-close ms-2" style="font-size: 0.6rem; vertical-align: middle;"
-                                        @click="limpiar()"></button>
-                            </span>
+                    {# --- Tabla de productos seleccionados --- #}
+                    <div class="mb-3" x-show="productos.length > 0" x-cloak>
+                        <label class="form-label text-muted">
+                            <span class="material-symbols-rounded me-1" style="font-size:18px; vertical-align: middle;">inventory_2</span>
+                            <span x-text="productos.length"></span> producto(s) seleccionado(s)
+                        </label>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Codigo</th>
+                                        <th>Nombre</th>
+                                        <th class="text-end">Stock actual</th>
+                                        <th style="width: 50px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="(prod, idx) in productos" :key="prod.id">
+                                        <tr>
+                                            <td><span class="badge bg-secondary" x-text="prod.codigo"></span></td>
+                                            <td x-text="prod.nombre"></td>
+                                            <td class="text-end" x-text="formatStock(prod.stock_actual, prod.unidad_medida)"></td>
+                                            <td class="text-center">
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-danger border-0"
+                                                        @click="quitar(idx)"
+                                                        title="Quitar producto">
+                                                    <span class="material-symbols-rounded" style="font-size:18px;">close</span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
+
+                    {# --- Mensaje cuando no hay productos --- #}
+                    <div class="mb-3 text-center text-muted py-3 border rounded bg-light"
+                         x-show="productos.length === 0">
+                        <span class="material-symbols-rounded mb-1" style="font-size:32px;">add_shopping_cart</span>
+                        <p class="mb-0 small">Busca y agrega productos para ajustar</p>
+                    </div>
+
+                    <hr>
 
                     <div class="mb-3">
                         <label class="form-label">{{ form.tipo_ajuste.label.text }} *</label>
@@ -106,8 +149,11 @@
                         <label class="form-label">{{ form.motivo.label.text }} *</label>
                         {{ form.motivo(class="form-control") }}
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">
-                        <span class="material-symbols-rounded me-2">check</span>Realizar Ajuste
+                    <button type="submit"
+                            class="btn btn-primary w-100"
+                            :disabled="productos.length === 0">
+                        <span class="material-symbols-rounded me-2">check</span>
+                        <span x-text="productos.length > 1 ? 'Realizar Ajuste a ' + productos.length + ' productos' : 'Realizar Ajuste'"></span>
                     </button>
                 </form>
             </div>
@@ -118,20 +164,20 @@
 
 {% block extra_js %}
 <script>
-function productoAutocomplete() {
+function ajusteMasivo() {
     return {
         query: '',
         resultados: [],
         selectedIdx: -1,
-        productoId: '{{ form.producto_id.data or "" }}',
-        productoSeleccionado: '',
+        productos: [],
         abierto: false,
         buscando: false,
 
         init() {
-            // Si viene un producto pre-seleccionado (ej. desde URL), mostrar su nombre
-            if (this.productoId) {
-                this.cargarProductoInicial(this.productoId);
+            // Si viene un producto pre-seleccionado (ej. desde URL), cargarlo
+            const preseleccionado = '{{ form.producto_id.data or "" }}';
+            if (preseleccionado) {
+                this.cargarProductoInicial(preseleccionado);
             }
         },
 
@@ -140,9 +186,13 @@ function productoAutocomplete() {
                 const resp = await fetch(`/ventas/api/producto/${id}`);
                 if (resp.ok) {
                     const data = await resp.json();
-                    this.productoSeleccionado = `${data.codigo} - ${data.nombre}`;
-                    this.query = '';
-                    this.ajustarStepCantidad(data);
+                    this.agregarProducto({
+                        id: data.id,
+                        codigo: data.codigo,
+                        nombre: data.nombre,
+                        stock_actual: data.stock_actual,
+                        unidad_medida: data.unidad_medida,
+                    });
                 }
             } catch (e) { /* silenciar */ }
         },
@@ -177,47 +227,40 @@ function productoAutocomplete() {
         },
 
         seleccionar(prod) {
-            this.productoId = prod.id;
-            this.productoSeleccionado = `${prod.codigo} - ${prod.nombre}`;
+            this.agregarProducto(prod);
             this.query = '';
             this.resultados = [];
             this.abierto = false;
             this.selectedIdx = -1;
-            this.ajustarStepCantidad(prod);
+            this.$nextTick(() => this.$refs.inputBusqueda.focus());
         },
 
-        limpiar() {
-            this.productoId = '';
-            this.productoSeleccionado = '';
-            this.query = '';
-            this.resultados = [];
-            this.abierto = false;
-            this.selectedIdx = -1;
-            // Resetear step de cantidad
-            const cantidadInput = document.getElementById('cantidad_ajuste');
-            const hint = document.getElementById('cantidad_hint');
-            if (cantidadInput) {
-                cantidadInput.step = 'any';
-                cantidadInput.removeAttribute('min');
-            }
-            if (hint) hint.classList.add('d-none');
-            this.$nextTick(() => this.$refs.inputBusqueda.focus());
+        agregarProducto(prod) {
+            if (this.yaAgregado(prod.id)) return;
+            this.productos.push({
+                id: prod.id,
+                codigo: prod.codigo,
+                nombre: prod.nombre,
+                stock_actual: prod.stock_actual,
+                unidad_medida: prod.unidad_medida,
+            });
+        },
+
+        yaAgregado(id) {
+            return this.productos.some(p => p.id === id);
+        },
+
+        quitar(idx) {
+            this.productos.splice(idx, 1);
+        },
+
+        prepararEnvio() {
+            // Los hidden inputs ya se actualizan reactivamente via :value
         },
 
         cerrar() {
             this.abierto = false;
             this.selectedIdx = -1;
-        },
-
-        ajustarStepCantidad(data) {
-            const cantidadInput = document.getElementById('cantidad_ajuste');
-            const hint = document.getElementById('cantidad_hint');
-            if (!data || !cantidadInput) return;
-
-            const esEntero = (data.unidad_medida === 'unidad' || data.unidad_medida === 'par');
-            cantidadInput.step = esEntero ? '1' : '0.01';
-            cantidadInput.min = esEntero ? '1' : '0.01';
-            if (hint) hint.classList.toggle('d-none', esEntero);
         },
 
         formatStock(valor, unidad) {
