@@ -16,9 +16,10 @@
     </div>
 </div>
 
-<div class="row g-4">
-    <div class="col-lg-4">
-        <div class="card mb-4">
+<!-- Fila 1: Resumen + Formularios con tabs -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
             <div class="card-header">Resumen</div>
             <div class="card-body text-center">
                 {% if cliente.tiene_deuda %}
@@ -46,94 +47,113 @@
                 {% endif %}
             </div>
         </div>
+    </div>
 
-        {% if cliente.tiene_deuda %}
-        <div class="card">
-            <div class="card-header">Registrar Pago</div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header p-0 border-bottom-0">
+                <div class="btn-group w-100" role="group" id="tabRegistro">
+                    <button type="button"
+                            class="btn btn-outline-success rounded-0 rounded-top-start {{ 'active' if cliente.tiene_deuda else 'disabled' }}"
+                            data-tab="pago"
+                            id="tabPagoBtn"
+                            {% if not cliente.tiene_deuda %}disabled{% endif %}>
+                        <span class="material-symbols-rounded align-middle me-1" style="font-size: 18px;">payments</span>Pago
+                    </button>
+                    <button type="button"
+                            class="btn btn-outline-info rounded-0 rounded-top-end {{ '' if cliente.tiene_deuda else 'active' }}"
+                            data-tab="adelanto"
+                            id="tabAdelantoBtn">
+                        <span class="material-symbols-rounded align-middle me-1" style="font-size: 18px;">savings</span>Adelanto
+                    </button>
+                </div>
+            </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('clientes.registrar_pago', id=cliente.id) }}">
-                    {{ form.hidden_tag() }}
-                    <input type="hidden" name="forma_pago" id="formaPagoInput" value="{{ form.forma_pago.data or 'efectivo' }}">
-                    <div class="mb-3">
-                        <label class="form-label">Monto en efectivo/tarjeta</label>
-                        <div class="input-group">
-                            <span class="input-group-text">$</span>
-                            {{ form.monto(class="form-control") }}
-                        </div>
-                    </div>
-                    {% if cliente.tiene_saldo_a_favor %}
-                    <div class="mb-3 p-2 border border-info rounded bg-light">
-                        <div class="form-check mb-2">
-                            <input class="form-check-input" type="checkbox" id="usarSaldoFavor" name="usar_saldo_favor">
-                            <label class="form-check-label text-info" for="usarSaldoFavor">
-                                <span class="material-symbols-rounded align-middle" style="font-size: 16px;">savings</span>
-                                Usar saldo a favor ({{ cliente.saldo_a_favor|currency }})
-                            </label>
-                        </div>
-                        <div id="saldoFavorSection" style="display: none;">
-                            <div class="d-flex align-items-center gap-1">
-                                <span class="small text-muted text-nowrap">Monto:</span>
-                                <div class="input-group input-group-sm" style="max-width: 150px;">
-                                    <span class="input-group-text">$</span>
-                                    <input type="number" class="form-control" id="montoSaldoFavor"
-                                           name="monto_saldo_favor" step="0.01" min="0"
-                                           max="{{ [cliente.saldo_a_favor, cliente.saldo_cuenta_corriente]|min }}"
-                                           value="0" placeholder="0.00">
-                                </div>
-                                <button type="button" class="btn btn-info btn-sm text-nowrap text-white" id="btnSaldoFavorTodo">
-                                    Todo
-                                </button>
+                <!-- Panel Pago -->
+                <div id="panelPago" style="{{ '' if cliente.tiene_deuda else 'display: none;' }}">
+                    {% if cliente.tiene_deuda %}
+                    <form method="POST" action="{{ url_for('clientes.registrar_pago', id=cliente.id) }}">
+                        {{ form.hidden_tag() }}
+                        <input type="hidden" name="forma_pago" id="formaPagoInput" value="{{ form.forma_pago.data or 'efectivo' }}">
+                        <div class="mb-3">
+                            <label class="form-label">Monto en efectivo/tarjeta</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                {{ form.monto(class="form-control") }}
                             </div>
                         </div>
-                    </div>
-                    {% endif %}
-                    <div class="mb-3">
-                        <label class="form-label">Descripción</label>
-                        {{ form.descripcion(class="form-control") }}
-                    </div>
-                    <div class="d-flex align-items-center justify-content-between mb-3">
-                        <span class="text-muted small">Forma de pago: <strong id="formaPagoLabel">Efectivo</strong></span>
-                    </div>
-                    <button type="button" class="btn btn-success w-100" id="registrarPagoBtn">
-                        <span class="material-symbols-rounded me-2">payments</span>Registrar Pago
-                    </button>
-                </form>
-            </div>
-        </div>
-        {% endif %}
-
-        <div class="card mt-3">
-            <div class="card-header bg-info text-white">
-                <span class="material-symbols-rounded align-middle me-1">savings</span>
-                Registrar Adelanto
-            </div>
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('clientes.registrar_adelanto', id=cliente.id) }}">
-                    {{ form_adelanto.hidden_tag() }}
-                    <input type="hidden" name="forma_pago" id="formaPagoAdelantoInput" value="{{ form_adelanto.forma_pago.data or 'efectivo' }}">
-                    <div class="mb-3">
-                        <label class="form-label">Monto *</label>
-                        <div class="input-group">
-                            <span class="input-group-text">$</span>
-                            {{ form_adelanto.monto(class="form-control") }}
+                        {% if cliente.tiene_saldo_a_favor %}
+                        <div class="mb-3 p-2 border border-info rounded bg-light">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="usarSaldoFavor" name="usar_saldo_favor">
+                                <label class="form-check-label text-info" for="usarSaldoFavor">
+                                    <span class="material-symbols-rounded align-middle" style="font-size: 16px;">savings</span>
+                                    Usar saldo a favor ({{ cliente.saldo_a_favor|currency }})
+                                </label>
+                            </div>
+                            <div id="saldoFavorSection" style="display: none;">
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="small text-muted text-nowrap">Monto:</span>
+                                    <div class="input-group input-group-sm" style="max-width: 150px;">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control" id="montoSaldoFavor"
+                                               name="monto_saldo_favor" step="0.01" min="0"
+                                               max="{{ [cliente.saldo_a_favor, cliente.saldo_cuenta_corriente]|min }}"
+                                               value="0" placeholder="0.00">
+                                    </div>
+                                    <button type="button" class="btn btn-info btn-sm text-nowrap text-white" id="btnSaldoFavorTodo">
+                                        Todo
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Motivo</label>
-                        {{ form_adelanto.motivo(class="form-control") }}
-                    </div>
-                    <div class="d-flex align-items-center justify-content-between mb-3">
-                        <span class="text-muted small">Forma de pago: <strong id="formaPagoAdelantoLabel">Efectivo</strong></span>
-                    </div>
-                    <button type="button" class="btn btn-info text-white w-100" id="registrarAdelantoBtn">
-                        <span class="material-symbols-rounded me-2">savings</span>Registrar Adelanto
-                    </button>
-                </form>
+                        {% endif %}
+                        <div class="mb-3">
+                            <label class="form-label">Descripción</label>
+                            {{ form.descripcion(class="form-control") }}
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <span class="text-muted small">Forma de pago: <strong id="formaPagoLabel">Efectivo</strong></span>
+                        </div>
+                        <button type="button" class="btn btn-success w-100" id="registrarPagoBtn">
+                            <span class="material-symbols-rounded me-2">payments</span>Registrar Pago
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+
+                <!-- Panel Adelanto -->
+                <div id="panelAdelanto" style="{{ 'display: none;' if cliente.tiene_deuda else '' }}">
+                    <form method="POST" action="{{ url_for('clientes.registrar_adelanto', id=cliente.id) }}">
+                        {{ form_adelanto.hidden_tag() }}
+                        <input type="hidden" name="forma_pago" id="formaPagoAdelantoInput" value="{{ form_adelanto.forma_pago.data or 'efectivo' }}">
+                        <div class="mb-3">
+                            <label class="form-label">Monto *</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                {{ form_adelanto.monto(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Motivo</label>
+                            {{ form_adelanto.motivo(class="form-control") }}
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <span class="text-muted small">Forma de pago: <strong id="formaPagoAdelantoLabel">Efectivo</strong></span>
+                        </div>
+                        <button type="button" class="btn btn-info text-white w-100" id="registrarAdelantoBtn">
+                            <span class="material-symbols-rounded me-2">savings</span>Registrar Adelanto
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="col-lg-8">
+<!-- Fila 2: Historial de Movimientos (ancho completo) -->
+<div class="row g-4">
+    <div class="col-12">
         <div class="card">
             <div class="card-header">Historial de Movimientos</div>
             <div class="card-body p-0">
@@ -158,7 +178,7 @@
                                     {% if mov.referencia_tipo == 'adelanto' %}
                                     <span class="badge bg-info">Adelanto</span>
                                     {% elif mov.referencia_tipo == 'anulacion_adelanto' %}
-                                    <span class="badge bg-secondary">Anulacion Adelanto</span>
+                                    <span class="badge bg-secondary" style="white-space: normal;">Anulación Adelanto</span>
                                     {% elif mov.referencia_tipo == 'consumo_saldo_favor' %}
                                     <span class="badge bg-warning text-dark">Consumo Saldo</span>
                                     {% elif mov.tipo == 'cargo' %}
@@ -366,6 +386,29 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Tabs Pago / Adelanto ---
+    const tabPagoBtn = document.getElementById('tabPagoBtn');
+    const tabAdelantoBtn = document.getElementById('tabAdelantoBtn');
+    const panelPago = document.getElementById('panelPago');
+    const panelAdelanto = document.getElementById('panelAdelanto');
+
+    if (tabPagoBtn && tabAdelantoBtn && panelPago && panelAdelanto) {
+        tabPagoBtn.addEventListener('click', () => {
+            if (tabPagoBtn.disabled) return;
+            tabPagoBtn.classList.add('active');
+            tabAdelantoBtn.classList.remove('active');
+            panelPago.style.display = '';
+            panelAdelanto.style.display = 'none';
+        });
+
+        tabAdelantoBtn.addEventListener('click', () => {
+            tabAdelantoBtn.classList.add('active');
+            tabPagoBtn.classList.remove('active');
+            panelAdelanto.style.display = '';
+            panelPago.style.display = 'none';
+        });
+    }
+
     const labelMap = {
         efectivo: 'Efectivo',
         tarjeta_debito: 'Tarjeta Debito',
