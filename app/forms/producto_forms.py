@@ -1,7 +1,15 @@
 """Formularios de productos y categorías."""
 
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, DecimalField, SelectField, StringField, SubmitField, TextAreaField
+from wtforms import (
+    BooleanField,
+    DecimalField,
+    IntegerField,
+    SelectField,
+    StringField,
+    SubmitField,
+    TextAreaField,
+)
 from wtforms.validators import DataRequired, Length, NumberRange, Optional, ValidationError
 
 
@@ -269,8 +277,8 @@ class CategoriaForm(FlaskForm):
 class AjusteStockForm(FlaskForm):
     """Formulario de ajuste de stock."""
 
-    producto_id = SelectField(
-        'Producto', coerce=int, validators=[DataRequired(message='Selecciona un producto')]
+    producto_id = IntegerField(
+        'Producto', validators=[DataRequired(message='Selecciona un producto')]
     )
 
     tipo_ajuste = SelectField(
@@ -304,15 +312,16 @@ class AjusteStockForm(FlaskForm):
 
     submit = SubmitField('Realizar Ajuste')
 
-    def __init__(self, *args, **kwargs):
-        super(AjusteStockForm, self).__init__(*args, **kwargs)
-        self._cargar_productos()
-
-    def _cargar_productos(self):
-        """Carga las opciones de productos filtradas por empresa."""
+    def validate_producto_id(self, field):
+        """Valida que el producto exista y pertenezca a la empresa."""
+        if not field.data:
+            raise ValidationError('Selecciona un producto')
         from ..models import Producto
 
-        productos = Producto.query_empresa().filter_by(activo=True).order_by(Producto.nombre).all()
-        self.producto_id.choices = [(0, 'Seleccionar producto...')] + [
-            (p.id, f'{p.codigo} - {p.nombre}') for p in productos
-        ]
+        producto = (
+            Producto.query_empresa()
+            .filter_by(id=field.data, activo=True)
+            .first()
+        )
+        if not producto:
+            raise ValidationError('El producto seleccionado no es válido')

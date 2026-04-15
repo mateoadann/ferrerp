@@ -15,10 +15,84 @@
             <div class="card-body">
                 <form method="POST">
                     {{ form.hidden_tag() }}
-                    <div class="mb-3">
+
+                    {# --- Autocomplete de producto --- #}
+                    <div class="mb-3" x-data="productoAutocomplete()" @click.outside="cerrar()">
                         <label class="form-label">{{ form.producto_id.label.text }} *</label>
-                        {{ form.producto_id(class="form-select", id="producto_id", onchange="ajustarStepCantidad()") }}
+                        <div class="position-relative">
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <span class="material-symbols-rounded" style="font-size:20px">search</span>
+                                </span>
+                                <input type="text"
+                                       class="form-control"
+                                       placeholder="Buscar producto por código o nombre..."
+                                       x-model="query"
+                                       @input.debounce.300ms="buscar()"
+                                       @keydown.arrow-down.prevent="selectedIdx = Math.min(selectedIdx + 1, resultados.length - 1)"
+                                       @keydown.arrow-up.prevent="selectedIdx = Math.max(selectedIdx - 1, 0)"
+                                       @keydown.enter.prevent="seleccionarActual()"
+                                       @keydown.escape="cerrar()"
+                                       @focus="if (resultados.length) abierto = true"
+                                       x-ref="inputBusqueda"
+                                       autocomplete="off">
+                            </div>
+
+                            {# Input oculto que envía el producto_id al backend #}
+                            <input type="hidden"
+                                   name="producto_id"
+                                   id="producto_id"
+                                   x-model="productoId">
+
+                            {# Dropdown de resultados #}
+                            <div class="position-absolute bg-white shadow-lg rounded-2 mt-1 w-100 border"
+                                 x-show="abierto && resultados.length > 0"
+                                 x-cloak
+                                 style="z-index: 1050; max-height: 280px; overflow-y: auto;"
+                                 x-ref="dropdown"
+                                 x-effect="if (selectedIdx >= 0 && $refs.dropdown) { const el = $refs.dropdown.children[selectedIdx]; if (el) el.scrollIntoView({block: 'nearest'}) }">
+                                <template x-for="(prod, idx) in resultados" :key="prod.id">
+                                    <div class="p-2 px-3 border-bottom cursor-pointer"
+                                         style="cursor: pointer;"
+                                         :class="{'bg-primary text-white': selectedIdx === idx}"
+                                         @mouseenter="selectedIdx = idx"
+                                         @click="seleccionar(prod)">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <span class="badge bg-secondary me-2" x-text="prod.codigo"></span>
+                                                <span x-text="prod.nombre"></span>
+                                            </div>
+                                            <div class="text-end">
+                                                <small :class="selectedIdx === idx ? '' : 'text-muted'">
+                                                    Stock: <span x-text="formatStock(prod.stock_actual, prod.unidad_medida)"></span>
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+
+                            {# Sin resultados #}
+                            <div class="position-absolute bg-white shadow-lg rounded-2 mt-1 w-100 border p-3 text-center text-muted"
+                                 x-show="abierto && query.length >= 2 && resultados.length === 0 && !buscando"
+                                 x-cloak
+                                 style="z-index: 1050;">
+                                <span class="material-symbols-rounded me-1" style="font-size:18px; vertical-align: middle;">search_off</span>
+                                No se encontraron productos
+                            </div>
+                        </div>
+
+                        {# Producto seleccionado #}
+                        <div class="mt-2" x-show="productoSeleccionado" x-cloak>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
+                                <span class="material-symbols-rounded me-1" style="font-size:16px; vertical-align: middle;">check_circle</span>
+                                <span x-text="productoSeleccionado"></span>
+                                <button type="button" class="btn-close ms-2" style="font-size: 0.6rem; vertical-align: middle;"
+                                        @click="limpiar()"></button>
+                            </span>
+                        </div>
                     </div>
+
                     <div class="mb-3">
                         <label class="form-label">{{ form.tipo_ajuste.label.text }} *</label>
                         {{ form.tipo_ajuste(class="form-select") }}
@@ -44,29 +118,115 @@
 
 {% block extra_js %}
 <script>
-async function ajustarStepCantidad() {
-    const productoId = document.getElementById('producto_id').value;
-    const cantidadInput = document.getElementById('cantidad_ajuste');
-    const hint = document.getElementById('cantidad_hint');
-    if (!productoId || productoId === '0') {
-        cantidadInput.step = 'any';
-        cantidadInput.removeAttribute('min');
-        if (hint) hint.classList.add('d-none');
-        return;
-    }
+function productoAutocomplete() {
+    return {
+        query: '',
+        resultados: [],
+        selectedIdx: -1,
+        productoId: '{{ form.producto_id.data or "" }}',
+        productoSeleccionado: '',
+        abierto: false,
+        buscando: false,
 
-    try {
-        const resp = await fetch(`/ventas/api/producto/${productoId}`);
-        if (resp.ok) {
-            const data = await resp.json();
+        init() {
+            // Si viene un producto pre-seleccionado (ej. desde URL), mostrar su nombre
+            if (this.productoId) {
+                this.cargarProductoInicial(this.productoId);
+            }
+        },
+
+        async cargarProductoInicial(id) {
+            try {
+                const resp = await fetch(`/ventas/api/producto/${id}`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    this.productoSeleccionado = `${data.codigo} - ${data.nombre}`;
+                    this.query = '';
+                    this.ajustarStepCantidad(data);
+                }
+            } catch (e) { /* silenciar */ }
+        },
+
+        async buscar() {
+            this.selectedIdx = -1;
+            if (this.query.length < 2) {
+                this.resultados = [];
+                this.abierto = false;
+                return;
+            }
+            this.buscando = true;
+            try {
+                const resp = await fetch(
+                    `{{ url_for('productos.buscar') }}?q=${encodeURIComponent(this.query)}`
+                );
+                this.resultados = await resp.json();
+                this.abierto = true;
+            } catch (e) {
+                console.error('Error buscando productos:', e);
+            } finally {
+                this.buscando = false;
+            }
+        },
+
+        seleccionarActual() {
+            if (this.selectedIdx >= 0 && this.resultados[this.selectedIdx]) {
+                this.seleccionar(this.resultados[this.selectedIdx]);
+            } else if (this.resultados.length === 1) {
+                this.seleccionar(this.resultados[0]);
+            }
+        },
+
+        seleccionar(prod) {
+            this.productoId = prod.id;
+            this.productoSeleccionado = `${prod.codigo} - ${prod.nombre}`;
+            this.query = '';
+            this.resultados = [];
+            this.abierto = false;
+            this.selectedIdx = -1;
+            this.ajustarStepCantidad(prod);
+        },
+
+        limpiar() {
+            this.productoId = '';
+            this.productoSeleccionado = '';
+            this.query = '';
+            this.resultados = [];
+            this.abierto = false;
+            this.selectedIdx = -1;
+            // Resetear step de cantidad
+            const cantidadInput = document.getElementById('cantidad_ajuste');
+            const hint = document.getElementById('cantidad_hint');
+            if (cantidadInput) {
+                cantidadInput.step = 'any';
+                cantidadInput.removeAttribute('min');
+            }
+            if (hint) hint.classList.add('d-none');
+            this.$nextTick(() => this.$refs.inputBusqueda.focus());
+        },
+
+        cerrar() {
+            this.abierto = false;
+            this.selectedIdx = -1;
+        },
+
+        ajustarStepCantidad(data) {
+            const cantidadInput = document.getElementById('cantidad_ajuste');
+            const hint = document.getElementById('cantidad_hint');
+            if (!data || !cantidadInput) return;
+
             const esEntero = (data.unidad_medida === 'unidad' || data.unidad_medida === 'par');
             cantidadInput.step = esEntero ? '1' : '0.01';
             cantidadInput.min = esEntero ? '1' : '0.01';
             if (hint) hint.classList.toggle('d-none', esEntero);
-        }
-    } catch (e) { /* silenciar error */ }
-}
+        },
 
-document.addEventListener('DOMContentLoaded', ajustarStepCantidad);
+        formatStock(valor, unidad) {
+            if (unidad === 'unidad' || unidad === 'par') {
+                return parseInt(valor);
+            }
+            return parseFloat(valor).toFixed(2);
+        }
+    };
+}
 </script>
 {% endblock %}
