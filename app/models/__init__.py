@@ -11,6 +11,7 @@ from .configuracion import Configuracion
 from .cuenta_corriente import MovimientoCuentaCorriente
 from .devolucion import Devolucion, DevolucionDetalle
 from .empresa import Empresa
+from .importacion_producto import ImportacionProducto
 from .movimiento_stock import MovimientoStock
 from .orden_compra import OrdenCompra, OrdenCompraDetalle
 from .presupuesto import Presupuesto, PresupuestoDetalle
@@ -43,4 +44,5 @@ __all__ = [
     'PresupuestoDetalle',
     'VentaPago',
     'ActualizacionPrecio',
+    'ImportacionProducto',
 ]

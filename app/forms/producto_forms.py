@@ -1,6 +1,7 @@
 """Formularios de productos y categorías."""
 
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileAllowed, FileField, FileRequired
 from wtforms import BooleanField, DecimalField, SelectField, StringField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired, Length, NumberRange, Optional, ValidationError
 
@@ -316,3 +317,32 @@ class AjusteStockForm(FlaskForm):
         self.producto_id.choices = [(0, 'Seleccionar producto...')] + [
             (p.id, f'{p.codigo} - {p.nombre}') for p in productos
         ]
+
+
+class ImportacionProductosForm(FlaskForm):
+    """Formulario para importación masiva de productos desde Excel/CSV."""
+
+    archivo = FileField(
+        'Archivo',
+        validators=[
+            FileRequired(message='Seleccioná un archivo para importar'),
+            FileAllowed(['xlsx', 'csv'], message='Solo se permiten archivos .xlsx o .csv'),
+        ],
+    )
+
+    modo_duplicados = SelectField(
+        'Productos duplicados',
+        choices=[
+            ('saltar', 'Saltar'),
+            ('actualizar', 'Actualizar existente'),
+            ('error', 'Marcar como error'),
+        ],
+        default='saltar',
+    )
+
+    crear_categorias = BooleanField(
+        'Crear categorías inexistentes',
+        default=False,
+    )
+
+    submit = SubmitField('Previsualizar')
