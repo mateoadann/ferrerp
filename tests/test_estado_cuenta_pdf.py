@@ -173,7 +173,7 @@ def test_estado_cuenta_pdf_genera_pdf(logged_client, empresa, usuario):
 
     # Mock WeasyPrint para evitar dependencia de sistema en tests
     fake_pdf = b'%PDF-1.4 fake pdf content'
-    with patch('app.services.cuenta_corriente_service.HTML') as mock_html_cls:
+    with patch('weasyprint.HTML') as mock_html_cls:
         mock_html_cls.return_value.write_pdf.return_value = fake_pdf
         resp = logged_client.get(f'/clientes/{cliente.id}/estado-cuenta-pdf')
 
@@ -189,7 +189,7 @@ def test_estado_cuenta_pdf_sin_movimientos(logged_client, empresa, usuario):
     _db.session.commit()
 
     fake_pdf = b'%PDF-1.4 empty'
-    with patch('app.services.cuenta_corriente_service.HTML') as mock_html_cls:
+    with patch('weasyprint.HTML') as mock_html_cls:
         mock_html_cls.return_value.write_pdf.return_value = fake_pdf
         resp = logged_client.get(f'/clientes/{cliente.id}/estado-cuenta-pdf')
 
