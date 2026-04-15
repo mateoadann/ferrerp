@@ -3,8 +3,8 @@
 Agrega columna saldo_a_favor_monto para almacenar el credito del cliente
 de forma independiente a la deuda.
 
-Revision ID: 0013
-Revises: 0012
+Revision ID: 0012
+Revises: 0011
 Create Date: 2026-04-14
 """
 
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = '0013'
-down_revision = '0012'
+revision = '0012'
+down_revision = '0011'
 branch_labels = None
 depends_on = None
 
