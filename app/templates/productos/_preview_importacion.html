@@ -1,0 +1,263 @@
+{% if error %}
+<div class="card border-danger">
+    <div class="card-body">
+        <div class="d-flex align-items-start text-danger">
+            <span class="material-symbols-rounded me-2">error</span>
+            <div>{{ error }}</div>
+        </div>
+    </div>
+</div>
+
+{% elif resultado %}
+<div class="card">
+    <div class="card-header">
+        <span class="material-symbols-rounded me-2" style="vertical-align: middle;">preview</span>
+        Previsualización de importación
+    </div>
+
+    <!-- Resumen -->
+    <div class="card-body border-bottom">
+        <div class="row g-3 text-center">
+            {% if resultado.filas_validas %}
+            <div class="col">
+                <div class="fs-3 fw-bold text-success">{{ resultado.filas_validas|length }}</div>
+                <small class="text-muted">Para importar</small>
+            </div>
+            {% endif %}
+            {% if resultado.filas_actualizar %}
+            <div class="col">
+                <div class="fs-3 fw-bold text-info">{{ resultado.filas_actualizar|length }}</div>
+                <small class="text-muted">Para actualizar</small>
+            </div>
+            {% endif %}
+            {% if resultado.errores %}
+            <div class="col">
+                <div class="fs-3 fw-bold text-danger">{{ filas_con_error }}</div>
+                <small class="text-muted">Con errores</small>
+            </div>
+            {% endif %}
+            {% if resultado.advertencias %}
+            <div class="col">
+                <div class="fs-3 fw-bold text-warning">{{ filas_con_advertencia }}</div>
+                <small class="text-muted">Con advertencias</small>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if resultado.categorias_nuevas %}
+    <div class="alert alert-info m-3 mb-0 d-flex align-items-start">
+        <span class="material-symbols-rounded me-2">category</span>
+        <div>
+            <strong>Categorías nuevas a crear ({{ resultado.categorias_nuevas|length }}):</strong>
+            <ul class="mb-0 mt-1">
+                {% for cat in resultado.categorias_nuevas %}
+                <li>{{ cat }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tabla de filas -->
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th style="width: 60px;">Fila</th>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Categoría</th>
+                    <th class="text-end">P. Costo</th>
+                    <th class="text-end">P. Venta</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {# Filas válidas #}
+                {% for fila in resultado.filas_validas %}
+                <tr class="table-success">
+                    <td>{{ fila.fila_origen }}</td>
+                    <td><code>{{ fila.codigo }}</code></td>
+                    <td>{{ fila.nombre }}</td>
+                    <td>{{ fila.categoria_nombre or '—' }}</td>
+                    <td class="text-end">${{ "%.2f"|format(fila.precio_costo|float) }}</td>
+                    <td class="text-end">${{ "%.2f"|format(fila.precio_venta|float) }}</td>
+                    <td>
+                        <span class="badge bg-success">
+                            <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;">check_circle</span>
+                            Válido
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {# Filas a actualizar #}
+                {% for fila in resultado.filas_actualizar %}
+                <tr class="table-info">
+                    <td>{{ fila.fila_origen }}</td>
+                    <td><code>{{ fila.codigo }}</code></td>
+                    <td>{{ fila.nombre }}</td>
+                    <td>{{ fila.categoria_nombre or '—' }}</td>
+                    <td class="text-end">${{ "%.2f"|format(fila.precio_costo|float) }}</td>
+                    <td class="text-end">${{ "%.2f"|format(fila.precio_venta|float) }}</td>
+                    <td>
+                        <span class="badge bg-info">
+                            <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;">sync</span>
+                            Actualizar
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {# Filas con errores (agrupadas por número de fila) #}
+                {% for fila_num, mensajes in errores_por_fila.items() %}
+                <tr class="table-danger">
+                    <td>{{ fila_num }}</td>
+                    <td colspan="5">
+                        {% for msg in mensajes %}
+                        <div class="small">
+                            <span class="material-symbols-rounded text-danger" style="font-size: 14px; vertical-align: middle;">close</span>
+                            {{ msg }}
+                        </div>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        <span class="badge bg-danger">
+                            <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;">error</span>
+                            Error
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {# Filas con advertencias (agrupadas por número de fila) #}
+                {% for fila_num, mensajes in advertencias_por_fila.items() %}
+                <tr class="table-warning">
+                    <td>{{ fila_num }}</td>
+                    <td colspan="5">
+                        {% for msg in mensajes %}
+                        <div class="small">
+                            <span class="material-symbols-rounded text-warning" style="font-size: 14px; vertical-align: middle;">warning</span>
+                            {{ msg }}
+                        </div>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        <span class="badge bg-warning text-dark">
+                            <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;">warning</span>
+                            Advertencia
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Totales -->
+    <div class="card-body border-top">
+        <div class="d-flex justify-content-between align-items-center text-muted small">
+            <span>
+                Total: {{ total_filas }} fila{{ 's' if total_filas != 1 else '' }}
+                {% if resultado.filas_validas %}
+                 — {{ resultado.filas_validas|length }} para importar
+                {% endif %}
+                {% if resultado.filas_actualizar %}
+                 — {{ resultado.filas_actualizar|length }} para actualizar
+                {% endif %}
+                {% if filas_con_error > 0 %}
+                 — {{ filas_con_error }} con errores
+                {% endif %}
+            </span>
+        </div>
+    </div>
+
+    {% set tiene_filas_procesables = resultado.filas_validas|length > 0 or resultado.filas_actualizar|length > 0 %}
+
+    {% if tiene_filas_procesables %}
+    <div class="card-footer">
+        <form method="POST" action="{{ url_for('productos.importar_aplicar') }}"
+              id="form-aplicar-importacion">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="modo_duplicados" value="{{ modo_duplicados }}">
+            <input type="hidden" name="crear_categorias" value="{{ 'y' if crear_categorias else 'n' }}">
+
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted">
+                    <span class="material-symbols-rounded me-1" style="vertical-align: middle;">inventory_2</span>
+                    {% if resultado.filas_validas|length > 0 %}
+                    {{ resultado.filas_validas|length }} producto{{ 's' if resultado.filas_validas|length != 1 else '' }} nuevo{{ 's' if resultado.filas_validas|length != 1 else '' }}
+                    {% endif %}
+                    {% if resultado.filas_actualizar|length > 0 %}
+                    {% if resultado.filas_validas|length > 0 %} + {% endif %}
+                    {{ resultado.filas_actualizar|length }} a actualizar
+                    {% endif %}
+                </span>
+                <button type="button" class="btn btn-success"
+                        data-bs-toggle="modal" data-bs-target="#modalConfirmarImportacion">
+                    <span class="material-symbols-rounded me-2">check_circle</span>
+                    Aplicar importación
+                </button>
+            </div>
+        </form>
+    </div>
+    {% else %}
+    <div class="card-footer">
+        <div class="text-center text-danger">
+            <span class="material-symbols-rounded me-1" style="vertical-align: middle;">block</span>
+            No hay filas válidas para importar. Corregí los errores y volvé a subir el archivo.
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if tiene_filas_procesables %}
+<!-- Modal confirmación aplicar importación -->
+<div class="modal fade" id="modalConfirmarImportacion" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">
+                    <span class="material-symbols-rounded me-2">warning</span>
+                    Confirmar importación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>
+                    ¿Estás seguro de aplicar esta importación?
+                    <strong>Esta acción no se puede deshacer.</strong>
+                </p>
+                <p class="mb-0 text-muted">
+                    {% if resultado.filas_validas|length > 0 %}
+                    <span class="material-symbols-rounded me-1" style="vertical-align: middle; color: var(--bs-success);">add_circle</span>
+                    Se crearán <strong>{{ resultado.filas_validas|length }}</strong> producto{{ 's' if resultado.filas_validas|length != 1 else '' }} nuevo{{ 's' if resultado.filas_validas|length != 1 else '' }}.
+                    {% endif %}
+                    {% if resultado.filas_actualizar|length > 0 %}
+                    <br>
+                    <span class="material-symbols-rounded me-1" style="vertical-align: middle; color: var(--bs-info);">sync</span>
+                    Se actualizarán <strong>{{ resultado.filas_actualizar|length }}</strong> producto{{ 's' if resultado.filas_actualizar|length != 1 else '' }} existente{{ 's' if resultado.filas_actualizar|length != 1 else '' }}.
+                    {% endif %}
+                    {% if resultado.categorias_nuevas %}
+                    <br>
+                    <span class="material-symbols-rounded me-1" style="vertical-align: middle; color: var(--bs-info);">category</span>
+                    Se crearán <strong>{{ resultado.categorias_nuevas|length }}</strong> categoría{{ 's' if resultado.categorias_nuevas|length != 1 else '' }} nueva{{ 's' if resultado.categorias_nuevas|length != 1 else '' }}.
+                    {% endif %}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-success"
+                        onclick="document.getElementById('form-aplicar-importacion').submit();">
+                    <span class="material-symbols-rounded me-1">check_circle</span>
+                    Confirmar y aplicar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}

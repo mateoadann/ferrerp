@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block title %}Importar Productos - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>Importar Productos</h2>
+        <span class="text-muted">Cargá productos de forma masiva desde un archivo Excel o CSV</span>
+    </div>
+    <a href="{{ url_for('productos.index') }}" class="btn btn-outline-secondary">
+        <span class="material-symbols-rounded me-2">arrow_back</span>
+        Volver a Productos
+    </a>
+</div>
+
+<div class="row g-4">
+    <!-- Instrucciones y formulario -->
+    <div class="col-lg-5">
+        <!-- Pasos -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <span class="material-symbols-rounded me-2" style="vertical-align: middle;">info</span>
+                Instrucciones
+            </div>
+            <div class="card-body">
+                <div class="d-flex mb-3">
+                    <span class="badge bg-primary rounded-circle me-3 d-flex align-items-center justify-content-center"
+                          style="width: 28px; height: 28px; flex-shrink: 0;">1</span>
+                    <div>
+                        <strong>Descargá la plantilla</strong>
+                        <p class="text-muted mb-0 small">
+                            La plantilla incluye las columnas esperadas, ejemplos y listas desplegables
+                            con las categorías y proveedores de tu empresa.
+                        </p>
+                    </div>
+                </div>
+                <div class="d-flex mb-3">
+                    <span class="badge bg-primary rounded-circle me-3 d-flex align-items-center justify-content-center"
+                          style="width: 28px; height: 28px; flex-shrink: 0;">2</span>
+                    <div>
+                        <strong>Completá los datos</strong>
+                        <p class="text-muted mb-0 small">
+                            Agregá tus productos en la plantilla. Los campos obligatorios son:
+                            codigo, nombre, categoria, unidad_medida, precio_costo e iva.
+                        </p>
+                    </div>
+                </div>
+                <div class="d-flex">
+                    <span class="badge bg-primary rounded-circle me-3 d-flex align-items-center justify-content-center"
+                          style="width: 28px; height: 28px; flex-shrink: 0;">3</span>
+                    <div>
+                        <strong>Subí y revisá</strong>
+                        <p class="text-muted mb-0 small">
+                            Subí el archivo y revisá la previsualización antes de confirmar
+                            la importación.
+                        </p>
+                    </div>
+                </div>
+
+                <hr>
+
+                <a href="{{ url_for('productos.importar_plantilla') }}"
+                   class="btn btn-outline-success w-100">
+                    <span class="material-symbols-rounded me-2">download</span>
+                    Descargar plantilla Excel
+                </a>
+            </div>
+        </div>
+
+        <!-- Formulario de upload -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <span class="material-symbols-rounded me-2" style="vertical-align: middle;">upload_file</span>
+                Subir archivo
+            </div>
+            <div class="card-body">
+                <form id="form-importacion" method="POST" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        <label for="archivo" class="form-label">Archivo (.xlsx o .csv)</label>
+                        {{ form.archivo(class="form-control", id="archivo", accept=".xlsx,.csv") }}
+                        {% for error in form.archivo.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-text">Tamaño máximo: 2 MB. Hasta 5.000 filas.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="modo_duplicados" class="form-label">Si el código ya existe</label>
+                        {{ form.modo_duplicados(class="form-select", id="modo_duplicados") }}
+                        <div class="form-text">
+                            Define qué hacer cuando un producto con el mismo código ya existe en el sistema.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ form.crear_categorias(class="form-check-input", id="crear_categorias") }}
+                            <label class="form-check-label" for="crear_categorias">
+                                Crear categorías que no existan
+                            </label>
+                        </div>
+                        <div class="form-text">
+                            Si está activado, se crean automáticamente las categorías nuevas
+                            que aparezcan en el archivo. Formato jerárquico: "Padre > Hijo".
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary w-100"
+                            hx-post="{{ url_for('productos.importar_preview') }}"
+                            hx-target="#preview-container"
+                            hx-include="#form-importacion"
+                            hx-indicator="#preview-loading"
+                            hx-encoding="multipart/form-data">
+                        <span class="material-symbols-rounded me-2">preview</span>
+                        Previsualizar importación
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview -->
+    <div class="col-lg-7">
+        <div id="preview-loading" class="htmx-indicator text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2 text-muted">Procesando archivo...</p>
+        </div>
+        <div id="preview-container">
+            <div class="card">
+                <div class="card-body text-center text-muted py-5">
+                    <span class="material-symbols-rounded" style="font-size: 48px;">upload_file</span>
+                    <p class="mt-3">Seleccioná un archivo y hacé clic en "Previsualizar" para ver los resultados.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

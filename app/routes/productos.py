@@ -1,15 +1,37 @@
 """Rutas de productos."""
 
 import json
+from collections import OrderedDict
 from decimal import Decimal
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    Response,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from flask_login import current_user, login_required
 
 from ..extensions import db
-from ..forms.producto_forms import ActualizacionMasivaPreciosForm, ProductoForm
+from ..forms.producto_forms import (
+    ActualizacionMasivaPreciosForm,
+    ImportacionProductosForm,
+    ProductoForm,
+)
 from ..models import Categoria, Producto
 from ..services import actualizacion_precio_service
+from ..services.importacion_producto_service import (
+    ImportacionResult,
+    aplicar_importacion,
+    generar_plantilla_excel,
+    parsear_archivo,
+    validar_importacion,
+)
 from ..utils.decorators import admin_required, empresa_aprobada_required
 from ..utils.helpers import es_peticion_htmx, paginar_query
 
@@ -243,6 +265,225 @@ def actualizacion_masiva_aplicar():
         flash(str(e), 'danger')
 
     return redirect(url_for('productos.actualizacion_masiva'))
+
+
+def _decimal_serializer(obj):
+    """Convierte Decimal a str para serialización JSON."""
+    if isinstance(obj, Decimal):
+        return str(obj)
+    raise TypeError(f'Objeto de tipo {type(obj)} no es serializable a JSON')
+
+
+def _resultado_a_session(resultado: ImportacionResult, nombre_archivo: str) -> None:
+    """Serializa ImportacionResult a session como JSON."""
+    data = {
+        'filas_validas': resultado.filas_validas,
+        'filas_actualizar': resultado.filas_actualizar,
+        'errores': resultado.errores,
+        'advertencias': resultado.advertencias,
+        'categorias_nuevas': resultado.categorias_nuevas,
+        'nombre_archivo': nombre_archivo,
+    }
+    session['importacion_resultado'] = json.dumps(data, default=_decimal_serializer)
+
+
+def _resultado_desde_session() -> tuple[ImportacionResult, str] | None:
+    """Deserializa ImportacionResult desde session."""
+    raw = session.get('importacion_resultado')
+    if not raw:
+        return None
+    data = json.loads(raw)
+
+    # Reconvertir strings a Decimal en filas válidas y a actualizar
+    campos_decimal = [
+        'precio_costo',
+        'precio_venta',
+        'iva_porcentaje',
+        'stock_inicial',
+        'stock_minimo',
+    ]
+    for lista in (data['filas_validas'], data['filas_actualizar']):
+        for fila in lista:
+            for campo in campos_decimal:
+                if campo in fila and fila[campo] is not None:
+                    fila[campo] = Decimal(str(fila[campo]))
+
+    resultado = ImportacionResult(
+        filas_validas=data['filas_validas'],
+        filas_actualizar=data['filas_actualizar'],
+        errores=data['errores'],
+        advertencias=data['advertencias'],
+        categorias_nuevas=data['categorias_nuevas'],
+    )
+    return resultado, data.get('nombre_archivo', '')
+
+
+def _preparar_preview_context(resultado: ImportacionResult) -> dict:
+    """Prepara el contexto para el template de preview."""
+    # Agrupar errores por fila
+    errores_por_fila: OrderedDict[int, list[str]] = OrderedDict()
+    for err in resultado.errores:
+        fila_num = err['fila']
+        if fila_num not in errores_por_fila:
+            errores_por_fila[fila_num] = []
+        msg = err.get('mensaje', '')
+        if err.get('campo'):
+            msg = f"{err['campo']}: {msg}"
+        errores_por_fila[fila_num].append(msg)
+
+    # Agrupar advertencias por fila
+    advertencias_por_fila: OrderedDict[int, list[str]] = OrderedDict()
+    for adv in resultado.advertencias:
+        fila_num = adv['fila']
+        if fila_num not in advertencias_por_fila:
+            advertencias_por_fila[fila_num] = []
+        advertencias_por_fila[fila_num].append(adv.get('mensaje', ''))
+
+    total_filas = (
+        len(resultado.filas_validas)
+        + len(resultado.filas_actualizar)
+        + len(errores_por_fila)
+        + len(advertencias_por_fila)
+    )
+
+    return {
+        'resultado': resultado,
+        'errores_por_fila': errores_por_fila,
+        'advertencias_por_fila': advertencias_por_fila,
+        'filas_con_error': len(errores_por_fila),
+        'filas_con_advertencia': len(advertencias_por_fila),
+        'total_filas': total_filas,
+    }
+
+
+@bp.route('/importar')
+@login_required
+@empresa_aprobada_required
+@admin_required
+def importar():
+    """Página de importación masiva de productos."""
+    form = ImportacionProductosForm()
+    return render_template('productos/importar.html', form=form)
+
+
+@bp.route('/importar/plantilla')
+@login_required
+@empresa_aprobada_required
+@admin_required
+def importar_plantilla():
+    """Descarga la plantilla Excel para importación de productos."""
+    output = generar_plantilla_excel(current_user.empresa_id)
+    return Response(
+        output.getvalue(),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={
+            'Content-Disposition': 'attachment; filename=plantilla_importacion_productos.xlsx',
+        },
+    )
+
+
+@bp.route('/importar/preview', methods=['POST'])
+@login_required
+@empresa_aprobada_required
+@admin_required
+def importar_preview():
+    """Preview HTMX de importación masiva de productos."""
+    form = ImportacionProductosForm()
+
+    if not form.validate_on_submit():
+        errores = []
+        for campo, msgs in form.errors.items():
+            for msg in msgs:
+                errores.append(msg)
+        return render_template(
+            'productos/_preview_importacion.html',
+            error='; '.join(errores),
+            resultado=None,
+        )
+
+    archivo = form.archivo.data
+    nombre_archivo = archivo.filename
+    modo_duplicados = form.modo_duplicados.data
+    crear_categorias = form.crear_categorias.data
+
+    try:
+        filas = parsear_archivo(archivo, nombre_archivo)
+    except ValueError as e:
+        return render_template(
+            'productos/_preview_importacion.html',
+            error=str(e),
+            resultado=None,
+        )
+
+    if not filas:
+        return render_template(
+            'productos/_preview_importacion.html',
+            error='El archivo no contiene filas de datos.',
+            resultado=None,
+        )
+
+    resultado = validar_importacion(
+        filas,
+        current_user.empresa_id,
+        crear_categorias=crear_categorias,
+        modo_duplicados=modo_duplicados,
+    )
+
+    # Guardar en session para el paso de aplicar
+    _resultado_a_session(resultado, nombre_archivo)
+
+    context = _preparar_preview_context(resultado)
+    context['modo_duplicados'] = modo_duplicados
+    context['crear_categorias'] = crear_categorias
+    context['error'] = None
+
+    return render_template('productos/_preview_importacion.html', **context)
+
+
+@bp.route('/importar/aplicar', methods=['POST'])
+@login_required
+@empresa_aprobada_required
+@admin_required
+def importar_aplicar():
+    """Aplica la importación masiva de productos."""
+    datos = _resultado_desde_session()
+    if not datos:
+        flash('No hay datos de importación para aplicar. Volvé a subir el archivo.', 'danger')
+        return redirect(url_for('productos.importar'))
+
+    resultado, nombre_archivo = datos
+    crear_categorias = request.form.get('crear_categorias') == 'y'
+
+    try:
+        auditoria = aplicar_importacion(
+            resultado=resultado,
+            empresa_id=current_user.empresa_id,
+            usuario_id=current_user.id,
+            crear_categorias=crear_categorias,
+            nombre_archivo=nombre_archivo,
+        )
+        db.session.commit()
+
+        partes_mensaje = []
+        if auditoria.filas_importadas > 0:
+            partes_mensaje.append(f'{auditoria.filas_importadas} importado(s)')
+        if auditoria.filas_actualizadas > 0:
+            partes_mensaje.append(f'{auditoria.filas_actualizadas} actualizado(s)')
+        if auditoria.categorias_creadas > 0:
+            partes_mensaje.append(f'{auditoria.categorias_creadas} categoría(s) creada(s)')
+
+        flash(
+            f'Importación exitosa: {", ".join(partes_mensaje)}.',
+            'success',
+        )
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al aplicar la importación: {e}', 'danger')
+        return redirect(url_for('productos.importar'))
+    finally:
+        session.pop('importacion_resultado', None)
+
+    return redirect(url_for('productos.index'))
 
 
 @bp.route('/nuevo', methods=['GET', 'POST'])

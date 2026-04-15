@@ -7,6 +7,10 @@
     <h2>Productos</h2>
     <div class="d-flex gap-2">
         {% if current_user.es_administrador %}
+        <a href="{{ url_for('productos.importar') }}" class="btn btn-outline-primary">
+            <span class="material-symbols-rounded me-2">upload_file</span>
+            Importar Productos
+        </a>
         <a href="{{ url_for('productos.actualizacion_masiva') }}" class="btn btn-outline-primary">
             <span class="material-symbols-rounded me-2">price_change</span>
             Actualizar Precios
