@@ -202,7 +202,12 @@ def estado_cuenta_pdf(id):
     """Descargar PDF del estado de cuenta del cliente."""
     cliente = Cliente.get_o_404(id)
 
-    pdf_bytes = cuenta_corriente_service.generar_estado_cuenta_pdf(cliente)
+    modo = request.args.get('modo', 'dias')
+    dias = request.args.get('dias', 90, type=int)
+
+    pdf_bytes = cuenta_corriente_service.generar_estado_cuenta_pdf(
+        cliente, modo=modo, dias=dias
+    )
 
     response = make_response(pdf_bytes)
     response.headers['Content-Type'] = 'application/pdf'

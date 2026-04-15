@@ -7,11 +7,9 @@
         <span class="text-muted">{{ cliente.nombre }}</span>
     </div>
     <div class="d-flex gap-2">
-        <a href="{{ url_for('clientes.estado_cuenta_pdf', id=cliente.id) }}"
-           class="btn btn-outline-primary"
-           target="_blank">
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#estadoCuentaModal">
             <span class="material-symbols-rounded me-2">picture_as_pdf</span>Estado de Cuenta
-        </a>
+        </button>
         <a href="{{ url_for('clientes.index') }}" class="btn btn-secondary">
             <span class="material-symbols-rounded me-2">arrow_back</span>Volver
         </a>
@@ -212,6 +210,73 @@
     </div>
 </div>
 
+<!-- Modal Estado de Cuenta -->
+<div class="modal fade" id="estadoCuentaModal" tabindex="-1" aria-labelledby="estadoCuentaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="material-symbols-rounded" style="font-size: 24px;">picture_as_pdf</span>
+                    <h5 class="modal-title mb-0" id="estadoCuentaModalLabel">Generar Estado de Cuenta</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Opción A: Últimos N días -->
+                <div class="card mb-3 ec-option-card" id="ecOpcionDias">
+                    <div class="card-body p-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="ecModo" id="ecModoDias" value="dias" checked>
+                            <label class="form-check-label fw-semibold" for="ecModoDias">
+                                <span class="material-symbols-rounded align-middle me-1" style="font-size: 18px;">calendar_today</span>
+                                Últimos N días
+                            </label>
+                        </div>
+                        <div id="ecDiasContent" class="mt-3 ps-4">
+                            <div class="mb-2">
+                                <label class="form-label small text-muted mb-1">Cantidad de días</label>
+                                <input type="number" class="form-control form-control-sm" id="ecDiasInput"
+                                       value="90" min="1" max="3650" style="max-width: 120px;">
+                            </div>
+                            <div class="d-flex gap-1 flex-wrap">
+                                <button type="button" class="btn btn-sm btn-outline-secondary ec-chip" data-dias="30">30 días</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary ec-chip" data-dias="60">60 días</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary ec-chip active" data-dias="90">90 días</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary ec-chip" data-dias="180">180 días</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Opción B: Desde último saldo en cero -->
+                <div class="card ec-option-card" id="ecOpcionSaldoCero">
+                    <div class="card-body p-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="ecModo" id="ecModoSaldoCero" value="ultimo_saldo_cero">
+                            <label class="form-check-label fw-semibold" for="ecModoSaldoCero">
+                                <span class="material-symbols-rounded align-middle me-1" style="font-size: 18px;">restart_alt</span>
+                                Desde último saldo en cero
+                            </label>
+                        </div>
+                        <div id="ecSaldoCeroContent" class="mt-3 ps-4" style="display: none;">
+                            <p class="small text-muted mb-0">
+                                Solo incluye movimientos desde la última vez que el saldo llegó a $0.
+                                Si el saldo nunca llegó a cero, se muestran todos los movimientos.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <a href="#" class="btn btn-primary" id="ecGenerarBtn" target="_blank">
+                    <span class="material-symbols-rounded me-2">picture_as_pdf</span>Generar PDF
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal de forma de pago (Cuenta Corriente) -->
 <div class="modal fade" id="pagoCtaModal" tabindex="-1" aria-labelledby="pagoCtaModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -308,6 +373,65 @@ document.addEventListener('DOMContentLoaded', () => {
         transferencia: 'Transferencia',
         qr: 'QR'
     };
+
+    // --- Estado de Cuenta Modal ---
+    const ecModoDias = document.getElementById('ecModoDias');
+    const ecModoSaldoCero = document.getElementById('ecModoSaldoCero');
+    const ecDiasContent = document.getElementById('ecDiasContent');
+    const ecSaldoCeroContent = document.getElementById('ecSaldoCeroContent');
+    const ecDiasInput = document.getElementById('ecDiasInput');
+    const ecGenerarBtn = document.getElementById('ecGenerarBtn');
+    const ecChips = document.querySelectorAll('.ec-chip');
+    const baseUrl = '{{ url_for("clientes.estado_cuenta_pdf", id=cliente.id) }}';
+
+    function actualizarEcUrl() {
+        if (ecModoDias.checked) {
+            const dias = ecDiasInput.value || 90;
+            ecGenerarBtn.href = baseUrl + '?modo=dias&dias=' + dias;
+        } else {
+            ecGenerarBtn.href = baseUrl + '?modo=ultimo_saldo_cero';
+        }
+    }
+
+    function toggleEcOptions() {
+        ecDiasContent.style.display = ecModoDias.checked ? 'block' : 'none';
+        ecSaldoCeroContent.style.display = ecModoSaldoCero.checked ? 'block' : 'none';
+        document.getElementById('ecOpcionDias').classList.toggle('border-primary', ecModoDias.checked);
+        document.getElementById('ecOpcionSaldoCero').classList.toggle('border-primary', ecModoSaldoCero.checked);
+        actualizarEcUrl();
+    }
+
+    ecModoDias.addEventListener('change', toggleEcOptions);
+    ecModoSaldoCero.addEventListener('change', toggleEcOptions);
+    ecDiasInput.addEventListener('input', actualizarEcUrl);
+
+    ecChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            ecDiasInput.value = chip.dataset.dias;
+            ecChips.forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            actualizarEcUrl();
+        });
+    });
+
+    ecDiasInput.addEventListener('input', () => {
+        ecChips.forEach(c => {
+            c.classList.toggle('active', c.dataset.dias === ecDiasInput.value);
+        });
+    });
+
+    // Hacer click en la card seleccione el radio
+    document.querySelectorAll('.ec-option-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('input, button, a')) return;
+            const radio = card.querySelector('input[type="radio"]');
+            radio.checked = true;
+            radio.dispatchEvent(new Event('change'));
+        });
+    });
+
+    // Inicializar
+    toggleEcOptions();
 
     // --- Saldo a favor ---
     const usarSaldoFavor = document.getElementById('usarSaldoFavor');

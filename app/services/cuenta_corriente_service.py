@@ -1,5 +1,6 @@
 """Servicio de cuenta corriente: estado de cuenta PDF y ajuste de precios CC."""
 
+from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from flask import render_template
@@ -47,12 +48,14 @@ def obtener_ventas_cc_pendientes(cliente):
     return ventas
 
 
-def generar_estado_cuenta_pdf(cliente, cantidad_movimientos=20):
+def generar_estado_cuenta_pdf(cliente, modo='dias', dias=90):
     """Genera un PDF con el estado de cuenta del cliente.
 
     Args:
         cliente: instancia de Cliente.
-        cantidad_movimientos: cantidad máxima de movimientos a incluir.
+        modo: 'dias' para filtrar por últimos N días,
+              'ultimo_saldo_cero' para filtrar desde el último saldo en cero.
+        dias: cantidad de días a incluir (solo si modo='dias').
 
     Returns:
         bytes con el contenido del PDF.
@@ -60,25 +63,66 @@ def generar_estado_cuenta_pdf(cliente, cantidad_movimientos=20):
     from weasyprint import HTML
 
     config_negocio = obtener_config_negocio()
+    ahora = ahora_argentina()
 
-    # Últimos N movimientos
-    movimientos = (
-        MovimientoCuentaCorriente.query.filter_by(
-            cliente_id=cliente.id,
-            empresa_id=cliente.empresa_id,
+    # Determinar fecha de corte y etiqueta según el modo
+    fecha_corte = None
+    modo_label = ''
+
+    if modo == 'ultimo_saldo_cero':
+        # Buscar el movimiento más reciente donde saldo_posterior == 0
+        mov_saldo_cero = (
+            MovimientoCuentaCorriente.query.filter(
+                MovimientoCuentaCorriente.cliente_id == cliente.id,
+                MovimientoCuentaCorriente.empresa_id == cliente.empresa_id,
+                MovimientoCuentaCorriente.saldo_posterior == Decimal('0'),
+            )
+            .order_by(MovimientoCuentaCorriente.created_at.desc())
+            .first()
         )
+
+        if mov_saldo_cero:
+            fecha_corte = mov_saldo_cero.created_at
+            fecha_str = fecha_corte.strftime('%d/%m/%Y')
+            modo_label = f'Desde {fecha_str} (último saldo en cero)'
+        else:
+            modo_label = 'Todos los movimientos (nunca alcanzó saldo cero)'
+    else:
+        # modo == 'dias'
+        fecha_corte = ahora - timedelta(days=dias)
+        modo_label = f'Últimos {dias} días'
+
+    # Movimientos filtrados
+    query_mov = MovimientoCuentaCorriente.query.filter_by(
+        cliente_id=cliente.id,
+        empresa_id=cliente.empresa_id,
+    )
+    if fecha_corte:
+        query_mov = query_mov.filter(
+            MovimientoCuentaCorriente.created_at >= fecha_corte
+        )
+    movimientos = (
+        query_mov
         .order_by(MovimientoCuentaCorriente.created_at.desc())
-        .limit(cantidad_movimientos)
         .all()
     )
 
-    # Ventas CC pendientes con sus detalles
+    # Ventas CC pendientes filtradas
     ventas_pendientes = obtener_ventas_cc_pendientes(cliente)
+    if fecha_corte:
+        ventas_pendientes = [
+            v for v in ventas_pendientes if v.fecha >= fecha_corte
+        ]
 
     # Precargar detalles con producto para evitar N+1
     ventas_con_detalles = []
     for venta in ventas_pendientes:
-        detalles = venta.detalles.join(Producto).options(db.joinedload(VentaDetalle.producto)).all()
+        detalles = (
+            venta.detalles
+            .join(Producto)
+            .options(db.joinedload(VentaDetalle.producto))
+            .all()
+        )
         ventas_con_detalles.append(
             {
                 'venta': venta,
@@ -86,7 +130,6 @@ def generar_estado_cuenta_pdf(cliente, cantidad_movimientos=20):
             }
         )
 
-    ahora = ahora_argentina()
     referencia = f'EC-{cliente.id}-{ahora.strftime("%Y%m%d%H%M%S")}'
 
     html_string = render_template(
@@ -97,6 +140,7 @@ def generar_estado_cuenta_pdf(cliente, cantidad_movimientos=20):
         ventas_con_detalles=ventas_con_detalles,
         referencia=referencia,
         fecha_generacion=ahora,
+        modo_label=modo_label,
     )
 
     pdf = HTML(string=html_string).write_pdf()
