@@ -329,7 +329,7 @@ def punto_de_venta():
 
                         # Consumir saldo a favor si corresponde
                         if monto_saldo_favor > 0:
-                            saldo_ant_consumo, saldo_post_consumo = cliente.actualizar_saldo(
+                            saldo_ant_consumo, saldo_post_consumo = cliente.actualizar_saldo_favor(
                                 monto_saldo_favor, 'cargo'
                             )
                             movimiento_consumo = MovimientoCuentaCorriente(
@@ -401,7 +401,7 @@ def punto_de_venta():
                         return redirect(url_for('ventas.punto_de_venta'))
 
                     # Crear movimiento de consumo de saldo a favor
-                    saldo_ant_consumo, saldo_post_consumo = cliente.actualizar_saldo(
+                    saldo_ant_consumo, saldo_post_consumo = cliente.actualizar_saldo_favor(
                         monto_saldo_favor, 'cargo'
                     )
                     movimiento_consumo = MovimientoCuentaCorriente(
@@ -706,7 +706,9 @@ def anular(id):
             ).all()
 
             for mov_consumo in movimientos_consumo:
-                saldo_ant, saldo_post = venta.cliente.actualizar_saldo(mov_consumo.monto, 'pago')
+                saldo_ant, saldo_post = venta.cliente.actualizar_saldo_favor(
+                    mov_consumo.monto, 'adelanto'
+                )
                 movimiento_reversion = MovimientoCuentaCorriente(
                     cliente_id=venta.cliente_id,
                     tipo='pago',

@@ -16,15 +16,17 @@
         <div class="card mb-4">
             <div class="card-header">Resumen</div>
             <div class="card-body text-center">
-                {% if cliente.tiene_saldo_a_favor %}
-                <h2 class="text-info">{{ cliente.saldo_a_favor|currency }}</h2>
-                <p class="text-muted mb-0">Saldo a favor</p>
-                {% elif cliente.tiene_deuda %}
+                {% if cliente.tiene_deuda %}
                 <h2 class="text-danger">{{ cliente.saldo_cuenta_corriente|currency }}</h2>
                 <p class="text-muted mb-0">Saldo deuda</p>
                 {% else %}
-                <h2 class="text-success">{{ cliente.saldo_cuenta_corriente|currency }}</h2>
-                <p class="text-muted mb-0">Sin saldo</p>
+                <h2 class="text-success">$0,00</h2>
+                <p class="text-muted mb-0">Sin deuda</p>
+                {% endif %}
+                {% if cliente.tiene_saldo_a_favor %}
+                <hr>
+                <h4 class="text-info mb-0">{{ cliente.saldo_a_favor|currency }}</h4>
+                <p class="text-muted mb-0">Saldo a favor</p>
                 {% endif %}
                 {% if cliente.limite_credito > 0 %}
                 <hr>

@@ -268,8 +268,8 @@ def registrar_adelanto(id):
             )
             return redirect(url_for('caja.index'))
 
-        # Actualizar saldo del cliente (pago reduce saldo)
-        saldo_anterior, saldo_posterior = cliente.actualizar_saldo(monto, tipo='pago')
+        # Actualizar saldo a favor del cliente (adelanto suma saldo a favor)
+        saldo_anterior, saldo_posterior = cliente.actualizar_saldo_favor(monto, tipo='adelanto')
 
         # Registrar movimiento de cuenta corriente
         movimiento_cc = MovimientoCuentaCorriente(
@@ -351,8 +351,8 @@ def anular_adelanto(id, movimiento_id):
         )
         return redirect(url_for('caja.index'))
 
-    # Revertir saldo (cargo aumenta saldo/deuda)
-    saldo_anterior, saldo_posterior = cliente.actualizar_saldo(movimiento.monto, tipo='cargo')
+    # Revertir saldo a favor (cargo consume saldo a favor)
+    saldo_anterior, saldo_posterior = cliente.actualizar_saldo_favor(movimiento.monto, tipo='cargo')
 
     # Registrar movimiento de anulación en cuenta corriente
     movimiento_cc = MovimientoCuentaCorriente(
@@ -404,19 +404,19 @@ def con_saldo_a_favor():
         Cliente.query_empresa()
         .filter(
             Cliente.activo.is_(True),
-            Cliente.saldo_cuenta_corriente < 0,
+            Cliente.saldo_a_favor_monto > 0,
         )
-        .order_by(Cliente.saldo_cuenta_corriente.asc())
+        .order_by(Cliente.saldo_a_favor_monto.desc())
         .paginate(page=page, per_page=20)
     )
 
     # Total de saldo a favor
     total_saldo_a_favor = (
-        db.session.query(func.sum(func.abs(Cliente.saldo_cuenta_corriente)))
+        db.session.query(func.sum(Cliente.saldo_a_favor_monto))
         .filter(
             Cliente.empresa_id == current_user.empresa_id,
             Cliente.activo.is_(True),
-            Cliente.saldo_cuenta_corriente < 0,
+            Cliente.saldo_a_favor_monto > 0,
         )
         .scalar()
         or 0
