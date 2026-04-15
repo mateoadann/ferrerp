@@ -4,6 +4,9 @@ import csv
 import io
 from decimal import Decimal
 
+import pytest
+from flask import Blueprint
+from flask_login import login_user
 from openpyxl import Workbook
 
 from app.extensions import db
@@ -518,3 +521,76 @@ class TestAplicarImportacion:
         assert movimiento.tipo == 'ajuste_positivo'
         assert movimiento.cantidad == Decimal('50')
         assert movimiento.referencia_tipo == 'importacion'
+
+
+# --------------------------------------------------------------------------
+# Fixtures para tests de integración (rutas)
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def app_con_login(app):
+    """App con LOGIN_DISABLED=False y ruta auxiliar para login en tests."""
+    app.config['LOGIN_DISABLED'] = False
+
+    test_bp = Blueprint('test_import_login', __name__)
+
+    @test_bp.route('/test-login/<int:user_id>')
+    def test_login(user_id):
+        usuario = db.session.get(Usuario, user_id)
+        login_user(usuario)
+        return 'logged-in'
+
+    app.register_blueprint(test_bp)
+    return app
+
+
+@pytest.fixture
+def logged_client(app_con_login):
+    """Cliente HTTP con sesión autenticada de un admin en empresa aprobada."""
+    empresa = _crear_empresa()
+    usuario = _crear_usuario(empresa)
+    db.session.commit()
+
+    client = app_con_login.test_client()
+    client.get(f'/test-login/{usuario.id}')
+    return client
+
+
+# --------------------------------------------------------------------------
+# Tests de integración: rutas de importación
+# --------------------------------------------------------------------------
+
+
+class TestRutasImportacion:
+    """Tests de integración para las rutas de importación masiva."""
+
+    def test_ruta_importar_pagina(self, logged_client):
+        """GET /productos/importar retorna 200 con la página de importación."""
+        resp = logged_client.get('/productos/importar')
+        assert resp.status_code == 200
+
+    def test_ruta_descargar_plantilla(self, logged_client):
+        """GET /productos/importar/plantilla retorna 200 con content-type xlsx."""
+        resp = logged_client.get('/productos/importar/plantilla')
+        assert resp.status_code == 200
+        assert (
+            resp.content_type
+            == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+    def test_ruta_preview_archivo_valido(self, logged_client):
+        """POST /productos/importar/preview con xlsx válido retorna 200."""
+        fila = _fila_valida()
+        xlsx_data = _crear_xlsx_en_memoria([fila])
+
+        resp = logged_client.post(
+            '/productos/importar/preview',
+            data={
+                'archivo': (xlsx_data, 'productos.xlsx'),
+                'modo_duplicados': 'saltar',
+                'crear_categorias': 'y',
+            },
+            content_type='multipart/form-data',
+        )
+        assert resp.status_code == 200
