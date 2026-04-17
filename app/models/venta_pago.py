@@ -21,7 +21,7 @@ class VentaPago(db.Model):
     forma_pago = db.Column(
         db.Enum(
             'efectivo', 'tarjeta_debito', 'tarjeta_credito',
-            'transferencia', 'qr', 'cuenta_corriente',
+            'transferencia', 'qr', 'cuenta_corriente', 'cheque',
             name='forma_pago',
             create_type=False,
         ),

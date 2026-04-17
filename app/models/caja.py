@@ -148,7 +148,7 @@ class MovimientoCaja(db.Model):
     monto = db.Column(db.Numeric(12, 2), nullable=False)
     forma_pago = db.Column(
         db.Enum(
-            'efectivo', 'tarjeta_debito', 'tarjeta_credito', 'transferencia', 'qr',
+            'efectivo', 'tarjeta_debito', 'tarjeta_credito', 'transferencia', 'qr', 'cheque',
             name='forma_pago_movimiento'
         ),
         nullable=False,
