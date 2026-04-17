@@ -77,6 +77,9 @@
 
 {% if clientes.pages > 1 %}
 <div class="p-3">
+    {% set pagination = clientes %}
+    {% set htmx = true %}
+    {% set htmx_target = '#tabla-clientes' %}
     {% include 'components/pagination.html' %}
 </div>
 {% endif %}

@@ -10,7 +10,7 @@
                {% if htmx %}hx-get="{{ url_for(request.endpoint, page=pagination.prev_num, **_args) }}"
                hx-target="{{ htmx_target }}"
                hx-swap="innerHTML"
-               hx-push-url="false"
+               hx-replace-url="true"
                {% else %}href="{{ url_for(request.endpoint, page=pagination.prev_num, **_args) }}"
                {% endif %}>
                 <span class="material-symbols-rounded">chevron_left</span>
@@ -35,7 +35,7 @@
                        {% if htmx %}hx-get="{{ url_for(request.endpoint, page=page_num, **_args) }}"
                        hx-target="{{ htmx_target }}"
                        hx-swap="innerHTML"
-                       hx-push-url="false"
+                       hx-replace-url="true"
                        {% else %}href="{{ url_for(request.endpoint, page=page_num, **_args) }}"
                        {% endif %}>
                         {{ page_num }}
@@ -55,7 +55,8 @@
             <a class="page-link" href="{{ url_for(request.endpoint, page=pagination.next_num, **_args) }}"
                {% if htmx %}hx-get="{{ url_for(request.endpoint, page=pagination.next_num, **_args) }}"
                hx-target="{{ htmx_target }}"
-               hx-swap="innerHTML"{% endif %}>
+               hx-swap="innerHTML"
+               hx-replace-url="true"{% endif %}>
                 <span class="material-symbols-rounded">chevron_right</span>
             </a>
         </li>

@@ -28,17 +28,19 @@
                 <input type="text" name="q" class="form-control"
                        placeholder="Buscar por código o nombre..."
                        value="{{ busqueda }}"
-                       hx-get="{{ url_for('productos.tabla') }}"
+                       hx-get="{{ url_for('productos.index') }}"
                        hx-trigger="keyup changed delay:300ms"
                        hx-target="#tabla-productos"
-                       hx-include="[name='categoria'], [name='activos'], [name='bajo_stock']">
+                       hx-include="[name='categoria'], [name='activos'], [name='bajo_stock']"
+                       hx-replace-url="true">
             </div>
 
             <select name="categoria" class="form-select" style="width: 200px;"
-                    hx-get="{{ url_for('productos.tabla') }}"
+                    hx-get="{{ url_for('productos.index') }}"
                     hx-trigger="change"
                     hx-target="#tabla-productos"
-                    hx-include="[name='q'], [name='activos'], [name='bajo_stock']">
+                    hx-include="[name='q'], [name='activos'], [name='bajo_stock']"
+                    hx-replace-url="true">
                 <option value="">Todas las categorías</option>
                 {% for categoria_padre in categorias_padre %}
                 <optgroup label="{{ categoria_padre.nombre }}">
@@ -59,20 +61,22 @@
                 <input type="hidden" name="activos" value="0">
                 <input type="checkbox" class="form-check-input" name="activos" value="1" id="activos"
                        {% if solo_activos %}checked{% endif %}
-                       hx-get="{{ url_for('productos.tabla') }}"
+                       hx-get="{{ url_for('productos.index') }}"
                        hx-trigger="change"
                        hx-target="#tabla-productos"
-                       hx-include="[name='q'], [name='categoria'], [name='bajo_stock']">
+                       hx-include="[name='q'], [name='categoria'], [name='bajo_stock']"
+                       hx-replace-url="true">
                 <label class="form-check-label" for="activos">Solo activos</label>
             </div>
 
             <div class="form-check">
                 <input type="checkbox" class="form-check-input" name="bajo_stock" value="1" id="bajo_stock"
                        {% if solo_bajo_stock %}checked{% endif %}
-                       hx-get="{{ url_for('productos.tabla') }}"
+                       hx-get="{{ url_for('productos.index') }}"
                        hx-trigger="change"
                        hx-target="#tabla-productos"
-                       hx-include="[name='q'], [name='categoria'], [name='activos']">
+                       hx-include="[name='q'], [name='categoria'], [name='activos']"
+                       hx-replace-url="true">
                 <label class="form-check-label" for="bajo_stock">Bajo stock</label>
             </div>
         </form>
