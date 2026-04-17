@@ -262,7 +262,7 @@ def test_ruta_aplicar_precio_directo(app, admin, producto):
         },
     )
     assert resp.status_code == 200
-    assert resp.headers.get('HX-Trigger') == 'productos-actualizado'
+    assert 'HX-Redirect' in resp.headers
 
     # Verificar producto actualizado
     with app.app_context():
