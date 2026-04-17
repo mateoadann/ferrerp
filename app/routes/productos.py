@@ -503,7 +503,7 @@ def actualizar_precio_aplicar(id):
             'success',
         )
         response = make_response('', 200)
-        response.headers['HX-Trigger'] = 'productos-actualizado'
+        response.headers['HX-Redirect'] = url_for('productos.index')
         return response
 
     except (ValueError, ArithmeticError) as e:
