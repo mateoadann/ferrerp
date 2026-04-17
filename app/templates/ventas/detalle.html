@@ -17,6 +17,9 @@
     {% set tiene_cc = venta.forma_pago == 'cuenta_corriente' or
         (venta.forma_pago == 'dividido' and venta.pagos|selectattr('forma_pago', 'equalto', 'cuenta_corriente')|list|length > 0) %}
     <div class="d-flex gap-2">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
+            <span class="material-symbols-rounded me-2">arrow_back</span>Volver
+        </a>
         {% if tiene_cc %}
         <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#modalRemito">
             <span class="material-symbols-rounded me-2">picture_as_pdf</span>
