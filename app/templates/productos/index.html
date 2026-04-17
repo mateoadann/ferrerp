@@ -47,10 +47,10 @@
             </select>
 
             <div class="form-check">
-                {# Hidden input: si el checkbox está desmarcado, igual se envía activos=0 #}
-                <input type="hidden" name="activos" value="0">
+                <input type="hidden" name="activos" value="0" id="activos_hidden">
                 <input type="checkbox" class="form-check-input" name="activos" value="1" id="activos"
-                       {% if solo_activos %}checked{% endif %}>
+                       {% if solo_activos %}checked{% endif %}
+                       onchange="document.getElementById('activos_hidden').disabled = this.checked">
                 <label class="form-check-label" for="activos">Solo activos</label>
             </div>
 
@@ -76,6 +76,13 @@
 (function() {
     var form = document.getElementById('filtro-productos');
     if (!form) return;
+
+    // Deshabilitar hidden input si el checkbox está marcado (evita enviar doble valor)
+    var activosCheckbox = document.getElementById('activos');
+    var activosHidden = document.getElementById('activos_hidden');
+    if (activosCheckbox && activosHidden) {
+        activosHidden.disabled = activosCheckbox.checked;
+    }
 
     var searchInput = form.querySelector('input[name="q"]');
     var debounceTimer;
