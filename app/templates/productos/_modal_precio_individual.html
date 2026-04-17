@@ -67,23 +67,13 @@
                             <div class="col-md-7">
                                 <!-- Info del producto -->
                                 <div class="mb-3">
-                                    <div class="d-flex align-items-center gap-2 mb-1">
-                                        <code class="text-danger fw-bold">{{ producto.codigo }}</code>
-                                        <span class="badge bg-light text-muted border">IVA {{ producto.iva_porcentaje }}%</span>
-                                    </div>
-                                    <h6 class="mb-0">{{ producto.nombre }}</h6>
+                                    <code class="text-danger fw-bold">{{ producto.codigo }}</code>
+                                    <h6 class="mb-0 mt-1">{{ producto.nombre }}</h6>
                                     {% if producto.categoria %}
                                     <small class="text-muted">{{ producto.categoria.nombre_completo }}</small>
                                     {% endif %}
-                                    <div class="d-flex gap-4 mt-2">
-                                        <div>
-                                            <small class="text-muted d-block">Costo actual</small>
-                                            <span class="fw-semibold">${{ '%0.2f'|format(producto.precio_costo or 0) }}</span>
-                                        </div>
-                                        <div>
-                                            <small class="text-muted d-block">Venta actual</small>
-                                            <span class="fw-bold">${{ '%0.2f'|format(producto.precio_venta or 0) }}</span>
-                                        </div>
+                                    <div class="mt-1">
+                                        <span class="badge bg-light text-muted border">IVA {{ producto.iva_porcentaje }}%</span>
                                     </div>
                                 </div>
 
@@ -108,37 +98,37 @@
                                     </label>
                                 </div>
 
-                                <!-- Contenedor de campos con altura fija -->
-                                <div style="min-height: 180px;">
-                                    <!-- Modo directo -->
-                                    <div x-show="modo === 'directo'" x-transition>
-                                        <div class="row g-3">
-                                            <div class="col-6">
-                                                <label for="precio_costo_nuevo" class="form-label small mb-1">Nuevo precio costo</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text">$</span>
-                                                    <input type="number" step="0.01" min="0"
-                                                           class="form-control" id="precio_costo_nuevo"
-                                                           name="precio_costo_nuevo"
-                                                           x-model.number="precioCostoNuevo">
-                                                </div>
+                                <!-- Modo directo -->
+                                <div x-show="modo === 'directo'">
+                                    <div class="row g-3">
+                                        <div class="col-6">
+                                            <label for="precio_costo_nuevo" class="form-label small mb-1">Nuevo precio costo</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">$</span>
+                                                <input type="number" step="0.01" min="0"
+                                                       class="form-control" id="precio_costo_nuevo"
+                                                       name="precio_costo_nuevo"
+                                                       x-model.number="precioCostoNuevo">
                                             </div>
-                                            <div class="col-6">
-                                                <label for="precio_venta_nuevo" class="form-label small mb-1">Nuevo precio venta</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text">$</span>
-                                                    <input type="number" step="0.01" min="0.01"
-                                                           class="form-control" id="precio_venta_nuevo"
-                                                           name="precio_venta_nuevo"
-                                                           x-model.number="precioVentaNuevo"
-                                                           required>
-                                                </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <label for="precio_venta_nuevo" class="form-label small mb-1">Nuevo precio venta</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">$</span>
+                                                <input type="number" step="0.01" min="0.01"
+                                                       class="form-control" id="precio_venta_nuevo"
+                                                       name="precio_venta_nuevo"
+                                                       x-model.number="precioVentaNuevo"
+                                                       required>
                                             </div>
                                         </div>
                                     </div>
+                                    <!-- Spacer para igualar altura con modo porcentaje -->
+                                    <div style="height: 90px;"></div>
+                                </div>
 
-                                    <!-- Modo porcentaje -->
-                                    <div x-show="modo === 'porcentaje'" x-transition>
+                                <!-- Modo porcentaje -->
+                                <div x-show="modo === 'porcentaje'">
                                         <div class="mb-3">
                                             <label for="porcentaje" class="form-label small mb-1">Porcentaje de ajuste</label>
                                             <div class="input-group">
@@ -176,7 +166,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                </div>
 
                                 <!-- Notas -->
                                 <div class="mt-2">
