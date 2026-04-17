@@ -2,6 +2,9 @@
 
 from datetime import date, timedelta
 from decimal import Decimal
+from unittest.mock import patch
+
+from flask_login import login_user
 
 from app.extensions import db
 from app.models import Cheque, Empresa, MovimientoCaja, Usuario, Venta
@@ -166,6 +169,7 @@ class TestFormaPagoDisplayCheque:
         empresa = _crear_empresa()
         usuario = _crear_usuario(empresa.id)
         db.session.commit()
+        login_user(usuario)
 
         venta = Venta(
             numero=1,
@@ -188,6 +192,7 @@ class TestFormaPagoDisplayCheque:
         empresa = _crear_empresa()
         usuario = _crear_usuario(empresa.id)
         db.session.commit()
+        login_user(usuario)
 
         caja = Caja(
             usuario_apertura_id=usuario.id,
@@ -223,10 +228,15 @@ class TestFormulariosCheque:
         """VentaForm incluye ('cheque', 'Cheque') en las opciones de forma_pago."""
         from app.forms.venta_forms import VentaForm
 
+        empresa = _crear_empresa()
+        usuario = _crear_usuario(empresa.id)
+        db.session.commit()
+
         with app.test_request_context():
-            form = VentaForm()
-            valores = [choice[0] for choice in form.forma_pago.choices]
-            assert 'cheque' in valores
+            with patch('app.models.mixins.current_user', usuario):
+                form = VentaForm()
+                valores = [choice[0] for choice in form.forma_pago.choices]
+                assert 'cheque' in valores
 
     def test_pago_cc_form_tiene_opcion_cheque(self, app):
         """PagoCuentaCorrienteForm incluye ('cheque', 'Cheque') en forma_pago."""
