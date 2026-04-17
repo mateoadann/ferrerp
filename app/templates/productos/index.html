@@ -81,8 +81,14 @@
 
 <!-- Tabla -->
 <div class="card">
-    <div class="card-body p-0" id="tabla-productos">
+    <div class="card-body p-0" id="tabla-productos"
+         hx-get="{{ url_for('productos.tabla') }}"
+         hx-trigger="productos-actualizado from:body"
+         hx-include="[name='q'], [name='categoria'], [name='activos'], [name='bajo_stock']">
         {% include 'productos/_tabla.html' %}
     </div>
 </div>
+
+<!-- Contenedor para modal de precio individual (HTMX) -->
+<div id="modal-precio-individual"></div>
 {% endblock %}

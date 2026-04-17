@@ -1,9 +1,18 @@
 """Rutas de productos."""
 
 import json
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    flash,
+    jsonify,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from flask_login import current_user, login_required
 
 from ..extensions import db
@@ -427,6 +436,81 @@ def toggle_activo(id):
         return '', 204
 
     return redirect(url_for('productos.index'))
+
+
+@bp.route('/<int:id>/actualizar-precio')
+@login_required
+@empresa_aprobada_required
+@admin_required
+def actualizar_precio_modal(id):
+    """Modal HTMX para actualizar precio de un producto individual."""
+    producto = Producto.get_o_404(id)
+    return render_template(
+        'productos/_modal_precio_individual.html',
+        producto=producto,
+    )
+
+
+@bp.route('/<int:id>/actualizar-precio', methods=['POST'])
+@login_required
+@empresa_aprobada_required
+@admin_required
+def actualizar_precio_aplicar(id):
+    """Aplica actualización de precio individual."""
+    producto = Producto.get_o_404(id)
+    modo = request.form.get('modo', 'directo')
+    dos_decimales = Decimal('0.01')
+
+    try:
+        precio_costo_anterior = Decimal(str(request.form.get('precio_costo_anterior', '0')))
+        precio_venta_anterior = Decimal(str(request.form.get('precio_venta_anterior', '0')))
+
+        if modo == 'porcentaje':
+            porcentaje = Decimal(str(request.form.get('porcentaje', '0')))
+            factor = Decimal('1') + porcentaje / Decimal('100')
+            actualizar_costo = request.form.get('actualizar_costo') == 'y'
+
+            if actualizar_costo:
+                precio_costo_nuevo = (precio_costo_anterior * factor).quantize(
+                    dos_decimales, rounding=ROUND_HALF_UP
+                )
+            else:
+                precio_costo_nuevo = precio_costo_anterior
+
+            precio_venta_nuevo = (precio_venta_anterior * factor).quantize(
+                dos_decimales, rounding=ROUND_HALF_UP
+            )
+        else:
+            precio_costo_nuevo = Decimal(str(request.form.get('precio_costo_nuevo', '0')))
+            precio_venta_nuevo = Decimal(str(request.form.get('precio_venta_nuevo', '0')))
+            porcentaje = None
+
+        notas = request.form.get('notas', '').strip() or None
+
+        actualizacion_precio_service.actualizar_precio_individual(
+            producto_id=producto.id,
+            precio_costo_nuevo=precio_costo_nuevo,
+            precio_venta_nuevo=precio_venta_nuevo,
+            precio_costo_anterior=precio_costo_anterior,
+            precio_venta_anterior=precio_venta_anterior,
+            porcentaje=porcentaje,
+            notas=notas,
+        )
+        db.session.commit()
+
+        flash(
+            f'Precio de "{producto.nombre}" actualizado correctamente.',
+            'success',
+        )
+        response = make_response('', 200)
+        response.headers['HX-Trigger'] = 'productos-actualizado'
+        return response
+
+    except (ValueError, ArithmeticError) as e:
+        return render_template(
+            'productos/_modal_precio_individual_error.html',
+            error=str(e),
+        ), 422
 
 
 @bp.route('/buscar')
