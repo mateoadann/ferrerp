@@ -161,6 +161,21 @@
                                     Actualizar también precio de costo
                                 </label>
                             </div>
+                            <!-- Advertencia al desmarcar costo -->
+                            <div x-show="!actualizarCosto" x-transition class="alert alert-warning d-flex align-items-start gap-2 mt-2 mb-0 py-2 px-3">
+                                <span class="material-symbols-rounded mt-1" style="font-size: 20px;">warning</span>
+                                <div>
+                                    <strong>Atención:</strong> Si no actualizás el precio de costo,
+                                    los <strong>márgenes de ganancia quedarán desactualizados</strong>.
+                                    Esto puede generar información incorrecta en reportes de rentabilidad.
+                                    <div class="mt-1">
+                                        <a href="#" class="link-warning fw-bold text-decoration-underline"
+                                           @click.prevent="actualizarCosto = true">
+                                            Cancelar y volver a marcar
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Notas -->
