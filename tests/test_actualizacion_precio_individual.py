@@ -100,7 +100,8 @@ def test_actualizar_precio_directo(app, admin, producto):
     from app.services.actualizacion_precio_service import actualizar_precio_individual
 
     with app.app_context():
-        with patch('app.services.actualizacion_precio_service.current_user', admin):
+        with patch('app.services.actualizacion_precio_service.current_user', admin), \
+             patch('app.models.mixins.current_user', admin):
             registro = actualizar_precio_individual(
                 producto_id=producto.id,
                 precio_costo_nuevo=Decimal('120.00'),
@@ -132,7 +133,8 @@ def test_actualizar_precio_porcentaje(app, admin, producto):
     from app.services.actualizacion_precio_service import actualizar_precio_individual
 
     with app.app_context():
-        with patch('app.services.actualizacion_precio_service.current_user', admin):
+        with patch('app.services.actualizacion_precio_service.current_user', admin), \
+             patch('app.models.mixins.current_user', admin):
             registro = actualizar_precio_individual(
                 producto_id=producto.id,
                 precio_costo_nuevo=Decimal('110.00'),
@@ -160,7 +162,8 @@ def test_audit_trail_creado(app, admin, producto):
         # Verificar que no hay registros previos
         count_antes = ActualizacionPrecio.query.count()
 
-        with patch('app.services.actualizacion_precio_service.current_user', admin):
+        with patch('app.services.actualizacion_precio_service.current_user', admin), \
+             patch('app.models.mixins.current_user', admin):
             actualizar_precio_individual(
                 producto_id=producto.id,
                 precio_costo_nuevo=Decimal('110.00'),
@@ -185,7 +188,8 @@ def test_stale_data_rechazado(app, admin, producto):
     from app.services.actualizacion_precio_service import actualizar_precio_individual
 
     with app.app_context():
-        with patch('app.services.actualizacion_precio_service.current_user', admin):
+        with patch('app.services.actualizacion_precio_service.current_user', admin), \
+             patch('app.models.mixins.current_user', admin):
             with pytest.raises(ValueError, match='modificados por otro usuario'):
                 actualizar_precio_individual(
                     producto_id=producto.id,
@@ -202,7 +206,8 @@ def test_precio_venta_cero_rechazado(app, admin, producto):
     from app.services.actualizacion_precio_service import actualizar_precio_individual
 
     with app.app_context():
-        with patch('app.services.actualizacion_precio_service.current_user', admin):
+        with patch('app.services.actualizacion_precio_service.current_user', admin), \
+             patch('app.models.mixins.current_user', admin):
             with pytest.raises(ValueError, match='mayor a cero'):
                 actualizar_precio_individual(
                     producto_id=producto.id,
