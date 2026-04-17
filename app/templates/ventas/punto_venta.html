@@ -323,11 +323,36 @@
                         <small>Cta. Cte.</small>
                     </div>
                     <div class="payment-method"
+                         :class="{'active': formaPago === 'cheque'}"
+                         @click="formaPago = 'cheque'">
+                        <span class="material-symbols-rounded d-block mb-1">description</span>
+                        <small>Cheque</small>
+                    </div>
+                    <div class="payment-method"
                          :class="{'active': formaPago === 'dividido'}"
                          @click="formaPago = 'dividido'">
                         <span class="material-symbols-rounded d-block mb-1">call_split</span>
                         <small>Dividido</small>
                     </div>
+                </div>
+            </div>
+
+            <!-- Seccion datos de cheque (pago directo) -->
+            <div x-show="formaPago === 'cheque'" x-cloak>
+                <div class="mb-2">
+                    <label class="form-label small text-muted">Nro. Cheque *</label>
+                    <input type="text" class="form-control form-control-sm"
+                           x-model="chequeNumero" placeholder="Ej: 12345678">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small text-muted">Banco *</label>
+                    <input type="text" class="form-control form-control-sm"
+                           x-model="chequeBanco" placeholder="Ej: Banco Nacion">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small text-muted">Fecha Vencimiento *</label>
+                    <input type="date" class="form-control form-control-sm"
+                           x-model="chequeFechaVencimiento">
                 </div>
             </div>
 
@@ -343,6 +368,7 @@
                             <option value="transferencia">Transferencia</option>
                             <option value="qr">QR</option>
                             <option value="cuenta_corriente">Cuenta Corriente</option>
+                            <option value="cheque">Cheque</option>
                         </select>
                     </div>
                     <div class="col-6">
@@ -355,6 +381,23 @@
                                placeholder="$0,00">
                     </div>
                 </div>
+                <!-- Campos cheque para metodo 1 -->
+                <div x-show="pagoDividido1.forma === 'cheque'" x-cloak class="mb-2">
+                    <div class="row g-2">
+                        <div class="col-4">
+                            <input type="text" class="form-control form-control-sm"
+                                   x-model="pagoDividido1.cheque_numero" placeholder="Nro. Cheque">
+                        </div>
+                        <div class="col-4">
+                            <input type="text" class="form-control form-control-sm"
+                                   x-model="pagoDividido1.cheque_banco" placeholder="Banco">
+                        </div>
+                        <div class="col-4">
+                            <input type="date" class="form-control form-control-sm"
+                                   x-model="pagoDividido1.cheque_fecha_vencimiento">
+                        </div>
+                    </div>
+                </div>
                 <div class="row g-2 mb-2">
                     <div class="col-6">
                         <label class="form-label small text-muted">Metodo 2</label>
@@ -365,6 +408,7 @@
                             <option value="transferencia">Transferencia</option>
                             <option value="qr">QR</option>
                             <option value="cuenta_corriente">Cuenta Corriente</option>
+                            <option value="cheque">Cheque</option>
                         </select>
                     </div>
                     <div class="col-6">
@@ -377,6 +421,23 @@
                                placeholder="$0,00">
                     </div>
                 </div>
+                <!-- Campos cheque para metodo 2 -->
+                <div x-show="pagoDividido2.forma === 'cheque'" x-cloak class="mb-2">
+                    <div class="row g-2">
+                        <div class="col-4">
+                            <input type="text" class="form-control form-control-sm"
+                                   x-model="pagoDividido2.cheque_numero" placeholder="Nro. Cheque">
+                        </div>
+                        <div class="col-4">
+                            <input type="text" class="form-control form-control-sm"
+                                   x-model="pagoDividido2.cheque_banco" placeholder="Banco">
+                        </div>
+                        <div class="col-4">
+                            <input type="date" class="form-control form-control-sm"
+                                   x-model="pagoDividido2.cheque_fecha_vencimiento">
+                        </div>
+                    </div>
+                </div>
                 <!-- Indicador de validacion -->
                 <div class="small px-1"
                      :class="sumaValida ? 'text-success' : 'text-danger'">
@@ -385,7 +446,7 @@
                     <span x-text="sumaValida ? 'Los montos suman correctamente' : (!montosPositivos ? 'Cada monto debe ser mayor a 0' : 'Los montos no coinciden con el total')"></span>
                 </div>
                 <div class="small text-danger px-1 mt-1"
-                     x-show="pagoDividido1.forma === pagoDividido2.forma"
+                     x-show="pagoDividido1.forma === pagoDividido2.forma && pagoDividido1.forma !== 'cheque'"
                      x-cloak>
                     <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;">error</span>
                     Las formas de pago deben ser distintas
@@ -443,6 +504,9 @@
                :value="descuentoMontoExacto !== null ? descuentoMontoExacto.toFixed(2) : ''">
         <input type="hidden" name="items_json" :value="JSON.stringify(cart)">
         <input type="hidden" name="pago_dividido_json" id="pago_dividido_json">
+        <input type="hidden" name="cheque_numero" x-model="chequeNumero">
+        <input type="hidden" name="cheque_banco" x-model="chequeBanco">
+        <input type="hidden" name="cheque_fecha_vencimiento" x-model="chequeFechaVencimiento">
     </form>
 </div>
 {% endblock %}
@@ -468,8 +532,11 @@ function posApp() {
         modoDescuento: 'porcentaje',
         totalDeseado: '',
         montoRecibido: '',
-        pagoDividido1: { forma: 'efectivo', monto: '' },
-        pagoDividido2: { forma: 'qr', monto: '' },
+        pagoDividido1: { forma: 'efectivo', monto: '', cheque_numero: '', cheque_banco: '', cheque_fecha_vencimiento: '' },
+        pagoDividido2: { forma: 'qr', monto: '', cheque_numero: '', cheque_banco: '', cheque_fecha_vencimiento: '' },
+        chequeNumero: '',
+        chequeBanco: '',
+        chequeFechaVencimiento: '',
         processing: false,
         alertMessage: '',
         alertTimer: null,
@@ -683,6 +750,9 @@ function posApp() {
                 totalDeseado: this.totalDeseado,
                 pagoDividido1: this.pagoDividido1,
                 pagoDividido2: this.pagoDividido2,
+                chequeNumero: this.chequeNumero,
+                chequeBanco: this.chequeBanco,
+                chequeFechaVencimiento: this.chequeFechaVencimiento,
             };
             localStorage.setItem(this.storageKey, JSON.stringify(payload));
         },
@@ -718,11 +788,26 @@ function posApp() {
                     this.calcularDescuentoDesdeTotal();
                 }
                 if (payload.pagoDividido1) {
-                    this.pagoDividido1 = payload.pagoDividido1;
+                    this.pagoDividido1 = {
+                        forma: payload.pagoDividido1.forma || 'efectivo',
+                        monto: payload.pagoDividido1.monto || '',
+                        cheque_numero: payload.pagoDividido1.cheque_numero || '',
+                        cheque_banco: payload.pagoDividido1.cheque_banco || '',
+                        cheque_fecha_vencimiento: payload.pagoDividido1.cheque_fecha_vencimiento || '',
+                    };
                 }
                 if (payload.pagoDividido2) {
-                    this.pagoDividido2 = payload.pagoDividido2;
+                    this.pagoDividido2 = {
+                        forma: payload.pagoDividido2.forma || 'qr',
+                        monto: payload.pagoDividido2.monto || '',
+                        cheque_numero: payload.pagoDividido2.cheque_numero || '',
+                        cheque_banco: payload.pagoDividido2.cheque_banco || '',
+                        cheque_fecha_vencimiento: payload.pagoDividido2.cheque_fecha_vencimiento || '',
+                    };
                 }
+                this.chequeNumero = payload.chequeNumero || '';
+                this.chequeBanco = payload.chequeBanco || '';
+                this.chequeFechaVencimiento = payload.chequeFechaVencimiento || '';
             } catch (error) {
                 localStorage.removeItem(this.storageKey);
             }
@@ -877,8 +962,11 @@ function posApp() {
                 this.clienteId = '';
                 this.clienteNombre = 'Consumidor Final';
                 this.formaPago = 'efectivo';
-                this.pagoDividido1 = { forma: 'efectivo', monto: '' };
-                this.pagoDividido2 = { forma: 'qr', monto: '' };
+                this.pagoDividido1 = { forma: 'efectivo', monto: '', cheque_numero: '', cheque_banco: '', cheque_fecha_vencimiento: '' };
+                this.pagoDividido2 = { forma: 'qr', monto: '', cheque_numero: '', cheque_banco: '', cheque_fecha_vencimiento: '' };
+                this.chequeNumero = '';
+                this.chequeBanco = '';
+                this.chequeFechaVencimiento = '';
                 this.clearPersistedState();
             }
         },
@@ -923,12 +1011,28 @@ function posApp() {
                 return;
             }
 
+            // Validar datos de cheque (pago directo)
+            if (this.formaPago === 'cheque') {
+                if (!this.chequeNumero.trim()) {
+                    this.mostrarAlerta('El número de cheque es obligatorio.');
+                    return;
+                }
+                if (!this.chequeBanco.trim()) {
+                    this.mostrarAlerta('El banco del cheque es obligatorio.');
+                    return;
+                }
+                if (!this.chequeFechaVencimiento) {
+                    this.mostrarAlerta('La fecha de vencimiento del cheque es obligatoria.');
+                    return;
+                }
+            }
+
             if (this.formaPago === 'dividido') {
                 if (!this.sumaValida) {
                     this.mostrarAlerta('Los montos no coinciden con el total.');
                     return;
                 }
-                if (this.pagoDividido1.forma === this.pagoDividido2.forma) {
+                if (this.pagoDividido1.forma === this.pagoDividido2.forma && this.pagoDividido1.forma !== 'cheque') {
                     this.mostrarAlerta('Las formas de pago deben ser distintas.');
                     return;
                 }
@@ -945,11 +1049,38 @@ function posApp() {
                         return;
                     }
                 }
-                // Serializar JSON al hidden field
-                document.getElementById('pago_dividido_json').value = JSON.stringify([
-                    { forma_pago: this.pagoDividido1.forma, monto: m1 },
-                    { forma_pago: this.pagoDividido2.forma, monto: m2 },
-                ]);
+                // Validar datos de cheque en sub-pagos divididos
+                if (this.pagoDividido1.forma === 'cheque') {
+                    if (!(this.pagoDividido1.cheque_numero || '').trim() ||
+                        !(this.pagoDividido1.cheque_banco || '').trim() ||
+                        !this.pagoDividido1.cheque_fecha_vencimiento) {
+                        this.mostrarAlerta('Completa los datos del cheque del Metodo 1.');
+                        return;
+                    }
+                }
+                if (this.pagoDividido2.forma === 'cheque') {
+                    if (!(this.pagoDividido2.cheque_numero || '').trim() ||
+                        !(this.pagoDividido2.cheque_banco || '').trim() ||
+                        !this.pagoDividido2.cheque_fecha_vencimiento) {
+                        this.mostrarAlerta('Completa los datos del cheque del Metodo 2.');
+                        return;
+                    }
+                }
+
+                // Serializar JSON al hidden field (incluye datos de cheque si aplica)
+                const pago1 = { forma_pago: this.pagoDividido1.forma, monto: m1 };
+                const pago2 = { forma_pago: this.pagoDividido2.forma, monto: m2 };
+                if (this.pagoDividido1.forma === 'cheque') {
+                    pago1.cheque_numero = this.pagoDividido1.cheque_numero;
+                    pago1.cheque_banco = this.pagoDividido1.cheque_banco;
+                    pago1.cheque_fecha_vencimiento = this.pagoDividido1.cheque_fecha_vencimiento;
+                }
+                if (this.pagoDividido2.forma === 'cheque') {
+                    pago2.cheque_numero = this.pagoDividido2.cheque_numero;
+                    pago2.cheque_banco = this.pagoDividido2.cheque_banco;
+                    pago2.cheque_fecha_vencimiento = this.pagoDividido2.cheque_fecha_vencimiento;
+                }
+                document.getElementById('pago_dividido_json').value = JSON.stringify([pago1, pago2]);
             }
 
             if (this.formaPago === 'efectivo' && parseMoneyNumber(this.montoRecibido) < this.total) {

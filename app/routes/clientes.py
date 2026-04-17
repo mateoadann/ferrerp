@@ -8,7 +8,7 @@ from sqlalchemy import func
 
 from ..extensions import db
 from ..forms.cliente_forms import ClienteForm, PagoCuentaCorrienteForm
-from ..models import Caja, Cliente, MovimientoCaja, MovimientoCuentaCorriente
+from ..models import Caja, Cheque, Cliente, MovimientoCaja, MovimientoCuentaCorriente
 from ..services.cumpleanos_service import (
     contar_cumpleanos_hoy,
     generar_url_whatsapp_cumpleanos,
@@ -238,6 +238,49 @@ def registrar_pago(id):
             usuario_id=current_user.id
         )
         db.session.add(movimiento_caja)
+
+        # Crear cheque si la forma de pago es cheque
+        if forma_pago == 'cheque':
+            from datetime import datetime
+
+            cheque_numero = (request.form.get('cheque_numero') or '').strip()
+            cheque_banco = (request.form.get('cheque_banco') or '').strip()
+            cheque_fecha_str = (
+                request.form.get('cheque_fecha_vencimiento') or ''
+            ).strip()
+
+            if not cheque_numero or not cheque_banco or not cheque_fecha_str:
+                db.session.rollback()
+                flash(
+                    'Los datos del cheque son obligatorios '
+                    '(número, banco y fecha de vencimiento).',
+                    'danger',
+                )
+                return redirect(url_for('clientes.cuenta_corriente', id=id))
+
+            try:
+                cheque_fecha = datetime.strptime(
+                    cheque_fecha_str, '%Y-%m-%d'
+                ).date()
+            except ValueError:
+                db.session.rollback()
+                flash(
+                    'La fecha de vencimiento del cheque no es válida.',
+                    'danger',
+                )
+                return redirect(url_for('clientes.cuenta_corriente', id=id))
+
+            cheque = Cheque(
+                numero_cheque=cheque_numero,
+                banco=cheque_banco,
+                fecha_vencimiento=cheque_fecha,
+                importe=monto,
+                referencia_tipo='pago_cc',
+                referencia_id=movimiento_cc.id,
+                empresa_id=current_user.empresa_id,
+                usuario_id=current_user.id,
+            )
+            db.session.add(cheque)
 
         db.session.commit()
 

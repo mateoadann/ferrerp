@@ -22,7 +22,8 @@ class VentaForm(FlaskForm):
             ('tarjeta_credito', 'Tarjeta Crédito'),
             ('transferencia', 'Transferencia'),
             ('qr', 'QR'),
-            ('cuenta_corriente', 'Cuenta Corriente')
+            ('cuenta_corriente', 'Cuenta Corriente'),
+            ('cheque', 'Cheque'),
         ],
         default='efectivo'
     )

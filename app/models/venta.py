@@ -71,6 +71,7 @@ class Venta(EmpresaMixin, db.Model):
             'transferencia': 'Transferencia',
             'qr': 'QR',
             'cuenta_corriente': 'Cuenta Corriente',
+            'cheque': 'Cheque',
         }
         return opciones.get(self.forma_pago, self.forma_pago)
 

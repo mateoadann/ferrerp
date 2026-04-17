@@ -22,6 +22,7 @@ from ..extensions import db
 from ..forms.venta_forms import AnulacionVentaForm, VentaForm
 from ..models import (
     Caja,
+    Cheque,
     Cliente,
     MovimientoCaja,
     MovimientoCuentaCorriente,
@@ -50,6 +51,53 @@ def _decimal_seguro(valor, default=Decimal('0')):
         return Decimal(str(valor))
     except (ValueError, ArithmeticError):
         return default
+
+
+def _crear_cheque(datos, referencia_tipo, referencia_id, importe, empresa_id, usuario_id):
+    """Crea un registro de Cheque a partir de los datos del formulario.
+
+    Args:
+        datos: dict con cheque_numero, cheque_banco, cheque_fecha_vencimiento
+        referencia_tipo: 'venta' o 'pago_cc'
+        referencia_id: ID de la referencia
+        importe: monto del cheque (Decimal)
+        empresa_id: ID de la empresa
+        usuario_id: ID del usuario
+
+    Returns:
+        Cheque creado
+
+    Raises:
+        ValueError: si faltan campos obligatorios
+    """
+    numero = (datos.get('cheque_numero') or '').strip()
+    banco = (datos.get('cheque_banco') or '').strip()
+    fecha_venc_str = (datos.get('cheque_fecha_vencimiento') or '').strip()
+
+    if not numero:
+        raise ValueError('El número de cheque es obligatorio.')
+    if not banco:
+        raise ValueError('El banco del cheque es obligatorio.')
+    if not fecha_venc_str:
+        raise ValueError('La fecha de vencimiento del cheque es obligatoria.')
+
+    try:
+        fecha_vencimiento = datetime.strptime(fecha_venc_str, '%Y-%m-%d').date()
+    except ValueError:
+        raise ValueError('La fecha de vencimiento del cheque no es válida.')
+
+    cheque = Cheque(
+        numero_cheque=numero,
+        banco=banco,
+        fecha_vencimiento=fecha_vencimiento,
+        importe=importe,
+        referencia_tipo=referencia_tipo,
+        referencia_id=referencia_id,
+        empresa_id=empresa_id,
+        usuario_id=usuario_id,
+    )
+    db.session.add(cheque)
+    return cheque
 
 
 @bp.route('/punto-de-venta', methods=['GET', 'POST'])
@@ -249,8 +297,10 @@ def punto_de_venta():
                     flash('El pago dividido requiere exactamente 2 formas de pago.', 'danger')
                     return redirect(url_for('ventas.punto_de_venta'))
 
-                # Validar formas distintas
-                if pagos_data[0]['forma_pago'] == pagos_data[1]['forma_pago']:
+                # Validar formas distintas (se permite cheque+cheque)
+                fp1 = pagos_data[0]['forma_pago']
+                fp2 = pagos_data[1]['forma_pago']
+                if fp1 == fp2 and fp1 != 'cheque':
                     db.session.rollback()
                     flash('Las formas de pago deben ser distintas.', 'danger')
                     return redirect(url_for('ventas.punto_de_venta'))
@@ -335,6 +385,24 @@ def punto_de_venta():
                         )
                         db.session.add(movimiento_caja)
 
+                        # Crear cheque si el sub-pago es con cheque
+                        if fp == 'cheque':
+                            cheque_datos = {
+                                'cheque_numero': pago_data.get('cheque_numero', ''),
+                                'cheque_banco': pago_data.get('cheque_banco', ''),
+                                'cheque_fecha_vencimiento': pago_data.get(
+                                    'cheque_fecha_vencimiento', ''
+                                ),
+                            }
+                            _crear_cheque(
+                                datos=cheque_datos,
+                                referencia_tipo='venta',
+                                referencia_id=venta.id,
+                                importe=monto,
+                                empresa_id=current_user.empresa_id,
+                                usuario_id=current_user.id,
+                            )
+
             elif forma_pago == 'cuenta_corriente':
                 # Verificar limite de credito para cuenta corriente
                 if not cliente.puede_comprar_a_credito(venta.total):
@@ -394,6 +462,17 @@ def punto_de_venta():
                     monto=venta.total,
                 )
                 db.session.add(venta_pago)
+
+                # Crear cheque si corresponde
+                if forma_pago == 'cheque':
+                    _crear_cheque(
+                        datos=request.form,
+                        referencia_tipo='venta',
+                        referencia_id=venta.id,
+                        importe=venta.total,
+                        empresa_id=current_user.empresa_id,
+                        usuario_id=current_user.id,
+                    )
 
             db.session.commit()
 
@@ -590,6 +669,14 @@ def anular(id):
                 usuario_id=current_user.id,
             )
             db.session.add(movimiento_caja)
+
+        # Anular cheques asociados a la venta
+        cheques_venta = Cheque.query.filter_by(
+            referencia_tipo='venta',
+            referencia_id=venta.id,
+        ).all()
+        for cheque in cheques_venta:
+            cheque.estado = 'anulado'
 
         # Marcar venta como anulada
         venta.estado = 'anulada'

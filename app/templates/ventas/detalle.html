@@ -185,7 +185,7 @@
                         {% if venta.forma_pago == 'dividido' %}
                         Dividido<br>
                         {% for pago in venta.pagos %}
-                        <small><span class="badge {% if pago.forma_pago == 'efectivo' %}badge-success{% elif pago.forma_pago == 'tarjeta_debito' %}badge-info{% elif pago.forma_pago == 'tarjeta_credito' %}badge-bordo{% elif pago.forma_pago == 'transferencia' %}badge-brown{% elif pago.forma_pago == 'qr' %}badge-orange{% elif pago.forma_pago == 'cuenta_corriente' %}badge-warning{% endif %}">{% if pago.forma_pago == 'tarjeta_debito' %}Debito{% elif pago.forma_pago == 'tarjeta_credito' %}Credito{% elif pago.forma_pago == 'transferencia' %}Transfer.{% elif pago.forma_pago == 'cuenta_corriente' %}Cta. Cte.{% else %}{{ pago.forma_pago_display }}{% endif %}</span> {{ pago.monto|currency }}</small><br>
+                        <small><span class="badge {% if pago.forma_pago == 'efectivo' %}badge-success{% elif pago.forma_pago == 'tarjeta_debito' %}badge-info{% elif pago.forma_pago == 'tarjeta_credito' %}badge-bordo{% elif pago.forma_pago == 'transferencia' %}badge-brown{% elif pago.forma_pago == 'qr' %}badge-orange{% elif pago.forma_pago == 'cuenta_corriente' %}badge-warning{% elif pago.forma_pago == 'cheque' %}badge-secondary{% endif %}">{% if pago.forma_pago == 'tarjeta_debito' %}Debito{% elif pago.forma_pago == 'tarjeta_credito' %}Credito{% elif pago.forma_pago == 'transferencia' %}Transfer.{% elif pago.forma_pago == 'cuenta_corriente' %}Cta. Cte.{% else %}{{ pago.forma_pago_display }}{% endif %}</span> {{ pago.monto|currency }}</small><br>
                         {% endfor %}
                         {% elif venta.forma_pago == 'efectivo' %}
                         <span class="badge badge-success">Efectivo</span>
@@ -199,6 +199,8 @@
                         <span class="badge badge-orange">QR</span>
                         {% elif venta.forma_pago == 'cuenta_corriente' %}
                         <span class="badge badge-warning">Cta. Cte.</span>
+                        {% elif venta.forma_pago == 'cheque' %}
+                        <span class="badge badge-secondary">Cheque</span>
                         {% endif %}
                     </dd>
                 </dl>

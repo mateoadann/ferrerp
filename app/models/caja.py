@@ -189,7 +189,8 @@ class MovimientoCaja(db.Model):
             'tarjeta_debito': 'Tarjeta Débito',
             'tarjeta_credito': 'Tarjeta Crédito',
             'transferencia': 'Transferencia',
-            'qr': 'QR'
+            'qr': 'QR',
+            'cheque': 'Cheque',
         }
         return opciones.get(self.forma_pago, self.forma_pago)
 

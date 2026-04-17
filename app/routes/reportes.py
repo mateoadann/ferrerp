@@ -125,6 +125,7 @@ def ventas():
         'transferencia': 'Transferencia',
         'qr': 'QR',
         'cuenta_corriente': 'Cuenta Corriente',
+        'cheque': 'Cheque',
     }
     ventas_por_forma_pago = [
         {
