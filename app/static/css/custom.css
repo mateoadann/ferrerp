@@ -762,6 +762,10 @@ input[type="number"] {
     color: var(--foreground-muted);
     cursor: pointer;
     transition: all 0.2s;
+    border: none;
+    background: none;
+    padding: 0;
+    text-decoration: none;
 }
 
 .action-icon:hover {

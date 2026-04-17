@@ -1,0 +1,25 @@
+<div x-data x-init="$nextTick(() => { new bootstrap.Modal($refs.modal).show() })"
+     @hidden-bs-modal.dot="$el.remove()">
+    <div class="modal fade" tabindex="-1" x-ref="modal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title d-flex align-items-center gap-2">
+                        <span class="material-symbols-rounded">error</span>
+                        Error al actualizar precio
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger mb-0">
+                        <span class="material-symbols-rounded me-1" style="font-size: 18px;">warning</span>
+                        {{ error }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

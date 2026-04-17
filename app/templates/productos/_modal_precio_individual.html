@@ -1,0 +1,248 @@
+<div x-data="{
+    modo: 'directo',
+    precioCostoActual: {{ producto.precio_costo or 0 }},
+    precioVentaActual: {{ producto.precio_venta or 0 }},
+    precioCostoNuevo: {{ producto.precio_costo or 0 }},
+    precioVentaNuevo: {{ producto.precio_venta or 0 }},
+    porcentaje: 0,
+    actualizarCosto: true,
+
+    get precioCostoCalculado() {
+        if (this.modo === 'porcentaje') {
+            if (this.actualizarCosto) {
+                return (this.precioCostoActual * (1 + this.porcentaje / 100)).toFixed(2);
+            }
+            return this.precioCostoActual.toFixed(2);
+        }
+        return parseFloat(this.precioCostoNuevo || 0).toFixed(2);
+    },
+
+    get precioVentaCalculado() {
+        if (this.modo === 'porcentaje') {
+            return (this.precioVentaActual * (1 + this.porcentaje / 100)).toFixed(2);
+        }
+        return parseFloat(this.precioVentaNuevo || 0).toFixed(2);
+    },
+
+    get margenNuevo() {
+        let costo = parseFloat(this.precioCostoCalculado);
+        let venta = parseFloat(this.precioVentaCalculado);
+        if (costo > 0) {
+            return (((venta - costo) / costo) * 100).toFixed(1);
+        }
+        return '0.0';
+    },
+
+    get precioVentaValido() {
+        return parseFloat(this.precioVentaCalculado) > 0;
+    },
+
+    cambiarModo(nuevoModo) {
+        this.modo = nuevoModo;
+        this.precioCostoNuevo = this.precioCostoActual;
+        this.precioVentaNuevo = this.precioVentaActual;
+        this.porcentaje = 0;
+        this.actualizarCosto = true;
+    }
+}" x-init="$nextTick(() => { new bootstrap.Modal($refs.modal).show() })"
+   @hidden-bs-modal.dot="$el.remove()">
+
+    <div class="modal fade" tabindex="-1" x-ref="modal">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title d-flex align-items-center gap-2">
+                        <span class="material-symbols-rounded" style="font-size: 24px;">price_change</span>
+                        Actualizar precio
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <form hx-post="{{ url_for('productos.actualizar_precio_aplicar', id=producto.id) }}"
+                      hx-target="#modal-precio-individual"
+                      hx-swap="innerHTML">
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <!-- Columna izquierda: info + controles -->
+                            <div class="col-md-7">
+                                <!-- Info del producto -->
+                                <div class="mb-3">
+                                    <code class="text-danger fw-bold">{{ producto.codigo }}</code>
+                                    <h6 class="mb-0 mt-1">{{ producto.nombre }}</h6>
+                                    {% if producto.categoria %}
+                                    <small class="text-muted">{{ producto.categoria.nombre_completo }}</small>
+                                    {% endif %}
+                                    <div class="mt-1">
+                                        <span class="badge bg-light text-muted border">IVA {{ producto.iva_porcentaje }}%</span>
+                                    </div>
+                                </div>
+
+                                <hr class="my-2">
+
+                                <!-- Selector de modo -->
+                                <div class="btn-group w-100 mb-3" role="group">
+                                    <input type="radio" class="btn-check" name="modo" value="directo"
+                                           id="modo-directo" x-model="modo"
+                                           @change="cambiarModo('directo')" checked>
+                                    <label class="btn btn-outline-primary" for="modo-directo">
+                                        <span class="material-symbols-rounded me-1" style="font-size: 18px;">edit</span>
+                                        Precio directo
+                                    </label>
+
+                                    <input type="radio" class="btn-check" name="modo" value="porcentaje"
+                                           id="modo-porcentaje" x-model="modo"
+                                           @change="cambiarModo('porcentaje')">
+                                    <label class="btn btn-outline-primary" for="modo-porcentaje">
+                                        <span class="material-symbols-rounded me-1" style="font-size: 18px;">percent</span>
+                                        Porcentaje
+                                    </label>
+                                </div>
+
+                                <!-- Modo directo -->
+                                <div x-show="modo === 'directo'">
+                                    <div class="row g-3">
+                                        <div class="col-6">
+                                            <label for="precio_costo_nuevo" class="form-label small mb-1">Nuevo precio costo</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">$</span>
+                                                <input type="number" step="0.01" min="0"
+                                                       class="form-control" id="precio_costo_nuevo"
+                                                       name="precio_costo_nuevo"
+                                                       x-model.number="precioCostoNuevo">
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <label for="precio_venta_nuevo" class="form-label small mb-1">Nuevo precio venta</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">$</span>
+                                                <input type="number" step="0.01" min="0.01"
+                                                       class="form-control" id="precio_venta_nuevo"
+                                                       name="precio_venta_nuevo"
+                                                       x-model.number="precioVentaNuevo"
+                                                       required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Spacer para igualar altura con modo porcentaje -->
+                                    <div style="height: 90px;"></div>
+                                </div>
+
+                                <!-- Modo porcentaje -->
+                                <div x-show="modo === 'porcentaje'">
+                                        <div class="mb-3">
+                                            <label for="porcentaje" class="form-label small mb-1">Porcentaje de ajuste</label>
+                                            <div class="input-group">
+                                                <input type="number" step="0.01"
+                                                       class="form-control" id="porcentaje"
+                                                       name="porcentaje"
+                                                       x-model.number="porcentaje"
+                                                       placeholder="Ej: 10 para +10%, -5 para -5%">
+                                                <span class="input-group-text">%</span>
+                                            </div>
+                                            <div class="form-text">Positivo = aumento, negativo = descuento</div>
+                                        </div>
+                                        <div class="form-check">
+                                            <input type="hidden" name="actualizar_costo" id="actualizar_costo_hidden" value="y">
+                                            <input type="checkbox" class="form-check-input"
+                                                   id="actualizar_costo" checked
+                                                   onchange="actualizarCosto = this.checked; var w = document.getElementById('warning_costo'); w.style.cssText = this.checked ? 'display: none !important' : 'display: flex !important'; document.getElementById('actualizar_costo_hidden').value = this.checked ? 'y' : ''">
+                                            <label class="form-check-label" for="actualizar_costo">
+                                                Actualizar también precio de costo
+                                            </label>
+                                        </div>
+                                        <!-- Advertencia al desmarcar costo -->
+                                        <div id="warning_costo" style="display: none !important;" class="alert alert-warning align-items-start gap-2 mt-2 mb-0 py-2 px-3">
+                                            <span class="material-symbols-rounded mt-1" style="font-size: 20px;">warning</span>
+                                            <div>
+                                                <strong>Atención:</strong> Si no actualizás el precio de costo,
+                                                los <strong>márgenes de ganancia quedarán desactualizados</strong>.
+                                                Esto puede generar información incorrecta en reportes de rentabilidad.
+                                                <div class="mt-1">
+                                                    <a href="#" class="link-warning fw-bold text-decoration-underline"
+                                                       onclick="event.preventDefault(); var cb = document.getElementById('actualizar_costo'); cb.checked = true; cb.dispatchEvent(new Event('change'));">
+                                                        Cancelar y volver a marcar
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                <!-- Notas -->
+                                <div class="mt-2">
+                                    <label for="notas" class="form-label small mb-1">Notas (opcional)</label>
+                                    <input type="text" class="form-control" id="notas" name="notas"
+                                           placeholder="Motivo del cambio de precio">
+                                </div>
+                            </div>
+
+                            <!-- Columna derecha: vista previa + botones -->
+                            <div class="col-md-5">
+                                <div class="bg-light border rounded p-3 h-100 d-flex flex-column">
+                                    <h6 class="mb-3 d-flex align-items-center gap-1 text-muted">
+                                        <span class="material-symbols-rounded" style="font-size: 18px;">preview</span>
+                                        Vista previa
+                                    </h6>
+
+                                    <!-- Precio de costo -->
+                                    <div class="mb-3">
+                                        <small class="text-muted d-block mb-1">Precio de costo</small>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="text-muted">${{ '%0.2f'|format(producto.precio_costo or 0) }}</span>
+                                            <span class="material-symbols-rounded text-muted" style="font-size: 18px;">arrow_forward</span>
+                                            <span class="fw-bold fs-6" x-text="'$' + precioCostoCalculado"></span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Precio de venta -->
+                                    <div class="mb-3">
+                                        <small class="text-muted d-block mb-1">Precio de venta</small>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="text-muted">${{ '%0.2f'|format(producto.precio_venta or 0) }}</span>
+                                            <span class="material-symbols-rounded text-muted" style="font-size: 18px;">arrow_forward</span>
+                                            <span class="fw-bold fs-5" :class="precioVentaValido ? 'text-success' : 'text-danger'" x-text="'$' + precioVentaCalculado"></span>
+                                        </div>
+                                    </div>
+
+                                    <hr class="my-2">
+
+                                    <!-- Margen -->
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <small class="text-muted">Margen de ganancia</small>
+                                        <span class="fw-bold" x-text="margenNuevo + '%'"></span>
+                                    </div>
+
+                                    <!-- Error de validación -->
+                                    <div x-show="!precioVentaValido" class="text-danger mt-2">
+                                        <small class="d-flex align-items-center gap-1">
+                                            <span class="material-symbols-rounded" style="font-size: 14px;">error</span>
+                                            El precio de venta debe ser mayor a cero
+                                        </small>
+                                    </div>
+
+                                    <!-- Spacer para empujar botones abajo -->
+                                    <div class="flex-grow-1"></div>
+
+                                    <!-- Botones -->
+                                    <div class="d-flex gap-2 mt-3 pt-3 border-top">
+                                        <button type="button" class="btn btn-secondary flex-fill" data-bs-dismiss="modal">
+                                            Cancelar
+                                        </button>
+                                        <button type="submit" class="btn btn-primary flex-fill"
+                                                :disabled="!precioVentaValido">
+                                            <span class="material-symbols-rounded me-1" style="font-size: 18px;">save</span>
+                                            Guardar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hidden fields para stale data detection -->
+                        <input type="hidden" name="precio_costo_anterior" value="{{ '%0.2f'|format(producto.precio_costo or 0) }}">
+                        <input type="hidden" name="precio_venta_anterior" value="{{ '%0.2f'|format(producto.precio_venta or 0) }}">
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

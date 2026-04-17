@@ -1,4 +1,4 @@
-"""Servicio de actualización masiva de precios."""
+"""Servicio de actualización de precios (masiva e individual)."""
 
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -153,3 +153,101 @@ def aplicar_actualizacion(categorias_ids, porcentaje, actualizar_costo=True, not
 
     db.session.commit()
     return len(preview)
+
+
+def actualizar_precio_individual(
+    producto_id,
+    precio_costo_nuevo,
+    precio_venta_nuevo,
+    precio_costo_anterior,
+    precio_venta_anterior,
+    porcentaje=None,
+    notas=None,
+):
+    """Actualiza el precio de un producto individual con auditoría.
+
+    Valida que los precios anteriores coincidan con los actuales en la DB
+    (detección de datos obsoletos). Actualiza precios y crea registro de
+    auditoría con tipo='manual'.
+
+    Args:
+        producto_id: ID del producto a actualizar.
+        precio_costo_nuevo: nuevo precio de costo (Decimal).
+        precio_venta_nuevo: nuevo precio de venta (Decimal).
+        precio_costo_anterior: precio de costo esperado (para detectar stale data).
+        precio_venta_anterior: precio de venta esperado (para detectar stale data).
+        porcentaje: porcentaje aplicado (Decimal o None si fue modo directo).
+        notas: texto opcional de notas.
+
+    Returns:
+        ActualizacionPrecio: el registro de auditoría creado.
+
+    Raises:
+        ValueError: si los precios anteriores no coinciden o el precio de venta <= 0.
+    """
+    dos_decimales = Decimal('0.01')
+
+    # Normalizar entradas
+    precio_costo_nuevo = Decimal(str(precio_costo_nuevo)).quantize(
+        dos_decimales, rounding=ROUND_HALF_UP
+    )
+    precio_venta_nuevo = Decimal(str(precio_venta_nuevo)).quantize(
+        dos_decimales, rounding=ROUND_HALF_UP
+    )
+    precio_costo_anterior = Decimal(str(precio_costo_anterior)).quantize(
+        dos_decimales, rounding=ROUND_HALF_UP
+    )
+    precio_venta_anterior = Decimal(str(precio_venta_anterior)).quantize(
+        dos_decimales, rounding=ROUND_HALF_UP
+    )
+
+    # Validar precio de venta positivo
+    if precio_venta_nuevo <= 0:
+        raise ValueError('El precio de venta debe ser mayor a cero.')
+
+    if precio_costo_nuevo < 0:
+        raise ValueError('El precio de costo no puede ser negativo.')
+
+    # Cargar producto
+    producto = Producto.get_o_404(producto_id)
+
+    # Detectar datos obsoletos (stale data)
+    precio_costo_actual = (producto.precio_costo or Decimal('0')).quantize(
+        dos_decimales, rounding=ROUND_HALF_UP
+    )
+    precio_venta_actual = (producto.precio_venta or Decimal('0')).quantize(
+        dos_decimales, rounding=ROUND_HALF_UP
+    )
+
+    if precio_costo_actual != precio_costo_anterior or precio_venta_actual != precio_venta_anterior:
+        raise ValueError(
+            'Los precios del producto fueron modificados por otro usuario. '
+            'Cerrá el modal y volvé a intentarlo con los precios actualizados.'
+        )
+
+    # Determinar si se actualizó el costo
+    actualizo_costo = precio_costo_nuevo != precio_costo_anterior
+
+    # Crear registro de auditoría
+    registro = ActualizacionPrecio(
+        producto_id=producto.id,
+        usuario_id=current_user.id,
+        tipo='manual',
+        porcentaje=Decimal(str(porcentaje)) if porcentaje is not None else None,
+        precio_costo_anterior=precio_costo_anterior,
+        precio_costo_nuevo=precio_costo_nuevo,
+        precio_venta_anterior=precio_venta_anterior,
+        precio_venta_nuevo=precio_venta_nuevo,
+        actualizo_costo=actualizo_costo,
+        categoria_id=producto.categoria_id,
+        notas=notas,
+        empresa_id=current_user.empresa_id,
+    )
+    db.session.add(registro)
+
+    # Actualizar precios del producto
+    producto.precio_costo = precio_costo_nuevo
+    producto.precio_venta = precio_venta_nuevo
+
+    # No commit — el caller decide cuándo commitear
+    return registro
