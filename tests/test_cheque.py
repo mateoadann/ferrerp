@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
-from flask_login import login_user
+
 
 from app.extensions import db
 from app.models import Cheque, Empresa, MovimientoCaja, Usuario, Venta
@@ -166,52 +166,55 @@ class TestFormaPagoDisplayCheque:
 
     def test_forma_pago_display_cheque_en_venta(self, app):
         """Venta con forma_pago='cheque' muestra 'Cheque'."""
+        from unittest.mock import patch
+
         empresa = _crear_empresa()
         usuario = _crear_usuario(empresa.id)
         db.session.commit()
-        login_user(usuario)
 
-        venta = Venta(
-            numero=1,
-            fecha=date.today(),
-            usuario_id=usuario.id,
-            total=Decimal('1000.00'),
-            forma_pago='cheque',
-            estado='completada',
-            empresa_id=empresa.id,
-        )
-        db.session.add(venta)
-        db.session.commit()
+        with patch('app.models.mixins.current_user', usuario):
+            venta = Venta(
+                numero=1,
+                fecha=date.today(),
+                usuario_id=usuario.id,
+                total=Decimal('1000.00'),
+                forma_pago='cheque',
+                estado='completada',
+                empresa_id=empresa.id,
+            )
+            db.session.add(venta)
+            db.session.commit()
 
-        assert venta.forma_pago_display == 'Cheque'
+            assert venta.forma_pago_display == 'Cheque'
 
     def test_movimiento_caja_forma_pago_cheque(self, app):
         """MovimientoCaja con forma_pago='cheque' muestra 'Cheque'."""
+        from unittest.mock import patch
         from app.models import Caja
 
         empresa = _crear_empresa()
         usuario = _crear_usuario(empresa.id)
         db.session.commit()
-        login_user(usuario)
 
-        caja = Caja(
-            usuario_apertura_id=usuario.id,
-            monto_inicial=Decimal('0.00'),
-            empresa_id=empresa.id,
-        )
-        db.session.add(caja)
-        db.session.commit()
+        with patch('app.models.mixins.current_user', usuario):
+            caja = Caja(
+                usuario_apertura_id=usuario.id,
+                monto_inicial=Decimal('0.00'),
+                empresa_id=empresa.id,
+            )
+            db.session.add(caja)
+            db.session.commit()
 
-        movimiento = MovimientoCaja(
-            caja_id=caja.id,
-            tipo='ingreso',
-            concepto='venta',
-            monto=Decimal('5000.00'),
-            forma_pago='cheque',
-            usuario_id=usuario.id,
-        )
-        db.session.add(movimiento)
-        db.session.commit()
+            movimiento = MovimientoCaja(
+                caja_id=caja.id,
+                tipo='ingreso',
+                concepto='venta',
+                monto=Decimal('5000.00'),
+                forma_pago='cheque',
+                usuario_id=usuario.id,
+            )
+            db.session.add(movimiento)
+            db.session.commit()
 
         assert movimiento.forma_pago_display == 'Cheque'
 
