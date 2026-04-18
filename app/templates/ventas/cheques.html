@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+
+{% block title %}Cheques Recibidos - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="d-flex align-items-center gap-2">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm" title="Volver">
+            <span class="material-symbols-rounded">arrow_back</span>
+        </a>
+        <h2 class="mb-0">Cheques Recibidos</h2>
+    </div>
+</div>
+
+<!-- Resumen -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <span class="material-symbols-rounded fs-1 text-primary">description</span>
+                <div>
+                    <div class="text-muted small">Total cheques</div>
+                    <div class="fs-4 fw-bold">{{ total_cheques }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <span class="material-symbols-rounded fs-1 text-success">payments</span>
+                <div>
+                    <div class="text-muted small">Monto total</div>
+                    <div class="fs-4 fw-bold">{{ monto_total|currency }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <span class="material-symbols-rounded fs-1 text-danger">error</span>
+                <div>
+                    <div class="text-muted small">Vencidos</div>
+                    <div class="fs-4 fw-bold text-danger">{{ cantidad_vencidos }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <span class="material-symbols-rounded fs-1 text-warning">warning</span>
+                <div>
+                    <div class="text-muted small">Prox. a vencer</div>
+                    <div class="fs-4 fw-bold text-warning">{{ cantidad_proximos }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Buscar</label>
+                <input type="text" name="q" class="form-control"
+                       placeholder="Numero o banco..."
+                       value="{{ q }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Estado</label>
+                <select name="estado" class="form-select">
+                    <option value="todos" {% if estado_filtro == 'todos' %}selected{% endif %}>Todos</option>
+                    <option value="recibido" {% if estado_filtro == 'recibido' %}selected{% endif %}>Recibido</option>
+                    <option value="anulado" {% if estado_filtro == 'anulado' %}selected{% endif %}>Anulado</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Vencimiento</label>
+                <select name="vencimiento" class="form-select">
+                    <option value="todos" {% if vencimiento_filtro == 'todos' %}selected{% endif %}>Todos</option>
+                    <option value="proximos" {% if vencimiento_filtro == 'proximos' %}selected{% endif %}>Proximos a vencer</option>
+                    <option value="vencidos" {% if vencimiento_filtro == 'vencidos' %}selected{% endif %}>Vencidos</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-secondary me-2">
+                    <span class="material-symbols-rounded me-2">filter_list</span>
+                    Filtrar
+                </button>
+                <a href="{{ url_for('ventas.cheques') }}" class="btn btn-outline-secondary">
+                    Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de cheques -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Nro. Cheque</th>
+                    <th>Banco</th>
+                    <th class="text-end">Importe</th>
+                    <th>Vencimiento</th>
+                    <th>Estado</th>
+                    <th>Referencia</th>
+                    <th>Fecha registro</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cheque in cheques.items %}
+                <tr>
+                    <td class="table-code">{{ cheque.numero_cheque }}</td>
+                    <td>{{ cheque.banco }}</td>
+                    <td class="text-end fw-bold">{{ cheque.importe|currency }}</td>
+                    <td>
+                        {% if cheque.estado == 'recibido' and cheque.fecha_vencimiento < hoy %}
+                        <span class="text-danger fw-semibold" title="Vencido">
+                            {{ cheque.fecha_vencimiento.strftime('%d/%m/%Y') }}
+                            <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">error</span>
+                        </span>
+                        {% elif cheque.estado == 'recibido' and cheque.fecha_vencimiento <= en_30_dias %}
+                        <span class="text-warning fw-semibold" title="Proximo a vencer">
+                            {{ cheque.fecha_vencimiento.strftime('%d/%m/%Y') }}
+                            <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">warning</span>
+                        </span>
+                        {% else %}
+                        {{ cheque.fecha_vencimiento.strftime('%d/%m/%Y') }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cheque.estado == 'recibido' %}
+                        <span class="badge badge-success">Recibido</span>
+                        {% elif cheque.estado == 'anulado' %}
+                        <span class="badge badge-danger">Anulado</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cheque.referencia_tipo == 'venta' %}
+                        <a href="{{ url_for('ventas.detalle', id=cheque.referencia_id) }}">
+                            Venta #{{ cheque.referencia_id }}
+                        </a>
+                        {% elif cheque.referencia_tipo in ('pago_cc', 'adelanto_cc') %}
+                            {% if cheque.id in cheque_cliente_map %}
+                            <a href="{{ url_for('clientes.cuenta_corriente', id=cheque_cliente_map[cheque.id]) }}">
+                                {% if cheque.referencia_tipo == 'pago_cc' %}Pago CC{% else %}Adelanto CC{% endif %}
+                            </a>
+                            {% else %}
+                                {% if cheque.referencia_tipo == 'pago_cc' %}Pago CC{% else %}Adelanto CC{% endif %}
+                            {% endif %}
+                        {% else %}
+                        {{ cheque.referencia_tipo }}
+                        {% endif %}
+                    </td>
+                    <td>{{ cheque.created_at|datetime }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <span class="material-symbols-rounded">description</span>
+                            <p>No hay cheques registrados</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Paginacion -->
+{% if cheques.pages > 1 %}
+{% set pagination = cheques %}
+{% include 'components/pagination.html' %}
+{% endif %}
+{% endblock %}

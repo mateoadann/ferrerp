@@ -1,7 +1,7 @@
 """Rutas de ventas y punto de venta."""
 
 import json
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from flask import (
@@ -634,6 +634,101 @@ def historial():
         estado_filtro=estado,
         cliente_id=cliente_id,
         cliente_nombre=cliente_nombre,
+    )
+
+
+@bp.route('/cheques')
+@login_required
+@empresa_aprobada_required
+def cheques():
+    """Listado de cheques recibidos."""
+    page = request.args.get('page', 1, type=int)
+    estado = request.args.get('estado', 'todos')
+    q = request.args.get('q', '').strip()
+    vencimiento = request.args.get('vencimiento', 'todos')
+
+    query = Cheque.query_empresa()
+
+    # Filtro por estado
+    if estado and estado != 'todos':
+        query = query.filter(Cheque.estado == estado)
+
+    # Búsqueda por número de cheque o banco
+    if q:
+        query = query.filter(
+            db.or_(
+                Cheque.numero_cheque.ilike(f'%{q}%'),
+                Cheque.banco.ilike(f'%{q}%'),
+            )
+        )
+
+    # Filtro por vencimiento
+    hoy = date.today()
+    en_30_dias = hoy + timedelta(days=30)
+
+    if vencimiento == 'vencidos':
+        query = query.filter(Cheque.fecha_vencimiento < hoy)
+    elif vencimiento == 'proximos':
+        query = query.filter(
+            Cheque.fecha_vencimiento >= hoy,
+            Cheque.fecha_vencimiento <= en_30_dias,
+        )
+
+    query = query.order_by(Cheque.created_at.desc())
+
+    # Estadísticas (sobre TODOS los cheques de la empresa, sin filtros)
+    cheques_empresa = Cheque.query_empresa()
+    total_cheques = cheques_empresa.count()
+    monto_total = (
+        db.session.query(db.func.coalesce(db.func.sum(Cheque.importe), 0))
+        .filter(Cheque.empresa_id == current_user.empresa_id)
+        .scalar()
+    )
+    cantidad_vencidos = cheques_empresa.filter(
+        Cheque.fecha_vencimiento < hoy,
+        Cheque.estado == 'recibido',
+    ).count()
+    cantidad_proximos = cheques_empresa.filter(
+        Cheque.fecha_vencimiento >= hoy,
+        Cheque.fecha_vencimiento <= en_30_dias,
+        Cheque.estado == 'recibido',
+    ).count()
+
+    # Paginar resultados
+    cheques_pag = paginar_query(query, page)
+
+    # Resolver cliente_id para cheques con referencia pago_cc o adelanto_cc
+    cheque_cliente_map = {}
+    cheque_ids_cc = [
+        c.id for c in cheques_pag.items
+        if c.referencia_tipo in ('pago_cc', 'adelanto_cc')
+    ]
+    if cheque_ids_cc:
+        # Buscar los movimientos de CC para obtener el cliente_id
+        refs = [
+            c for c in cheques_pag.items
+            if c.referencia_tipo in ('pago_cc', 'adelanto_cc')
+        ]
+        for cheque in refs:
+            mov = MovimientoCuentaCorriente.query.filter_by(
+                id=cheque.referencia_id,
+            ).first()
+            if mov:
+                cheque_cliente_map[cheque.id] = mov.cliente_id
+
+    return render_template(
+        'ventas/cheques.html',
+        cheques=cheques_pag,
+        estado_filtro=estado,
+        q=q,
+        vencimiento_filtro=vencimiento,
+        total_cheques=total_cheques,
+        monto_total=monto_total,
+        cantidad_vencidos=cantidad_vencidos,
+        cantidad_proximos=cantidad_proximos,
+        cheque_cliente_map=cheque_cliente_map,
+        hoy=hoy,
+        en_30_dias=en_30_dias,
     )
 
 
