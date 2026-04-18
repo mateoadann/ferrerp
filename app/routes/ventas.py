@@ -116,9 +116,7 @@ def punto_de_venta():
             descuento_porcentaje = _decimal_seguro(request.form.get('descuento_porcentaje'))
             descuento_monto_exacto_str = request.form.get('descuento_monto_exacto', '').strip()
             descuento_monto_exacto = (
-                _decimal_seguro(descuento_monto_exacto_str)
-                if descuento_monto_exacto_str
-                else None
+                _decimal_seguro(descuento_monto_exacto_str) if descuento_monto_exacto_str else None
             )
             items_json = request.form.get('items_json', '[]')
 
@@ -183,25 +181,19 @@ def punto_de_venta():
 
                 # Validar que cantidad y precio sean positivos
                 if cantidad <= 0:
-                    raise ValueError(
-                        f'Cantidad invalida para "{producto.nombre}"'
-                    )
+                    raise ValueError(f'Cantidad invalida para "{producto.nombre}"')
                 if precio <= 0:
-                    raise ValueError(
-                        f'Precio invalido para "{producto.nombre}"'
-                    )
+                    raise ValueError(f'Precio invalido para "{producto.nombre}"')
 
                 if desc_pct < 0 or desc_pct > 100:
-                    raise ValueError(
-                        'El descuento debe estar entre 0 y 100'
-                    )
+                    raise ValueError('El descuento debe estar entre 0 y 100')
 
                 # Verificar stock
                 if producto.stock_actual < cantidad:
                     flash(
                         f'Stock insuficiente para "{producto.nombre}". '
                         f'Disponible: {producto.stock_actual}',
-                        'danger'
+                        'danger',
                     )
                     return redirect(url_for('ventas.punto_de_venta'))
 
@@ -229,7 +221,7 @@ def punto_de_venta():
                     precio_unitario=precio,
                     iva_porcentaje=producto.iva_porcentaje,
                     descuento_porcentaje=desc_pct,
-                    subtotal=item_subtotal
+                    subtotal=item_subtotal,
                 )
                 venta.detalles.append(detalle)
 
@@ -272,11 +264,13 @@ def punto_de_venta():
 
             # Actualizar referencia en movimientos de stock
             for detalle in venta.detalles:
-                mov = MovimientoStock.query.filter_by(
-                    producto_id=detalle.producto_id,
-                    referencia_tipo='venta',
-                    referencia_id=None
-                ).order_by(MovimientoStock.id.desc()).first()
+                mov = (
+                    MovimientoStock.query.filter_by(
+                        producto_id=detalle.producto_id, referencia_tipo='venta', referencia_id=None
+                    )
+                    .order_by(MovimientoStock.id.desc())
+                    .first()
+                )
                 if mov:
                     mov.referencia_id = venta.id
 
@@ -319,6 +313,9 @@ def punto_de_venta():
                     flash('Los montos no coinciden con el total de la venta.', 'danger')
                     return redirect(url_for('ventas.punto_de_venta'))
 
+                # Consumo de saldo a favor (aplica solo a porcion CC)
+                monto_saldo_favor = _decimal_seguro(request.form.get('monto_saldo_favor'))
+
                 # Validar CC si alguno es cuenta_corriente
                 for pago_data in pagos_data:
                     if pago_data['forma_pago'] == 'cuenta_corriente':
@@ -331,10 +328,34 @@ def punto_de_venta():
                             return redirect(url_for('ventas.punto_de_venta'))
                         cliente = Cliente.get_o_404(cliente_id)
                         monto_cc = _decimal_seguro(pago_data.get('monto'))
-                        if not cliente.puede_comprar_a_credito(monto_cc):
+
+                        # Validar saldo a favor contra porcion CC
+                        if monto_saldo_favor > 0 and cliente.tiene_saldo_a_favor:
+                            if monto_saldo_favor > cliente.saldo_a_favor:
+                                db.session.rollback()
+                                flash(
+                                    'El monto a consumir no puede ser mayor ' 'al saldo a favor.',
+                                    'danger',
+                                )
+                                return redirect(url_for('ventas.punto_de_venta'))
+                            if monto_saldo_favor > monto_cc:
+                                db.session.rollback()
+                                flash(
+                                    'El monto a consumir no puede ser mayor '
+                                    'al monto de cuenta corriente.',
+                                    'danger',
+                                )
+                                return redirect(url_for('ventas.punto_de_venta'))
+                        else:
+                            monto_saldo_favor = Decimal('0')
+
+                        monto_cargo_cc_div = monto_cc - monto_saldo_favor
+                        if monto_cargo_cc_div > 0 and not cliente.puede_comprar_a_credito(
+                            monto_cargo_cc_div
+                        ):
                             db.session.rollback()
                             flash(
-                                f'El monto de cuenta corriente (${monto_cc:.2f}) '
+                                f'El monto de cuenta corriente (${monto_cargo_cc_div:.2f}) '
                                 f'excede el limite disponible '
                                 f'(${cliente.credito_disponible:.2f}).',
                                 'danger',
@@ -355,22 +376,47 @@ def punto_de_venta():
 
                     if fp == 'cuenta_corriente':
                         cliente = Cliente.get_o_404(cliente_id)
-                        saldo_anterior, saldo_posterior = cliente.actualizar_saldo(
-                            monto, 'cargo'
-                        )
-                        movimiento_cc = MovimientoCuentaCorriente(
-                            cliente_id=cliente.id,
-                            tipo='cargo',
-                            monto=monto,
-                            saldo_anterior=saldo_anterior,
-                            saldo_posterior=saldo_posterior,
-                            referencia_tipo='venta',
-                            referencia_id=venta.id,
-                            descripcion=f'Venta #{venta.numero_completo} (pago parcial)',
-                            usuario_id=current_user.id,
-                            empresa_id=current_user.empresa_id,
-                        )
-                        db.session.add(movimiento_cc)
+
+                        # Consumir saldo a favor si corresponde
+                        if monto_saldo_favor > 0:
+                            saldo_ant_consumo, saldo_post_consumo = cliente.actualizar_saldo_favor(
+                                monto_saldo_favor, 'cargo'
+                            )
+                            movimiento_consumo = MovimientoCuentaCorriente(
+                                cliente_id=cliente.id,
+                                tipo='cargo',
+                                monto=monto_saldo_favor,
+                                saldo_anterior=saldo_ant_consumo,
+                                saldo_posterior=saldo_post_consumo,
+                                referencia_tipo='consumo_saldo_favor',
+                                referencia_id=venta.id,
+                                descripcion=(
+                                    f'Consumo saldo a favor - ' f'Venta #{venta.numero_completo}'
+                                ),
+                                usuario_id=current_user.id,
+                                empresa_id=current_user.empresa_id,
+                            )
+                            db.session.add(movimiento_consumo)
+
+                        # Cargar solo el remanente a cuenta corriente
+                        monto_cargo_cc_div = monto - monto_saldo_favor
+                        if monto_cargo_cc_div > 0:
+                            saldo_anterior, saldo_posterior = cliente.actualizar_saldo(
+                                monto_cargo_cc_div, 'cargo'
+                            )
+                            movimiento_cc = MovimientoCuentaCorriente(
+                                cliente_id=cliente.id,
+                                tipo='cargo',
+                                monto=monto_cargo_cc_div,
+                                saldo_anterior=saldo_anterior,
+                                saldo_posterior=saldo_posterior,
+                                referencia_tipo='venta',
+                                referencia_id=venta.id,
+                                descripcion=(f'Venta #{venta.numero_completo} (pago parcial)'),
+                                usuario_id=current_user.id,
+                                empresa_id=current_user.empresa_id,
+                            )
+                            db.session.add(movimiento_cc)
                     else:
                         movimiento_caja = MovimientoCaja(
                             caja_id=caja.id,
@@ -404,34 +450,76 @@ def punto_de_venta():
                             )
 
             elif forma_pago == 'cuenta_corriente':
+                # Consumo de saldo a favor
+                monto_saldo_favor = _decimal_seguro(request.form.get('monto_saldo_favor'))
+                if monto_saldo_favor > 0 and cliente.tiene_saldo_a_favor:
+                    if monto_saldo_favor > cliente.saldo_a_favor:
+                        db.session.rollback()
+                        flash(
+                            'El monto a consumir no puede ser mayor al saldo a favor.',
+                            'danger',
+                        )
+                        return redirect(url_for('ventas.punto_de_venta'))
+                    if monto_saldo_favor > venta.total:
+                        db.session.rollback()
+                        flash(
+                            'El monto a consumir no puede ser mayor al total de la venta.',
+                            'danger',
+                        )
+                        return redirect(url_for('ventas.punto_de_venta'))
+
+                    # Crear movimiento de consumo de saldo a favor
+                    saldo_ant_consumo, saldo_post_consumo = cliente.actualizar_saldo_favor(
+                        monto_saldo_favor, 'cargo'
+                    )
+                    movimiento_consumo = MovimientoCuentaCorriente(
+                        cliente_id=cliente.id,
+                        tipo='cargo',
+                        monto=monto_saldo_favor,
+                        saldo_anterior=saldo_ant_consumo,
+                        saldo_posterior=saldo_post_consumo,
+                        referencia_tipo='consumo_saldo_favor',
+                        referencia_id=venta.id,
+                        descripcion=f'Consumo saldo a favor - Venta #{venta.numero_completo}',
+                        usuario_id=current_user.id,
+                        empresa_id=current_user.empresa_id,
+                    )
+                    db.session.add(movimiento_consumo)
+                else:
+                    monto_saldo_favor = Decimal('0')
+
+                # Monto efectivo a cargar en cuenta corriente
+                monto_cargo_cc = venta.total - monto_saldo_favor
+
                 # Verificar limite de credito para cuenta corriente
-                if not cliente.puede_comprar_a_credito(venta.total):
+                if monto_cargo_cc > 0 and not cliente.puede_comprar_a_credito(monto_cargo_cc):
                     db.session.rollback()
                     flash(
                         f'El cliente excederia su limite de credito. '
                         f'Disponible: ${cliente.credito_disponible:.2f}',
-                        'danger'
+                        'danger',
                     )
                     return redirect(url_for('ventas.punto_de_venta'))
 
-                # Cargar a cuenta corriente
-                saldo_anterior, saldo_posterior = cliente.actualizar_saldo(
-                    venta.total, 'cargo'
-                )
+                if monto_cargo_cc > 0:
+                    # Cargar a cuenta corriente (solo el remanente)
+                    saldo_anterior, saldo_posterior = cliente.actualizar_saldo(
+                        monto_cargo_cc, 'cargo'
+                    )
 
-                movimiento_cc = MovimientoCuentaCorriente(
-                    cliente_id=cliente.id,
-                    tipo='cargo',
-                    monto=venta.total,
-                    saldo_anterior=saldo_anterior,
-                    saldo_posterior=saldo_posterior,
-                    referencia_tipo='venta',
-                    referencia_id=venta.id,
-                    descripcion=f'Venta #{venta.numero_completo}',
-                    usuario_id=current_user.id,
-                    empresa_id=current_user.empresa_id,
-                )
-                db.session.add(movimiento_cc)
+                    movimiento_cc = MovimientoCuentaCorriente(
+                        cliente_id=cliente.id,
+                        tipo='cargo',
+                        monto=monto_cargo_cc,
+                        saldo_anterior=saldo_anterior,
+                        saldo_posterior=saldo_posterior,
+                        referencia_tipo='venta',
+                        referencia_id=venta.id,
+                        descripcion=f'Venta #{venta.numero_completo}',
+                        usuario_id=current_user.id,
+                        empresa_id=current_user.empresa_id,
+                    )
+                    db.session.add(movimiento_cc)
 
                 # Crear VentaPago para uniformidad en queries
                 venta_pago = VentaPago(
@@ -451,7 +539,7 @@ def punto_de_venta():
                     forma_pago=forma_pago,
                     referencia_tipo='venta',
                     referencia_id=venta.id,
-                    usuario_id=current_user.id
+                    usuario_id=current_user.id,
                 )
                 db.session.add(movimiento_caja)
 
@@ -476,7 +564,9 @@ def punto_de_venta():
 
             db.session.commit()
 
-            flash(f'Venta #{venta.numero_completo} registrada. Total: ${venta.total:.2f}', 'success')
+            flash(
+                f'Venta #{venta.numero_completo} registrada. Total: ${venta.total:.2f}', 'success'
+            )
 
             session['limpiar_carrito'] = True
 
@@ -496,11 +586,7 @@ def punto_de_venta():
     # GET - Mostrar pantalla de POS
     limpiar_carrito = session.pop('limpiar_carrito', False)
 
-    return render_template(
-        'ventas/punto_venta.html',
-        form=form,
-        limpiar_carrito=limpiar_carrito
-    )
+    return render_template('ventas/punto_venta.html', form=form, limpiar_carrito=limpiar_carrito)
 
 
 @bp.route('/historial')
@@ -601,25 +687,35 @@ def anular(id):
             # Revertir cada componente del pago dividido
             for pago in venta.pagos:
                 if pago.forma_pago == 'cuenta_corriente' and venta.cliente:
-                    saldo_anterior, saldo_posterior = venta.cliente.actualizar_saldo(
-                        pago.monto, 'pago'
-                    )
-                    movimiento_cc = MovimientoCuentaCorriente(
-                        cliente_id=venta.cliente.id,
-                        tipo='pago',
-                        monto=pago.monto,
-                        saldo_anterior=saldo_anterior,
-                        saldo_posterior=saldo_posterior,
-                        referencia_tipo='anulacion_venta',
+                    # Obtener el monto real cargado a CC (puede ser menor
+                    # al pago si hubo consumo de saldo a favor)
+                    mov_venta_cc = MovimientoCuentaCorriente.query.filter_by(
+                        referencia_tipo='venta',
                         referencia_id=venta.id,
-                        descripcion=(
-                            f'Anulacion de venta #{venta.numero_completo}'
-                            f' (pago parcial)'
-                        ),
-                        usuario_id=current_user.id,
+                        tipo='cargo',
                         empresa_id=current_user.empresa_id,
-                    )
-                    db.session.add(movimiento_cc)
+                    ).first()
+                    monto_a_revertir = mov_venta_cc.monto if mov_venta_cc else Decimal('0')
+
+                    if monto_a_revertir > 0:
+                        saldo_anterior, saldo_posterior = venta.cliente.actualizar_saldo(
+                            monto_a_revertir, 'pago'
+                        )
+                        movimiento_cc = MovimientoCuentaCorriente(
+                            cliente_id=venta.cliente.id,
+                            tipo='pago',
+                            monto=monto_a_revertir,
+                            saldo_anterior=saldo_anterior,
+                            saldo_posterior=saldo_posterior,
+                            referencia_tipo='anulacion_venta',
+                            referencia_id=venta.id,
+                            descripcion=(
+                                f'Anulacion de venta #{venta.numero_completo}' f' (pago parcial)'
+                            ),
+                            usuario_id=current_user.id,
+                            empresa_id=current_user.empresa_id,
+                        )
+                        db.session.add(movimiento_cc)
                 else:
                     # Egreso de caja para componente no-CC
                     movimiento_caja = MovimientoCaja(
@@ -627,8 +723,7 @@ def anular(id):
                         tipo='egreso',
                         concepto='devolucion',
                         descripcion=(
-                            f'Anulacion de venta #{venta.numero_completo}'
-                            f' (pago parcial)'
+                            f'Anulacion de venta #{venta.numero_completo}' f' (pago parcial)'
                         ),
                         monto=pago.monto,
                         forma_pago=pago.forma_pago,
@@ -638,23 +733,34 @@ def anular(id):
                     )
                     db.session.add(movimiento_caja)
         elif venta.forma_pago == 'cuenta_corriente' and venta.cliente:
-            saldo_anterior, saldo_posterior = venta.cliente.actualizar_saldo(
-                venta.total, 'pago'
-            )
-
-            movimiento_cc = MovimientoCuentaCorriente(
-                cliente_id=venta.cliente.id,
-                tipo='pago',
-                monto=venta.total,
-                saldo_anterior=saldo_anterior,
-                saldo_posterior=saldo_posterior,
-                referencia_tipo='anulacion_venta',
+            # Obtener el monto real cargado a CC (puede ser menor
+            # al total si hubo consumo de saldo a favor)
+            mov_venta_cc = MovimientoCuentaCorriente.query.filter_by(
+                referencia_tipo='venta',
                 referencia_id=venta.id,
-                descripcion=f'Anulacion de venta #{venta.numero_completo}',
-                usuario_id=current_user.id,
+                tipo='cargo',
                 empresa_id=current_user.empresa_id,
-            )
-            db.session.add(movimiento_cc)
+            ).first()
+            monto_a_revertir = mov_venta_cc.monto if mov_venta_cc else Decimal('0')
+
+            if monto_a_revertir > 0:
+                saldo_anterior, saldo_posterior = venta.cliente.actualizar_saldo(
+                    monto_a_revertir, 'pago'
+                )
+
+                movimiento_cc = MovimientoCuentaCorriente(
+                    cliente_id=venta.cliente.id,
+                    tipo='pago',
+                    monto=monto_a_revertir,
+                    saldo_anterior=saldo_anterior,
+                    saldo_posterior=saldo_posterior,
+                    referencia_tipo='anulacion_venta',
+                    referencia_id=venta.id,
+                    descripcion=f'Anulacion de venta #{venta.numero_completo}',
+                    usuario_id=current_user.id,
+                    empresa_id=current_user.empresa_id,
+                )
+                db.session.add(movimiento_cc)
         else:
             # Egreso de caja para ventas con forma de pago simple (no CC)
             movimiento_caja = MovimientoCaja(
@@ -677,6 +783,35 @@ def anular(id):
         ).all()
         for cheque in cheques_venta:
             cheque.estado = 'anulado'
+
+        # Revertir consumo de saldo a favor si lo hubo
+        if venta.cliente:
+            movimientos_consumo = MovimientoCuentaCorriente.query.filter_by(
+                referencia_tipo='consumo_saldo_favor',
+                referencia_id=venta.id,
+                empresa_id=current_user.empresa_id,
+            ).all()
+
+            for mov_consumo in movimientos_consumo:
+                saldo_ant, saldo_post = venta.cliente.actualizar_saldo_favor(
+                    mov_consumo.monto, 'adelanto'
+                )
+                movimiento_reversion = MovimientoCuentaCorriente(
+                    cliente_id=venta.cliente_id,
+                    tipo='pago',
+                    monto=mov_consumo.monto,
+                    saldo_anterior=saldo_ant,
+                    saldo_posterior=saldo_post,
+                    referencia_tipo='anul_consumo_saldo',
+                    referencia_id=venta.id,
+                    descripcion=(
+                        f'Anulación consumo saldo a favor - '
+                        f'Venta #{venta.numero_completo}'
+                    ),
+                    usuario_id=current_user.id,
+                    empresa_id=current_user.empresa_id,
+                )
+                db.session.add(movimiento_reversion)
 
         # Marcar venta como anulada
         venta.estado = 'anulada'
@@ -709,9 +844,7 @@ def pdf(id):
 
     response = make_response(pdf_bytes)
     response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = (
-        f'inline; filename=remito_{venta.numero_completo}.pdf'
-    )
+    response.headers['Content-Disposition'] = f'inline; filename=remito_{venta.numero_completo}.pdf'
     return response
 
 
@@ -724,15 +857,20 @@ def buscar_producto():
     if len(q) < 2:
         return render_template('ventas/_resultados_busqueda.html', productos=[])
 
-    productos = Producto.query_empresa().filter(
-        Producto.activo == True,
-        Producto.stock_actual > 0,
-        db.or_(
-            Producto.codigo.ilike(f'%{q}%'),
-            Producto.nombre.ilike(f'%{q}%'),
-            Producto.codigo_barras.ilike(f'%{q}%')
+    productos = (
+        Producto.query_empresa()
+        .filter(
+            Producto.activo == True,
+            Producto.stock_actual > 0,
+            db.or_(
+                Producto.codigo.ilike(f'%{q}%'),
+                Producto.nombre.ilike(f'%{q}%'),
+                Producto.codigo_barras.ilike(f'%{q}%'),
+            ),
         )
-    ).limit(10).all()
+        .limit(10)
+        .all()
+    )
 
     return render_template('ventas/_resultados_busqueda.html', productos=productos)
 
