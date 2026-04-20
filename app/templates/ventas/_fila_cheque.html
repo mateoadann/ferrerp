@@ -1,0 +1,83 @@
+<tr id="cheque-{{ cheque.id }}"
+    class="{% if cheque.esta_vencido %}table-danger{% elif cheque.esta_proximo_a_vencer %}table-warning{% endif %}">
+    <td class="table-code">{{ cheque.numero_cheque }}</td>
+    <td>{{ cheque.banco }}</td>
+    <td class="text-end fw-bold">{{ cheque.importe|currency }}</td>
+    <td>
+        {% if cheque.esta_vencido %}
+        <span class="text-danger fw-semibold" title="Vencido">
+            {{ cheque.fecha_vencimiento.strftime('%d/%m/%Y') }}
+            <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">error</span>
+        </span>
+        {% elif cheque.esta_proximo_a_vencer %}
+        <span class="text-warning fw-semibold" title="Proximo a vencer">
+            {{ cheque.fecha_vencimiento.strftime('%d/%m/%Y') }}
+            <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">warning</span>
+        </span>
+        {% else %}
+        {{ cheque.fecha_vencimiento.strftime('%d/%m/%Y') }}
+        {% endif %}
+    </td>
+    <td>
+        {% if cheque.estado == 'pendiente' %}
+        <span class="badge bg-secondary">Pendiente</span>
+        {% elif cheque.estado == 'cobrado' %}
+        <span class="badge bg-success">Cobrado</span>
+        {% elif cheque.estado == 'debitado' %}
+        <span class="badge bg-info">Debitado</span>
+        {% elif cheque.estado == 'anulado' %}
+        <span class="badge bg-danger">Anulado</span>
+        {% endif %}
+    </td>
+    {% if cheque.tipo == 'recibido' %}
+    <td>
+        {% if cheque.referencia_tipo == 'venta' and cheque.referencia_id %}
+        <a href="{{ url_for('ventas.detalle', id=cheque.referencia_id) }}">
+            Venta #{{ cheque.referencia_id }}
+        </a>
+        {% elif cheque.referencia_tipo in ('pago_cc', 'adelanto_cc') and cheque.id in cheque_cliente_map %}
+        <a href="{{ url_for('clientes.cuenta_corriente', id=cheque_cliente_map[cheque.id]) }}">
+            {% if cheque.referencia_tipo == 'pago_cc' %}Pago CC{% else %}Adelanto CC{% endif %}
+        </a>
+        {% elif cheque.referencia_tipo %}
+        {{ cheque.referencia_tipo }}
+        {% else %}
+        -
+        {% endif %}
+    </td>
+    {% else %}
+    <td>{{ cheque.destinatario or '-' }}</td>
+    {% endif %}
+    <td>{{ cheque.created_at|datetime }}</td>
+    <td>
+        {% if cheque.estado == 'pendiente' %}
+        <div class="d-flex gap-1">
+            {% if cheque.tipo == 'recibido' %}
+            <button class="btn btn-sm btn-outline-success"
+                    title="Marcar como cobrado"
+                    hx-post="{{ url_for('ventas.marcar_cheque_cobrado', id=cheque.id) }}"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML">
+                <span class="material-symbols-rounded" style="font-size:18px;">check_circle</span>
+            </button>
+            {% elif cheque.tipo == 'emitido' %}
+            <button class="btn btn-sm btn-outline-info"
+                    title="Marcar como debitado"
+                    hx-post="{{ url_for('ventas.marcar_cheque_debitado', id=cheque.id) }}"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML">
+                <span class="material-symbols-rounded" style="font-size:18px;">check_circle</span>
+            </button>
+            {% endif %}
+            <button class="btn btn-sm btn-outline-danger"
+                    title="Anular cheque"
+                    hx-post="{{ url_for('ventas.anular_cheque', id=cheque.id) }}"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML"
+                    hx-confirm="Confirmar anulacion del cheque #{{ cheque.numero_cheque }}?">
+                <span class="material-symbols-rounded" style="font-size:18px;">cancel</span>
+            </button>
+        </div>
+        {% endif %}
+    </td>
+</tr>

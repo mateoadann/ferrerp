@@ -1,6 +1,6 @@
 """Modelo de Cheque."""
 
-from datetime import date
+from datetime import date, timedelta
 
 from ..extensions import db
 from ..utils.helpers import ahora_argentina
@@ -8,7 +8,7 @@ from .mixins import EmpresaMixin
 
 
 class Cheque(EmpresaMixin, db.Model):
-    """Modelo de cheque recibido como forma de pago."""
+    """Modelo de cheque recibido o emitido."""
 
     __tablename__ = 'cheques'
 
@@ -18,14 +18,16 @@ class Cheque(EmpresaMixin, db.Model):
     fecha_emision = db.Column(db.Date, nullable=True)
     fecha_vencimiento = db.Column(db.Date, nullable=False)
     importe = db.Column(db.Numeric(12, 2), nullable=False)
-    referencia_tipo = db.Column(db.String(30), nullable=False)  # 'venta', 'pago_cc', 'adelanto_cc'
-    referencia_id = db.Column(db.Integer, nullable=False)
-    estado = db.Column(db.String(20), nullable=False, default='recibido')
+    tipo = db.Column(db.String(20), nullable=False, default='recibido')
+    referencia_tipo = db.Column(db.String(30), nullable=True)
+    referencia_id = db.Column(db.Integer, nullable=True)
+    estado = db.Column(db.String(20), nullable=False, default='pendiente')
+    destinatario = db.Column(db.String(200), nullable=True)
     observaciones = db.Column(db.Text, nullable=True)
     usuario_id = db.Column(
         db.Integer,
         db.ForeignKey('usuarios.id'),
-        nullable=False
+        nullable=False,
     )
     created_at = db.Column(db.DateTime, default=ahora_argentina, index=True)
 
@@ -41,27 +43,29 @@ class Cheque(EmpresaMixin, db.Model):
         """Verifica si el cheque está vencido."""
         return self.fecha_vencimiento < date.today()
 
+    @property
+    def esta_proximo_a_vencer(self):
+        """Verifica si el cheque vence en los próximos 7 días."""
+        hoy = date.today()
+        return hoy <= self.fecha_vencimiento <= hoy + timedelta(days=7)
+
     def to_dict(self):
         """Convierte el cheque a diccionario."""
         return {
             'id': self.id,
             'numero_cheque': self.numero_cheque,
             'banco': self.banco,
-            'fecha_emision': (
-                self.fecha_emision.isoformat() if self.fecha_emision else None
-            ),
+            'tipo': self.tipo,
+            'fecha_emision': (self.fecha_emision.isoformat() if self.fecha_emision else None),
             'fecha_vencimiento': (
-                self.fecha_vencimiento.isoformat()
-                if self.fecha_vencimiento
-                else None
+                self.fecha_vencimiento.isoformat() if self.fecha_vencimiento else None
             ),
             'importe': float(self.importe) if self.importe else 0,
             'referencia_tipo': self.referencia_tipo,
             'referencia_id': self.referencia_id,
             'estado': self.estado,
+            'destinatario': self.destinatario,
             'observaciones': self.observaciones,
             'usuario_nombre': self.usuario.nombre if self.usuario else None,
-            'created_at': (
-                self.created_at.isoformat() if self.created_at else None
-            ),
+            'created_at': (self.created_at.isoformat() if self.created_at else None),
         }

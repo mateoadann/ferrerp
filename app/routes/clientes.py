@@ -294,9 +294,7 @@ def registrar_pago(id):
 
                 cheque_numero = (request.form.get('cheque_numero') or '').strip()
                 cheque_banco = (request.form.get('cheque_banco') or '').strip()
-                cheque_fecha_str = (
-                    request.form.get('cheque_fecha_vencimiento') or ''
-                ).strip()
+                cheque_fecha_str = (request.form.get('cheque_fecha_vencimiento') or '').strip()
 
                 if not cheque_numero or not cheque_banco or not cheque_fecha_str:
                     db.session.rollback()
@@ -308,9 +306,7 @@ def registrar_pago(id):
                     return redirect(url_for('clientes.cuenta_corriente', id=id))
 
                 try:
-                    cheque_fecha = datetime.strptime(
-                        cheque_fecha_str, '%Y-%m-%d'
-                    ).date()
+                    cheque_fecha = datetime.strptime(cheque_fecha_str, '%Y-%m-%d').date()
                 except ValueError:
                     db.session.rollback()
                     flash(
@@ -324,6 +320,8 @@ def registrar_pago(id):
                     banco=cheque_banco,
                     fecha_vencimiento=cheque_fecha,
                     importe=monto,
+                    tipo='recibido',
+                    estado='pendiente',
                     referencia_tipo='pago_cc',
                     referencia_id=movimiento_cc.id,
                     empresa_id=current_user.empresa_id,
@@ -403,9 +401,7 @@ def registrar_adelanto(id):
 
             cheque_numero = (request.form.get('cheque_numero') or '').strip()
             cheque_banco = (request.form.get('cheque_banco') or '').strip()
-            cheque_fecha_str = (
-                request.form.get('cheque_fecha_vencimiento') or ''
-            ).strip()
+            cheque_fecha_str = (request.form.get('cheque_fecha_vencimiento') or '').strip()
 
             if not cheque_numero or not cheque_banco or not cheque_fecha_str:
                 db.session.rollback()
@@ -417,9 +413,7 @@ def registrar_adelanto(id):
                 return redirect(url_for('clientes.cuenta_corriente', id=id))
 
             try:
-                cheque_fecha = datetime.strptime(
-                    cheque_fecha_str, '%Y-%m-%d'
-                ).date()
+                cheque_fecha = datetime.strptime(cheque_fecha_str, '%Y-%m-%d').date()
             except ValueError:
                 db.session.rollback()
                 flash(
@@ -433,6 +427,8 @@ def registrar_adelanto(id):
                 banco=cheque_banco,
                 fecha_vencimiento=cheque_fecha,
                 importe=monto,
+                tipo='recibido',
+                estado='pendiente',
                 referencia_tipo='pago_cc',
                 referencia_id=movimiento_cc.id,
                 empresa_id=current_user.empresa_id,

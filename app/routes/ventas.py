@@ -19,6 +19,7 @@ from flask_login import current_user, login_required
 from werkzeug.exceptions import HTTPException
 
 from ..extensions import db
+from ..forms.cheque_forms import ChequeEmitidoForm
 from ..forms.venta_forms import AnulacionVentaForm, VentaForm
 from ..models import (
     Caja,
@@ -34,7 +35,12 @@ from ..models import (
 )
 from ..services import venta_service
 from ..utils.decorators import admin_required, caja_abierta_required, empresa_aprobada_required
-from ..utils.helpers import ahora_argentina, generar_numero_venta, paginar_query
+from ..utils.helpers import (
+    ahora_argentina,
+    es_peticion_htmx,
+    generar_numero_venta,
+    paginar_query,
+)
 
 bp = Blueprint('ventas', __name__, url_prefix='/ventas')
 
@@ -91,6 +97,8 @@ def _crear_cheque(datos, referencia_tipo, referencia_id, importe, empresa_id, us
         banco=banco,
         fecha_vencimiento=fecha_vencimiento,
         importe=importe,
+        tipo='recibido',
+        estado='pendiente',
         referencia_tipo=referencia_tipo,
         referencia_id=referencia_id,
         empresa_id=empresa_id,
@@ -641,17 +649,22 @@ def historial():
 @login_required
 @empresa_aprobada_required
 def cheques():
-    """Listado de cheques recibidos."""
+    """Agenda de cheques: por cobrar (recibidos) y por pagar (emitidos)."""
     page = request.args.get('page', 1, type=int)
-    estado = request.args.get('estado', 'todos')
+    tab = request.args.get('tab', 'por_cobrar')
     q = request.args.get('q', '').strip()
-    vencimiento = request.args.get('vencimiento', 'todos')
 
-    query = Cheque.query_empresa()
+    hoy = date.today()
+    en_7_dias = hoy + timedelta(days=7)
 
-    # Filtro por estado
-    if estado and estado != 'todos':
-        query = query.filter(Cheque.estado == estado)
+    # Determinar tipo según tab
+    tipo_filtro = 'recibido' if tab == 'por_cobrar' else 'emitido'
+
+    # Query base: cheques pendientes del tipo seleccionado
+    query = Cheque.query_empresa().filter(
+        Cheque.tipo == tipo_filtro,
+        Cheque.estado == 'pendiente',
+    )
 
     # Búsqueda por número de cheque o banco
     if q:
@@ -662,53 +675,39 @@ def cheques():
             )
         )
 
-    # Filtro por vencimiento
-    hoy = date.today()
-    en_30_dias = hoy + timedelta(days=30)
+    # Ordenar por fecha de vencimiento ascendente (más próximos primero)
+    query = query.order_by(Cheque.fecha_vencimiento.asc())
 
-    if vencimiento == 'vencidos':
-        query = query.filter(Cheque.fecha_vencimiento < hoy)
-    elif vencimiento == 'proximos':
-        query = query.filter(
-            Cheque.fecha_vencimiento >= hoy,
-            Cheque.fecha_vencimiento <= en_30_dias,
-        )
-
-    query = query.order_by(Cheque.created_at.desc())
-
-    # Estadísticas (sobre TODOS los cheques de la empresa, sin filtros)
-    cheques_empresa = Cheque.query_empresa()
-    total_cheques = cheques_empresa.count()
+    # Estadísticas del tab activo (sin filtro de búsqueda)
+    stats_query = Cheque.query_empresa().filter(
+        Cheque.tipo == tipo_filtro,
+        Cheque.estado == 'pendiente',
+    )
+    total_cheques = stats_query.count()
     monto_total = (
         db.session.query(db.func.coalesce(db.func.sum(Cheque.importe), 0))
-        .filter(Cheque.empresa_id == current_user.empresa_id)
+        .filter(
+            Cheque.empresa_id == current_user.empresa_id,
+            Cheque.tipo == tipo_filtro,
+            Cheque.estado == 'pendiente',
+        )
         .scalar()
     )
-    cantidad_vencidos = cheques_empresa.filter(
+    cantidad_vencidos = stats_query.filter(
         Cheque.fecha_vencimiento < hoy,
-        Cheque.estado == 'recibido',
     ).count()
-    cantidad_proximos = cheques_empresa.filter(
+    cantidad_proximos = stats_query.filter(
         Cheque.fecha_vencimiento >= hoy,
-        Cheque.fecha_vencimiento <= en_30_dias,
-        Cheque.estado == 'recibido',
+        Cheque.fecha_vencimiento <= en_7_dias,
     ).count()
 
     # Paginar resultados
     cheques_pag = paginar_query(query, page)
 
-    # Resolver cliente_id para cheques con referencia pago_cc o adelanto_cc
+    # Resolver cliente_id para cheques recibidos con referencia pago_cc o adelanto_cc
     cheque_cliente_map = {}
-    cheque_ids_cc = [
-        c.id for c in cheques_pag.items
-        if c.referencia_tipo in ('pago_cc', 'adelanto_cc')
-    ]
-    if cheque_ids_cc:
-        # Buscar los movimientos de CC para obtener el cliente_id
-        refs = [
-            c for c in cheques_pag.items
-            if c.referencia_tipo in ('pago_cc', 'adelanto_cc')
-        ]
+    if tab == 'por_cobrar':
+        refs = [c for c in cheques_pag.items if c.referencia_tipo in ('pago_cc', 'adelanto_cc')]
         for cheque in refs:
             mov = MovimientoCuentaCorriente.query.filter_by(
                 id=cheque.referencia_id,
@@ -716,19 +715,156 @@ def cheques():
             if mov:
                 cheque_cliente_map[cheque.id] = mov.cliente_id
 
+    # Formulario para cheques emitidos (tab por_pagar)
+    form_emitido = ChequeEmitidoForm()
+
+    # Si es petición HTMX, devolver solo la tabla parcial
+    if es_peticion_htmx():
+        return render_template(
+            'ventas/_tabla_cheques.html',
+            cheques=cheques_pag,
+            tab=tab,
+            q=q,
+            total_cheques=total_cheques,
+            monto_total=monto_total,
+            cantidad_vencidos=cantidad_vencidos,
+            cantidad_proximos=cantidad_proximos,
+            cheque_cliente_map=cheque_cliente_map,
+            hoy=hoy,
+            en_7_dias=en_7_dias,
+            form_emitido=form_emitido,
+        )
+
     return render_template(
         'ventas/cheques.html',
         cheques=cheques_pag,
-        estado_filtro=estado,
+        tab=tab,
         q=q,
-        vencimiento_filtro=vencimiento,
         total_cheques=total_cheques,
         monto_total=monto_total,
         cantidad_vencidos=cantidad_vencidos,
         cantidad_proximos=cantidad_proximos,
         cheque_cliente_map=cheque_cliente_map,
         hoy=hoy,
-        en_30_dias=en_30_dias,
+        en_7_dias=en_7_dias,
+        form_emitido=form_emitido,
+    )
+
+
+@bp.route('/cheques/emitido', methods=['POST'])
+@login_required
+@empresa_aprobada_required
+def crear_cheque_emitido():
+    """Registrar un cheque emitido."""
+    form = ChequeEmitidoForm()
+
+    if form.validate_on_submit():
+        cheque = Cheque(
+            numero_cheque=form.numero_cheque.data.strip(),
+            banco=form.banco.data.strip(),
+            fecha_vencimiento=form.fecha_vencimiento.data,
+            importe=Decimal(str(form.importe.data)),
+            tipo='emitido',
+            estado='pendiente',
+            destinatario=form.destinatario.data.strip(),
+            observaciones=form.observaciones.data or None,
+            referencia_tipo=None,
+            referencia_id=None,
+            empresa_id=current_user.empresa_id,
+            usuario_id=current_user.id,
+        )
+        db.session.add(cheque)
+        db.session.commit()
+
+        flash('Cheque emitido registrado correctamente.', 'success')
+        return redirect(url_for('ventas.cheques', tab='por_pagar'))
+
+    # Si hay errores de validación, volver a la agenda con los errores
+    for campo, errores in form.errors.items():
+        for error in errores:
+            flash(f'{error}', 'danger')
+
+    return redirect(url_for('ventas.cheques', tab='por_pagar'))
+
+
+@bp.route('/cheques/<int:id>/cobrar', methods=['POST'])
+@login_required
+@empresa_aprobada_required
+def marcar_cheque_cobrado(id):
+    """Marcar cheque recibido como cobrado (HTMX)."""
+    cheque = Cheque.query.filter_by(
+        id=id,
+        empresa_id=current_user.empresa_id,
+    ).first_or_404()
+
+    if cheque.tipo != 'recibido' or cheque.estado != 'pendiente':
+        flash('No se puede marcar este cheque como cobrado.', 'danger')
+        return '', 422
+
+    cheque.estado = 'cobrado'
+    db.session.commit()
+
+    flash('Cheque marcado como cobrado.', 'success')
+    return render_template(
+        'ventas/_fila_cheque.html',
+        cheque=cheque,
+        cheque_cliente_map={},
+        hoy=date.today(),
+        en_7_dias=date.today() + timedelta(days=7),
+    )
+
+
+@bp.route('/cheques/<int:id>/debitar', methods=['POST'])
+@login_required
+@empresa_aprobada_required
+def marcar_cheque_debitado(id):
+    """Marcar cheque emitido como debitado (HTMX)."""
+    cheque = Cheque.query.filter_by(
+        id=id,
+        empresa_id=current_user.empresa_id,
+    ).first_or_404()
+
+    if cheque.tipo != 'emitido' or cheque.estado != 'pendiente':
+        flash('No se puede marcar este cheque como debitado.', 'danger')
+        return '', 422
+
+    cheque.estado = 'debitado'
+    db.session.commit()
+
+    flash('Cheque marcado como debitado.', 'success')
+    return render_template(
+        'ventas/_fila_cheque.html',
+        cheque=cheque,
+        cheque_cliente_map={},
+        hoy=date.today(),
+        en_7_dias=date.today() + timedelta(days=7),
+    )
+
+
+@bp.route('/cheques/<int:id>/anular', methods=['POST'])
+@login_required
+@empresa_aprobada_required
+def anular_cheque(id):
+    """Anular un cheque pendiente (HTMX)."""
+    cheque = Cheque.query.filter_by(
+        id=id,
+        empresa_id=current_user.empresa_id,
+    ).first_or_404()
+
+    if cheque.estado != 'pendiente':
+        flash('Solo se pueden anular cheques pendientes.', 'danger')
+        return '', 422
+
+    cheque.estado = 'anulado'
+    db.session.commit()
+
+    flash('Cheque anulado.', 'success')
+    return render_template(
+        'ventas/_fila_cheque.html',
+        cheque=cheque,
+        cheque_cliente_map={},
+        hoy=date.today(),
+        en_7_dias=date.today() + timedelta(days=7),
     )
 
 
@@ -900,8 +1036,7 @@ def anular(id):
                     referencia_tipo='anul_consumo_saldo',
                     referencia_id=venta.id,
                     descripcion=(
-                        f'Anulación consumo saldo a favor - '
-                        f'Venta #{venta.numero_completo}'
+                        f'Anulación consumo saldo a favor - ' f'Venta #{venta.numero_completo}'
                     ),
                     usuario_id=current_user.id,
                     empresa_id=current_user.empresa_id,

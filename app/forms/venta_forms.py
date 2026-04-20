@@ -1,8 +1,8 @@
 """Formularios de ventas."""
 
 from flask_wtf import FlaskForm
-from wtforms import SelectField, DecimalField, TextAreaField, SubmitField, HiddenField
-from wtforms.validators import Optional, NumberRange, DataRequired
+from wtforms import DecimalField, HiddenField, SelectField, SubmitField, TextAreaField
+from wtforms.validators import DataRequired, NumberRange, Optional
 
 
 class VentaForm(FlaskForm):

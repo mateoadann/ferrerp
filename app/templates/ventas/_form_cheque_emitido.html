@@ -1,0 +1,48 @@
+<div class="modal fade" id="modalChequeEmitido" tabindex="-1" aria-labelledby="modalChequeEmitidoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('ventas.crear_cheque_emitido') }}">
+                {{ form_emitido.hidden_tag() }}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalChequeEmitidoLabel">Registrar cheque emitido</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        {{ form_emitido.numero_cheque.label(class="form-label") }}
+                        {{ form_emitido.numero_cheque(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form_emitido.banco.label(class="form-label") }}
+                        {{ form_emitido.banco(class="form-control") }}
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            {{ form_emitido.fecha_vencimiento.label(class="form-label") }}
+                            {{ form_emitido.fecha_vencimiento(class="form-control", type="date") }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form_emitido.importe.label(class="form-label") }}
+                            {{ form_emitido.importe(class="form-control") }}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form_emitido.destinatario.label(class="form-label") }}
+                        {{ form_emitido.destinatario(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form_emitido.observaciones.label(class="form-label") }}
+                        {{ form_emitido.observaciones(class="form-control") }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <span class="material-symbols-rounded me-2">save</span>
+                        Registrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

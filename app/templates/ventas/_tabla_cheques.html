@@ -1,41 +1,3 @@
-{% extends 'base.html' %}
-
-{% block title %}Cheques - {{ app_name }}{% endblock %}
-
-{% block content %}
-<div class="page-header">
-    <div class="d-flex align-items-center gap-2">
-        <a href="{{ url_for('ventas.historial') }}" class="btn btn-outline-secondary btn-sm" title="Volver">
-            <span class="material-symbols-rounded">arrow_back</span>
-        </a>
-        <h2 class="mb-0">Cheques</h2>
-    </div>
-    {% if tab == 'por_pagar' %}
-    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalChequeEmitido">
-        <span class="material-symbols-rounded me-2">add</span>
-        Registrar cheque emitido
-    </button>
-    {% endif %}
-</div>
-
-<!-- Tabs -->
-<ul class="nav nav-tabs mb-4" role="tablist">
-    <li class="nav-item">
-        <a class="nav-link {% if tab == 'por_cobrar' %}active{% endif %}"
-           href="{{ url_for('ventas.cheques', tab='por_cobrar') }}">
-            <span class="material-symbols-rounded me-1" style="font-size:18px;vertical-align:middle;">move_to_inbox</span>
-            Por cobrar
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link {% if tab == 'por_pagar' %}active{% endif %}"
-           href="{{ url_for('ventas.cheques', tab='por_pagar') }}">
-            <span class="material-symbols-rounded me-1" style="font-size:18px;vertical-align:middle;">outgoing_mail</span>
-            Por pagar
-        </a>
-    </li>
-</ul>
-
 <!-- Resumen -->
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-lg-3">
@@ -81,30 +43,6 @@
                 </div>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Búsqueda -->
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="GET" class="row g-3 align-items-end">
-            <input type="hidden" name="tab" value="{{ tab }}">
-            <div class="col-md-6">
-                <label class="form-label">Buscar</label>
-                <input type="text" name="q" class="form-control"
-                       placeholder="Numero o banco..."
-                       value="{{ q }}">
-            </div>
-            <div class="col-md-6">
-                <button type="submit" class="btn btn-secondary me-2">
-                    <span class="material-symbols-rounded me-2">search</span>
-                    Buscar
-                </button>
-                <a href="{{ url_for('ventas.cheques', tab=tab) }}" class="btn btn-outline-secondary">
-                    Limpiar
-                </a>
-            </div>
-        </form>
     </div>
 </div>
 
@@ -155,9 +93,3 @@
 {% set pagination = cheques %}
 {% include 'components/pagination.html' %}
 {% endif %}
-
-<!-- Modal para registrar cheque emitido -->
-{% if tab == 'por_pagar' %}
-{% include 'ventas/_form_cheque_emitido.html' %}
-{% endif %}
-{% endblock %}

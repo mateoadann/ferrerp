@@ -1,7 +1,7 @@
 """Agregar forma de pago cheque a los enums y crear tabla cheques.
 
-Revision ID: 0011
-Revises: 0010
+Revision ID: 0012
+Revises: 0011
 Create Date: 2026-04-14
 """
 
@@ -9,8 +9,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = '0011'
-down_revision = '0010'
+revision = '0012'
+down_revision = '0011'
 branch_labels = None
 depends_on = None
 
