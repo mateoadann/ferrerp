@@ -22,6 +22,7 @@ from ..extensions import db
 from ..forms.cheque_forms import ChequeEmitidoForm
 from ..forms.venta_forms import AnulacionVentaForm, VentaForm
 from ..models import (
+    Banco,
     Caja,
     Cheque,
     Cliente,
@@ -59,16 +60,26 @@ def _decimal_seguro(valor, default=Decimal('0')):
         return default
 
 
-def _crear_cheque(datos, referencia_tipo, referencia_id, importe, empresa_id, usuario_id):
+def _crear_cheque(
+    datos,
+    referencia_tipo,
+    referencia_id,
+    importe,
+    empresa_id,
+    usuario_id,
+    cliente_id=None,
+):
     """Crea un registro de Cheque a partir de los datos del formulario.
 
     Args:
-        datos: dict con cheque_numero, cheque_banco, cheque_fecha_vencimiento
+        datos: dict con cheque_numero, cheque_banco_id, cheque_fecha_vencimiento,
+               cheque_tipo_cheque (opcional)
         referencia_tipo: 'venta' o 'pago_cc'
         referencia_id: ID de la referencia
         importe: monto del cheque (Decimal)
         empresa_id: ID de la empresa
         usuario_id: ID del usuario
+        cliente_id: ID del cliente (para cheques recibidos)
 
     Returns:
         Cheque creado
@@ -77,15 +88,37 @@ def _crear_cheque(datos, referencia_tipo, referencia_id, importe, empresa_id, us
         ValueError: si faltan campos obligatorios
     """
     numero = (datos.get('cheque_numero') or '').strip()
-    banco = (datos.get('cheque_banco') or '').strip()
+    banco_id_str = (datos.get('cheque_banco_id') or datos.get('cheque_banco') or '').strip()
     fecha_venc_str = (datos.get('cheque_fecha_vencimiento') or '').strip()
+    tipo_cheque = (datos.get('cheque_tipo_cheque') or 'cheque').strip()
 
     if not numero:
         raise ValueError('El número de cheque es obligatorio.')
-    if not banco:
+    if not banco_id_str:
         raise ValueError('El banco del cheque es obligatorio.')
     if not fecha_venc_str:
         raise ValueError('La fecha de vencimiento del cheque es obligatoria.')
+
+    # Intentar como ID numérico primero, luego como nombre (compatibilidad)
+    try:
+        banco_id = int(banco_id_str)
+        banco = Banco.query.filter_by(id=banco_id, empresa_id=empresa_id).first()
+    except (ValueError, TypeError):
+        # Fallback: buscar por nombre (compatibilidad con POS texto)
+        nombre_norm = banco_id_str.strip().title()
+        banco = Banco.query.filter_by(empresa_id=empresa_id, nombre=nombre_norm).first()
+        if not banco:
+            # Crear banco on-the-fly si no existe
+            banco = Banco(
+                nombre=nombre_norm,
+                empresa_id=empresa_id,
+                activo=True,
+            )
+            db.session.add(banco)
+            db.session.flush()
+
+    if not banco:
+        raise ValueError('El banco seleccionado no existe.')
 
     try:
         fecha_vencimiento = datetime.strptime(fecha_venc_str, '%Y-%m-%d').date()
@@ -94,13 +127,15 @@ def _crear_cheque(datos, referencia_tipo, referencia_id, importe, empresa_id, us
 
     cheque = Cheque(
         numero_cheque=numero,
-        banco=banco,
+        banco_id=banco.id,
         fecha_vencimiento=fecha_vencimiento,
         importe=importe,
         tipo='recibido',
-        estado='pendiente',
+        tipo_cheque=tipo_cheque,
+        estado='en_cartera',
         referencia_tipo=referencia_tipo,
         referencia_id=referencia_id,
+        cliente_id=cliente_id,
         empresa_id=empresa_id,
         usuario_id=usuario_id,
     )
@@ -138,6 +173,15 @@ def punto_de_venta():
             if not items:
                 flash('Agrega al menos un producto a la venta.', 'danger')
                 return redirect(url_for('ventas.punto_de_venta'))
+
+            # Validaciones de cheque: requiere cliente
+            if forma_pago == 'cheque':
+                if not cliente_id:
+                    flash(
+                        'Para pago con cheque debe seleccionar un cliente.',
+                        'danger',
+                    )
+                    return redirect(url_for('ventas.punto_de_venta'))
 
             # Validaciones de cuenta corriente
             if forma_pago == 'cuenta_corriente':
@@ -324,8 +368,16 @@ def punto_de_venta():
                 # Consumo de saldo a favor (aplica solo a porcion CC)
                 monto_saldo_favor = _decimal_seguro(request.form.get('monto_saldo_favor'))
 
-                # Validar CC si alguno es cuenta_corriente
+                # Validar CC y cheque si requieren cliente
                 for pago_data in pagos_data:
+                    if pago_data['forma_pago'] == 'cheque':
+                        if not cliente_id:
+                            db.session.rollback()
+                            flash(
+                                'Para pago con cheque debe seleccionar un cliente.',
+                                'danger',
+                            )
+                            return redirect(url_for('ventas.punto_de_venta'))
                     if pago_data['forma_pago'] == 'cuenta_corriente':
                         if not cliente_id:
                             db.session.rollback()
@@ -443,7 +495,11 @@ def punto_de_venta():
                         if fp == 'cheque':
                             cheque_datos = {
                                 'cheque_numero': pago_data.get('cheque_numero', ''),
-                                'cheque_banco': pago_data.get('cheque_banco', ''),
+                                'cheque_banco_id': pago_data.get(
+                                    'cheque_banco_id',
+                                    pago_data.get('cheque_banco', ''),
+                                ),
+                                'cheque_tipo_cheque': pago_data.get('cheque_tipo_cheque', 'cheque'),
                                 'cheque_fecha_vencimiento': pago_data.get(
                                     'cheque_fecha_vencimiento', ''
                                 ),
@@ -455,6 +511,7 @@ def punto_de_venta():
                                 importe=monto,
                                 empresa_id=current_user.empresa_id,
                                 usuario_id=current_user.id,
+                                cliente_id=cliente_id,
                             )
 
             elif forma_pago == 'cuenta_corriente':
@@ -568,6 +625,7 @@ def punto_de_venta():
                         importe=venta.total,
                         empresa_id=current_user.empresa_id,
                         usuario_id=current_user.id,
+                        cliente_id=cliente_id,
                     )
 
             db.session.commit()
@@ -660,18 +718,18 @@ def cheques():
     # Determinar tipo según tab
     tipo_filtro = 'recibido' if tab == 'por_cobrar' else 'emitido'
 
-    # Query base: cheques pendientes del tipo seleccionado
+    # Query base: cheques en_cartera del tipo seleccionado
     query = Cheque.query_empresa().filter(
         Cheque.tipo == tipo_filtro,
-        Cheque.estado == 'pendiente',
+        Cheque.estado == 'en_cartera',
     )
 
-    # Búsqueda por número de cheque o banco
+    # Búsqueda por número de cheque o nombre de banco
     if q:
-        query = query.filter(
+        query = query.outerjoin(Banco, Cheque.banco_id == Banco.id).filter(
             db.or_(
                 Cheque.numero_cheque.ilike(f'%{q}%'),
-                Cheque.banco.ilike(f'%{q}%'),
+                Banco.nombre.ilike(f'%{q}%'),
             )
         )
 
@@ -681,7 +739,7 @@ def cheques():
     # Estadísticas del tab activo (sin filtro de búsqueda)
     stats_query = Cheque.query_empresa().filter(
         Cheque.tipo == tipo_filtro,
-        Cheque.estado == 'pendiente',
+        Cheque.estado == 'en_cartera',
     )
     total_cheques = stats_query.count()
     monto_total = (
@@ -689,17 +747,47 @@ def cheques():
         .filter(
             Cheque.empresa_id == current_user.empresa_id,
             Cheque.tipo == tipo_filtro,
-            Cheque.estado == 'pendiente',
+            Cheque.estado == 'en_cartera',
         )
         .scalar()
     )
-    cantidad_vencidos = stats_query.filter(
-        Cheque.fecha_vencimiento < hoy,
-    ).count()
-    cantidad_proximos = stats_query.filter(
-        Cheque.fecha_vencimiento >= hoy,
-        Cheque.fecha_vencimiento <= en_7_dias,
-    ).count()
+
+    if tab == 'por_cobrar':
+        # KPIs monetarios para recibidos
+        monto_hoy = (
+            db.session.query(db.func.coalesce(db.func.sum(Cheque.importe), 0))
+            .filter(
+                Cheque.empresa_id == current_user.empresa_id,
+                Cheque.tipo == 'recibido',
+                Cheque.estado == 'en_cartera',
+                Cheque.fecha_vencimiento == hoy,
+            )
+            .scalar()
+        )
+        monto_proximos = (
+            db.session.query(db.func.coalesce(db.func.sum(Cheque.importe), 0))
+            .filter(
+                Cheque.empresa_id == current_user.empresa_id,
+                Cheque.tipo == 'recibido',
+                Cheque.estado == 'en_cartera',
+                Cheque.fecha_vencimiento >= hoy,
+                Cheque.fecha_vencimiento <= en_7_dias,
+            )
+            .scalar()
+        )
+        cantidad_vencidos = 0
+        cantidad_proximos = 0
+    else:
+        # KPIs de conteo para emitidos
+        monto_hoy = Decimal('0')
+        monto_proximos = Decimal('0')
+        cantidad_vencidos = stats_query.filter(
+            Cheque.fecha_vencimiento < hoy,
+        ).count()
+        cantidad_proximos = stats_query.filter(
+            Cheque.fecha_vencimiento >= hoy,
+            Cheque.fecha_vencimiento <= en_7_dias,
+        ).count()
 
     # Paginar resultados
     cheques_pag = paginar_query(query, page)
@@ -727,6 +815,8 @@ def cheques():
             q=q,
             total_cheques=total_cheques,
             monto_total=monto_total,
+            monto_hoy=monto_hoy,
+            monto_proximos=monto_proximos,
             cantidad_vencidos=cantidad_vencidos,
             cantidad_proximos=cantidad_proximos,
             cheque_cliente_map=cheque_cliente_map,
@@ -742,6 +832,8 @@ def cheques():
         q=q,
         total_cheques=total_cheques,
         monto_total=monto_total,
+        monto_hoy=monto_hoy,
+        monto_proximos=monto_proximos,
         cantidad_vencidos=cantidad_vencidos,
         cantidad_proximos=cantidad_proximos,
         cheque_cliente_map=cheque_cliente_map,
@@ -761,11 +853,12 @@ def crear_cheque_emitido():
     if form.validate_on_submit():
         cheque = Cheque(
             numero_cheque=form.numero_cheque.data.strip(),
-            banco=form.banco.data.strip(),
+            banco_id=form.banco_id.data,
+            tipo_cheque='echeq' if form.es_echeq.data else 'cheque',
             fecha_vencimiento=form.fecha_vencimiento.data,
             importe=Decimal(str(form.importe.data)),
             tipo='emitido',
-            estado='pendiente',
+            estado='en_cartera',
             destinatario=form.destinatario.data.strip(),
             observaciones=form.observaciones.data or None,
             referencia_tipo=None,
@@ -787,81 +880,63 @@ def crear_cheque_emitido():
     return redirect(url_for('ventas.cheques', tab='por_pagar'))
 
 
-@bp.route('/cheques/<int:id>/cobrar', methods=['POST'])
+@bp.route('/cheques/<int:id>/acciones', methods=['GET'])
 @login_required
 @empresa_aprobada_required
-def marcar_cheque_cobrado(id):
-    """Marcar cheque recibido como cobrado (HTMX)."""
+def acciones_cheque(id):
+    """Devuelve modal con acciones disponibles para un cheque (HTMX)."""
     cheque = Cheque.query.filter_by(
         id=id,
         empresa_id=current_user.empresa_id,
     ).first_or_404()
 
-    if cheque.tipo != 'recibido' or cheque.estado != 'pendiente':
-        flash('No se puede marcar este cheque como cobrado.', 'danger')
-        return '', 422
-
-    cheque.estado = 'cobrado'
-    db.session.commit()
-
-    flash('Cheque marcado como cobrado.', 'success')
     return render_template(
-        'ventas/_fila_cheque.html',
+        'ventas/_modal_acciones_cheque.html',
         cheque=cheque,
-        cheque_cliente_map={},
-        hoy=date.today(),
-        en_7_dias=date.today() + timedelta(days=7),
     )
 
 
-@bp.route('/cheques/<int:id>/debitar', methods=['POST'])
+@bp.route('/cheques/<int:id>/cambiar-estado', methods=['POST'])
 @login_required
 @empresa_aprobada_required
-def marcar_cheque_debitado(id):
-    """Marcar cheque emitido como debitado (HTMX)."""
+def cambiar_estado_cheque(id):
+    """Cambiar estado de un cheque usando máquina de estados (HTMX)."""
+    from ..models.cheque import transicion_valida
+
     cheque = Cheque.query.filter_by(
         id=id,
         empresa_id=current_user.empresa_id,
     ).first_or_404()
 
-    if cheque.tipo != 'emitido' or cheque.estado != 'pendiente':
-        flash('No se puede marcar este cheque como debitado.', 'danger')
+    nuevo_estado = request.form.get('nuevo_estado', '').strip()
+
+    if not nuevo_estado:
+        flash('Debe seleccionar un estado.', 'danger')
         return '', 422
 
-    cheque.estado = 'debitado'
+    if not transicion_valida(cheque.tipo, cheque.estado, nuevo_estado):
+        flash(
+            f'Transición no válida: {cheque.estado} → {nuevo_estado}.',
+            'danger',
+        )
+        return '', 422
+
+    cheque.estado = nuevo_estado
     db.session.commit()
 
-    flash('Cheque marcado como debitado.', 'success')
-    return render_template(
-        'ventas/_fila_cheque.html',
-        cheque=cheque,
-        cheque_cliente_map={},
-        hoy=date.today(),
-        en_7_dias=date.today() + timedelta(days=7),
+    etiquetas = {
+        'cobrado': 'Cobrado',
+        'endosado': 'Endosado',
+        'sin_fondos': 'Sin fondos',
+    }
+    flash(
+        f'Estado del cheque actualizado a {etiquetas.get(nuevo_estado, nuevo_estado)}.',
+        'success',
     )
-
-
-@bp.route('/cheques/<int:id>/anular', methods=['POST'])
-@login_required
-@empresa_aprobada_required
-def anular_cheque(id):
-    """Anular un cheque pendiente (HTMX)."""
-    cheque = Cheque.query.filter_by(
-        id=id,
-        empresa_id=current_user.empresa_id,
-    ).first_or_404()
-
-    if cheque.estado != 'pendiente':
-        flash('Solo se pueden anular cheques pendientes.', 'danger')
-        return '', 422
-
-    cheque.estado = 'anulado'
-    db.session.commit()
-
-    flash('Cheque anulado.', 'success')
     return render_template(
         'ventas/_fila_cheque.html',
         cheque=cheque,
+        tab='por_cobrar' if cheque.tipo == 'recibido' else 'por_pagar',
         cheque_cliente_map={},
         hoy=date.today(),
         en_7_dias=date.today() + timedelta(days=7),
@@ -873,7 +948,19 @@ def anular_cheque(id):
 def detalle(id):
     """Ver detalle de venta."""
     venta = Venta.get_o_404(id)
-    return render_template('ventas/detalle.html', venta=venta)
+
+    # Buscar cheque asociado a la venta
+    cheque_venta = Cheque.query.filter_by(
+        referencia_tipo='venta',
+        referencia_id=venta.id,
+        empresa_id=current_user.empresa_id,
+    ).first()
+
+    return render_template(
+        'ventas/detalle.html',
+        venta=venta,
+        cheque_venta=cheque_venta,
+    )
 
 
 @bp.route('/<int:id>/anular', methods=['GET', 'POST'])
@@ -1007,13 +1094,13 @@ def anular(id):
             )
             db.session.add(movimiento_caja)
 
-        # Anular cheques asociados a la venta
+        # Devolver cheques asociados a la venta a en_cartera
         cheques_venta = Cheque.query.filter_by(
             referencia_tipo='venta',
             referencia_id=venta.id,
         ).all()
         for cheque in cheques_venta:
-            cheque.estado = 'anulado'
+            cheque.estado = 'en_cartera'
 
         # Revertir consumo de saldo a favor si lo hubo
         if venta.cliente:

@@ -1,15 +1,18 @@
 <tr id="cheque-{{ cheque.id }}"
-    class="{% if cheque.esta_vencido %}table-danger{% elif cheque.esta_proximo_a_vencer %}table-warning{% endif %}">
+    class="{% if cheque.estado == 'en_cartera' and cheque.esta_vencido %}table-danger{% elif cheque.estado == 'en_cartera' and cheque.esta_proximo_a_vencer %}table-warning{% endif %}">
     <td class="table-code">{{ cheque.numero_cheque }}</td>
-    <td>{{ cheque.banco }}</td>
+    <td>{{ cheque.banco.nombre if cheque.banco else '-' }}</td>
+    {% if tab == 'por_cobrar' %}
+    <td>{{ cheque.cliente.nombre if cheque.cliente else '-' }}</td>
+    {% endif %}
     <td class="text-end fw-bold">{{ cheque.importe|currency }}</td>
     <td>
-        {% if cheque.esta_vencido %}
+        {% if cheque.estado == 'en_cartera' and cheque.esta_vencido %}
         <span class="text-danger fw-semibold" title="Vencido">
             {{ cheque.fecha_vencimiento.strftime('%d/%m/%Y') }}
             <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">error</span>
         </span>
-        {% elif cheque.esta_proximo_a_vencer %}
+        {% elif cheque.estado == 'en_cartera' and cheque.esta_proximo_a_vencer %}
         <span class="text-warning fw-semibold" title="Proximo a vencer">
             {{ cheque.fecha_vencimiento.strftime('%d/%m/%Y') }}
             <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">warning</span>
@@ -19,17 +22,17 @@
         {% endif %}
     </td>
     <td>
-        {% if cheque.estado == 'pendiente' %}
-        <span class="badge bg-secondary">Pendiente</span>
+        {% if cheque.estado == 'en_cartera' %}
+        <span class="badge bg-warning text-dark">En cartera</span>
         {% elif cheque.estado == 'cobrado' %}
         <span class="badge bg-success">Cobrado</span>
-        {% elif cheque.estado == 'debitado' %}
-        <span class="badge bg-info">Debitado</span>
-        {% elif cheque.estado == 'anulado' %}
-        <span class="badge bg-danger">Anulado</span>
+        {% elif cheque.estado == 'endosado' %}
+        <span class="badge bg-info">Endosado</span>
+        {% elif cheque.estado == 'sin_fondos' %}
+        <span class="badge bg-danger">Sin fondos</span>
         {% endif %}
     </td>
-    {% if cheque.tipo == 'recibido' %}
+    {% if tab == 'por_cobrar' %}
     <td>
         {% if cheque.referencia_tipo == 'venta' and cheque.referencia_id %}
         <a href="{{ url_for('ventas.detalle', id=cheque.referencia_id) }}">
@@ -50,34 +53,14 @@
     {% endif %}
     <td>{{ cheque.created_at|datetime }}</td>
     <td>
-        {% if cheque.estado == 'pendiente' %}
-        <div class="d-flex gap-1">
-            {% if cheque.tipo == 'recibido' %}
-            <button class="btn btn-sm btn-outline-success"
-                    title="Marcar como cobrado"
-                    hx-post="{{ url_for('ventas.marcar_cheque_cobrado', id=cheque.id) }}"
-                    hx-target="closest tr"
-                    hx-swap="outerHTML">
-                <span class="material-symbols-rounded" style="font-size:18px;">check_circle</span>
-            </button>
-            {% elif cheque.tipo == 'emitido' %}
-            <button class="btn btn-sm btn-outline-info"
-                    title="Marcar como debitado"
-                    hx-post="{{ url_for('ventas.marcar_cheque_debitado', id=cheque.id) }}"
-                    hx-target="closest tr"
-                    hx-swap="outerHTML">
-                <span class="material-symbols-rounded" style="font-size:18px;">check_circle</span>
-            </button>
-            {% endif %}
-            <button class="btn btn-sm btn-outline-danger"
-                    title="Anular cheque"
-                    hx-post="{{ url_for('ventas.anular_cheque', id=cheque.id) }}"
-                    hx-target="closest tr"
-                    hx-swap="outerHTML"
-                    hx-confirm="Confirmar anulacion del cheque #{{ cheque.numero_cheque }}?">
-                <span class="material-symbols-rounded" style="font-size:18px;">cancel</span>
-            </button>
-        </div>
+        {% if cheque.estado == 'en_cartera' %}
+        <button class="btn btn-sm btn-outline-primary"
+                title="Acciones"
+                data-bs-toggle="modal"
+                data-bs-target="#modalAccionesCheque{{ cheque.id }}">
+            <span class="material-symbols-rounded" style="font-size:18px;">more_horiz</span>
+        </button>
+        {% include 'ventas/_modal_acciones_cheque.html' %}
         {% endif %}
     </td>
 </tr>

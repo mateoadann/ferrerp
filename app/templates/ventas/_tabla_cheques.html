@@ -5,7 +5,7 @@
             <div class="card-body d-flex align-items-center gap-3">
                 <span class="material-symbols-rounded fs-1 text-primary">description</span>
                 <div>
-                    <div class="text-muted small">Total pendientes</div>
+                    <div class="text-muted small">{{ 'Total por cobrar' if tab == 'por_cobrar' else 'Total pendientes' }}</div>
                     <div class="fs-4 fw-bold">{{ total_cheques }}</div>
                 </div>
             </div>
@@ -16,7 +16,7 @@
             <div class="card-body d-flex align-items-center gap-3">
                 <span class="material-symbols-rounded fs-1 text-success">payments</span>
                 <div>
-                    <div class="text-muted small">Monto total</div>
+                    <div class="text-muted small">{{ 'Monto por cobrar' if tab == 'por_cobrar' else 'Monto total' }}</div>
                     <div class="fs-4 fw-bold">{{ monto_total|currency }}</div>
                 </div>
             </div>
@@ -25,10 +25,10 @@
     <div class="col-sm-6 col-lg-3">
         <div class="card h-100">
             <div class="card-body d-flex align-items-center gap-3">
-                <span class="material-symbols-rounded fs-1 text-danger">error</span>
+                <span class="material-symbols-rounded fs-1 text-danger">{% if tab == 'por_cobrar' %}today{% else %}error{% endif %}</span>
                 <div>
-                    <div class="text-muted small">Vencidos</div>
-                    <div class="fs-4 fw-bold text-danger">{{ cantidad_vencidos }}</div>
+                    <div class="text-muted small">{{ 'A cobrar hoy' if tab == 'por_cobrar' else 'Vencidos' }}</div>
+                    <div class="fs-4 fw-bold text-danger">{{ monto_hoy|currency if tab == 'por_cobrar' else cantidad_vencidos }}</div>
                 </div>
             </div>
         </div>
@@ -36,10 +36,10 @@
     <div class="col-sm-6 col-lg-3">
         <div class="card h-100">
             <div class="card-body d-flex align-items-center gap-3">
-                <span class="material-symbols-rounded fs-1 text-warning">warning</span>
+                <span class="material-symbols-rounded fs-1 text-warning">{% if tab == 'por_cobrar' %}upcoming{% else %}warning{% endif %}</span>
                 <div>
-                    <div class="text-muted small">Prox. a vencer</div>
-                    <div class="fs-4 fw-bold text-warning">{{ cantidad_proximos }}</div>
+                    <div class="text-muted small">{{ 'Prox. a cobrar (7d)' if tab == 'por_cobrar' else 'Prox. a vencer' }}</div>
+                    <div class="fs-4 fw-bold text-warning">{{ monto_proximos|currency if tab == 'por_cobrar' else cantidad_proximos }}</div>
                 </div>
             </div>
         </div>
@@ -54,8 +54,11 @@
                 <tr>
                     <th>Nro. Cheque</th>
                     <th>Banco</th>
+                    {% if tab == 'por_cobrar' %}
+                    <th>Cliente</th>
+                    {% endif %}
                     <th class="text-end">Importe</th>
-                    <th>Vencimiento</th>
+                    <th>{{ 'Fecha de cobro' if tab == 'por_cobrar' else 'Fecha de pago' }}</th>
                     <th>Estado</th>
                     {% if tab == 'por_cobrar' %}
                     <th>Referencia</th>
@@ -71,7 +74,7 @@
                 {% include 'ventas/_fila_cheque.html' %}
                 {% else %}
                 <tr>
-                    <td colspan="8">
+                    <td colspan="{{ 10 if tab == 'por_cobrar' else 9 }}">
                         <div class="empty-state">
                             <span class="material-symbols-rounded">description</span>
                             {% if tab == 'por_cobrar' %}

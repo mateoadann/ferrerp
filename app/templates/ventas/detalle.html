@@ -203,6 +203,18 @@
                         <span class="badge badge-secondary">Cheque</span>
                         {% endif %}
                     </dd>
+
+                    {% if cheque_venta %}
+                    <dt class="col-5 text-muted">Cheque:</dt>
+                    <dd class="col-7">
+                        <a href="{{ url_for('ventas.cheques', tab='por_cobrar') }}"
+                           class="btn btn-sm btn-outline-secondary">
+                            <span class="material-symbols-rounded me-1" style="font-size:16px;vertical-align:middle;">description</span>
+                            #{{ cheque_venta.numero_cheque }}
+                            <span class="badge bg-{{ 'warning' if cheque_venta.estado == 'en_cartera' else 'success' if cheque_venta.estado == 'cobrado' else 'info' if cheque_venta.estado == 'endosado' else 'danger' }} ms-1">{{ cheque_venta.estado|replace('_', ' ')|title }}</span>
+                        </a>
+                    </dd>
+                    {% endif %}
                 </dl>
             </div>
         </div>

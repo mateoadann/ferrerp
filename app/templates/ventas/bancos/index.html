@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Bancos - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="d-flex align-items-center gap-2">
+        <a href="{{ url_for('ventas.cheques') }}" class="btn btn-outline-secondary btn-sm" title="Volver a cheques">
+            <span class="material-symbols-rounded">arrow_back</span>
+        </a>
+        <h2 class="mb-0">Bancos</h2>
+    </div>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalBanco">
+        <span class="material-symbols-rounded me-2">add</span>
+        Nuevo banco
+    </button>
+</div>
+
+<div class="card">
+    <div id="lista-bancos">
+        {% include 'ventas/bancos/_lista_bancos.html' %}
+    </div>
+</div>
+
+<!-- Modal crear banco -->
+<div class="modal fade" id="modalBanco" tabindex="-1" aria-labelledby="modalBancoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('bancos.crear') }}">
+                {{ form.hidden_tag() }}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalBancoLabel">Nuevo banco</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        {{ form.nombre.label(class="form-label") }}
+                        {{ form.nombre(class="form-control") }}
+                    </div>
+                    <div class="form-check">
+                        {{ form.activo(class="form-check-input") }}
+                        {{ form.activo.label(class="form-check-label") }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <span class="material-symbols-rounded me-2">save</span>
+                        Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -12,7 +12,7 @@ from ..forms.cliente_forms import (
     ClienteForm,
     PagoCuentaCorrienteForm,
 )
-from ..models import Caja, Cheque, Cliente, MovimientoCaja, MovimientoCuentaCorriente
+from ..models import Banco, Caja, Cheque, Cliente, MovimientoCaja, MovimientoCuentaCorriente
 from ..services.cumpleanos_service import (
     contar_cumpleanos_hoy,
     generar_url_whatsapp_cumpleanos,
@@ -293,37 +293,86 @@ def registrar_pago(id):
                 from datetime import datetime
 
                 cheque_numero = (request.form.get('cheque_numero') or '').strip()
-                cheque_banco = (request.form.get('cheque_banco') or '').strip()
-                cheque_fecha_str = (request.form.get('cheque_fecha_vencimiento') or '').strip()
+                cheque_banco_id = (
+                    request.form.get('cheque_banco_id')
+                    or request.form.get('cheque_banco')
+                    or ''
+                ).strip()
+                cheque_fecha_str = (
+                    request.form.get('cheque_fecha_vencimiento') or ''
+                ).strip()
 
-                if not cheque_numero or not cheque_banco or not cheque_fecha_str:
+                if (
+                    not cheque_numero
+                    or not cheque_banco_id
+                    or not cheque_fecha_str
+                ):
                     db.session.rollback()
                     flash(
                         'Los datos del cheque son obligatorios '
-                        '(número, banco y fecha de vencimiento).',
+                        '(numero, banco y fecha de vencimiento).',
                         'danger',
                     )
-                    return redirect(url_for('clientes.cuenta_corriente', id=id))
+                    return redirect(
+                        url_for('clientes.cuenta_corriente', id=id)
+                    )
 
                 try:
-                    cheque_fecha = datetime.strptime(cheque_fecha_str, '%Y-%m-%d').date()
+                    cheque_fecha = datetime.strptime(
+                        cheque_fecha_str, '%Y-%m-%d'
+                    ).date()
                 except ValueError:
                     db.session.rollback()
                     flash(
-                        'La fecha de vencimiento del cheque no es válida.',
+                        'La fecha de vencimiento del cheque no es valida.',
                         'danger',
                     )
-                    return redirect(url_for('clientes.cuenta_corriente', id=id))
+                    return redirect(
+                        url_for('clientes.cuenta_corriente', id=id)
+                    )
+
+                # Resolver banco: ID numerico o nombre texto
+                try:
+                    banco_id_int = int(cheque_banco_id)
+                    banco_obj = Banco.query.filter_by(
+                        id=banco_id_int,
+                        empresa_id=current_user.empresa_id,
+                    ).first()
+                except (ValueError, TypeError):
+                    nombre_norm = cheque_banco_id.strip().title()
+                    banco_obj = Banco.query.filter_by(
+                        empresa_id=current_user.empresa_id,
+                        nombre=nombre_norm,
+                    ).first()
+                    if not banco_obj:
+                        banco_obj = Banco(
+                            nombre=nombre_norm,
+                            empresa_id=current_user.empresa_id,
+                            activo=True,
+                        )
+                        db.session.add(banco_obj)
+                        db.session.flush()
+
+                if not banco_obj:
+                    db.session.rollback()
+                    flash(
+                        'El banco seleccionado no es valido.',
+                        'danger',
+                    )
+                    return redirect(
+                        url_for('clientes.cuenta_corriente', id=id)
+                    )
 
                 cheque = Cheque(
                     numero_cheque=cheque_numero,
-                    banco=cheque_banco,
+                    banco_id=banco_obj.id,
                     fecha_vencimiento=cheque_fecha,
                     importe=monto,
                     tipo='recibido',
-                    estado='pendiente',
+                    estado='en_cartera',
                     referencia_tipo='pago_cc',
                     referencia_id=movimiento_cc.id,
+                    cliente_id=id,
                     empresa_id=current_user.empresa_id,
                     usuario_id=current_user.id,
                 )
@@ -399,38 +448,87 @@ def registrar_adelanto(id):
         if form.forma_pago.data == 'cheque':
             from datetime import datetime
 
-            cheque_numero = (request.form.get('cheque_numero') or '').strip()
-            cheque_banco = (request.form.get('cheque_banco') or '').strip()
-            cheque_fecha_str = (request.form.get('cheque_fecha_vencimiento') or '').strip()
+            cheque_numero = (
+                request.form.get('cheque_numero') or ''
+            ).strip()
+            cheque_banco_id = (
+                request.form.get('cheque_banco_id') or ''
+            ).strip()
+            cheque_fecha_str = (
+                request.form.get('cheque_fecha_vencimiento') or ''
+            ).strip()
 
-            if not cheque_numero or not cheque_banco or not cheque_fecha_str:
+            if (
+                not cheque_numero
+                or not cheque_banco_id
+                or not cheque_fecha_str
+            ):
                 db.session.rollback()
                 flash(
                     'Los datos del cheque son obligatorios '
-                    '(número, banco y fecha de vencimiento).',
+                    '(numero, banco y fecha de vencimiento).',
                     'danger',
                 )
-                return redirect(url_for('clientes.cuenta_corriente', id=id))
+                return redirect(
+                    url_for('clientes.cuenta_corriente', id=id)
+                )
 
             try:
-                cheque_fecha = datetime.strptime(cheque_fecha_str, '%Y-%m-%d').date()
+                cheque_fecha = datetime.strptime(
+                    cheque_fecha_str, '%Y-%m-%d'
+                ).date()
             except ValueError:
                 db.session.rollback()
                 flash(
-                    'La fecha de vencimiento del cheque no es válida.',
+                    'La fecha de vencimiento del cheque no es valida.',
                     'danger',
                 )
-                return redirect(url_for('clientes.cuenta_corriente', id=id))
+                return redirect(
+                    url_for('clientes.cuenta_corriente', id=id)
+                )
+
+            # Resolver banco: ID numerico o nombre texto
+            try:
+                banco_id_int = int(cheque_banco_id)
+                banco_obj = Banco.query.filter_by(
+                    id=banco_id_int,
+                    empresa_id=current_user.empresa_id,
+                ).first()
+            except (ValueError, TypeError):
+                nombre_norm = cheque_banco_id.strip().title()
+                banco_obj = Banco.query.filter_by(
+                    empresa_id=current_user.empresa_id,
+                    nombre=nombre_norm,
+                ).first()
+                if not banco_obj:
+                    banco_obj = Banco(
+                        nombre=nombre_norm,
+                        empresa_id=current_user.empresa_id,
+                        activo=True,
+                    )
+                    db.session.add(banco_obj)
+                    db.session.flush()
+
+            if not banco_obj:
+                db.session.rollback()
+                flash(
+                    'El banco seleccionado no es valido.',
+                    'danger',
+                )
+                return redirect(
+                    url_for('clientes.cuenta_corriente', id=id)
+                )
 
             cheque = Cheque(
                 numero_cheque=cheque_numero,
-                banco=cheque_banco,
+                banco_id=banco_obj.id,
                 fecha_vencimiento=cheque_fecha,
                 importe=monto,
                 tipo='recibido',
-                estado='pendiente',
+                estado='en_cartera',
                 referencia_tipo='pago_cc',
                 referencia_id=movimiento_cc.id,
+                cliente_id=id,
                 empresa_id=current_user.empresa_id,
                 usuario_id=current_user.id,
             )

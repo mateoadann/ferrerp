@@ -13,8 +13,14 @@
                         {{ form_emitido.numero_cheque(class="form-control") }}
                     </div>
                     <div class="mb-3">
-                        {{ form_emitido.banco.label(class="form-label") }}
-                        {{ form_emitido.banco(class="form-control") }}
+                        {{ form_emitido.banco_id.label(class="form-label") }}
+                        {{ form_emitido.banco_id(class="form-select") }}
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ form_emitido.es_echeq(class="form-check-input") }}
+                            {{ form_emitido.es_echeq.label(class="form-check-label") }}
+                        </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
