@@ -527,7 +527,7 @@ class TestCrearChequeEmitido:
             data={
                 'numero_cheque': '99001122',
                 'banco_id': str(banco.id),
-                'tipo_cheque': 'echeq',
+                'es_echeq': 'y',
                 'fecha_vencimiento': (
                     date.today() + timedelta(days=60)
                 ).isoformat(),
