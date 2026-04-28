@@ -1009,8 +1009,8 @@ class TestAgendaTabFiltrado:
         assert 'REC003' in html
         assert 'EMI003' not in html
 
-    def test_cheque_cobrado_no_aparece_en_agenda(self, app_con_login):
-        """Un cheque cobrado no aparece en la agenda por_cobrar."""
+    def test_cheque_cobrado_aparece_en_agenda(self, app_con_login):
+        """Un cheque cobrado aparece en la agenda por_cobrar (se muestran todos)."""
         empresa = _crear_empresa_aprobada()
         usuario = _crear_usuario_con_email(empresa.id)
         db.session.commit()
@@ -1036,7 +1036,7 @@ class TestAgendaTabFiltrado:
         assert resp.status_code == 200
         html = resp.data.decode()
         assert 'ACTIVO001' in html
-        assert 'COBRADO001' not in html
+        assert 'COBRADO001' in html
 
 
 # ---------------------------------------------------------------------------
