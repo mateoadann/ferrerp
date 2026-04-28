@@ -1,5 +1,6 @@
 {% if pagination.pages > 1 %}
-{% set _args = dict(**request.view_args, **request.args.to_dict(flat=true)) %}
+{% set _args = request.view_args.copy() %}
+{% set _ = _args.update(request.args.to_dict(flat=true)) %}
 {% set _ = _args.pop('page', none) %}
 <nav aria-label="Paginación" class="mt-4">
     <ul class="pagination justify-content-center">
