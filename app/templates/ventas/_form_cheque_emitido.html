@@ -1,7 +1,45 @@
 <div class="modal fade" id="modalChequeEmitido" tabindex="-1" aria-labelledby="modalChequeEmitidoLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="POST" action="{{ url_for('ventas.crear_cheque_emitido') }}">
+            <form method="POST" action="{{ url_for('ventas.crear_cheque_emitido') }}"
+                  x-data="{
+                      usarCliente: true,
+                      clienteId: 0,
+                      clienteNombre: '',
+                      clienteQuery: '',
+                      clienteResults: [],
+                      showResults: false,
+                      selectedIndex: -1,
+                      async searchClientes() {
+                          if (this.clienteQuery.length < 2) {
+                              this.clienteResults = [];
+                              this.showResults = false;
+                              return;
+                          }
+                          try {
+                              const response = await fetch(`{{ url_for('clientes.buscar') }}?q=${encodeURIComponent(this.clienteQuery)}&limit=10`);
+                              this.clienteResults = await response.json();
+                              this.selectedIndex = -1;
+                              this.showResults = true;
+                          } catch (error) {
+                              console.error('Error buscando clientes:', error);
+                          }
+                      },
+                      selectCliente(cliente) {
+                          this.clienteId = cliente.id;
+                          this.clienteNombre = cliente.nombre;
+                          this.clienteQuery = '';
+                          this.clienteResults = [];
+                          this.showResults = false;
+                      },
+                      clearCliente() {
+                          this.clienteId = 0;
+                          this.clienteNombre = '';
+                          this.clienteQuery = '';
+                          this.clienteResults = [];
+                          this.showResults = false;
+                      }
+                  }">
                 {{ form_emitido.hidden_tag() }}
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalChequeEmitidoLabel">Registrar cheque emitido</h5>
@@ -33,8 +71,71 @@
                         </div>
                     </div>
                     <div class="mb-3">
-                        {{ form_emitido.destinatario.label(class="form-label") }}
-                        {{ form_emitido.destinatario(class="form-control") }}
+                        <label class="form-label">Destinatario</label>
+                        <div class="btn-group btn-group-sm mb-2 w-100" role="group">
+                            <button type="button" class="btn"
+                                    :class="usarCliente ? 'btn-primary' : 'btn-outline-primary'"
+                                    @click="usarCliente = true">
+                                Elegir cliente
+                            </button>
+                            <button type="button" class="btn"
+                                    :class="!usarCliente ? 'btn-primary' : 'btn-outline-primary'"
+                                    @click="usarCliente = false">
+                                Escribir nombre
+                            </button>
+                        </div>
+                        <!-- Buscador de clientes -->
+                        <div x-show="usarCliente">
+                            <input type="hidden" name="cliente_id" :value="clienteId">
+                            <!-- Cliente seleccionado -->
+                            <div x-show="clienteId > 0" class="d-flex align-items-center gap-2 mb-2">
+                                <span class="badge bg-success d-flex align-items-center gap-1 py-2 px-3">
+                                    <span class="material-symbols-rounded" style="font-size: 16px;">person</span>
+                                    <span x-text="clienteNombre"></span>
+                                </span>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        @click="clearCliente()"
+                                        style="font-size: 10px; padding: 1px 6px;">
+                                    <span class="material-symbols-rounded" style="font-size: 14px;">close</span>
+                                </button>
+                            </div>
+                            <!-- Input de búsqueda -->
+                            <div class="position-relative" x-show="clienteId === 0">
+                                <input type="text"
+                                       class="form-control"
+                                       placeholder="Buscar cliente por nombre o DNI..."
+                                       x-model="clienteQuery"
+                                       @input.debounce.300ms="searchClientes()"
+                                       @focus="if(clienteQuery.length >= 2) showResults = true"
+                                       @click.outside="showResults = false"
+                                       @keydown.arrow-down.prevent="selectedIndex = Math.min(selectedIndex + 1, clienteResults.length - 1)"
+                                       @keydown.arrow-up.prevent="selectedIndex = Math.max(selectedIndex - 1, 0)"
+                                       @keydown.enter.prevent="if(selectedIndex >= 0 && clienteResults[selectedIndex]) selectCliente(clienteResults[selectedIndex])"
+                                       @keydown.escape="showResults = false; selectedIndex = -1">
+                                <!-- Resultados -->
+                                <div class="position-absolute w-100 bg-white border rounded shadow-sm"
+                                     style="z-index: 1060; max-height: 200px; overflow-y: auto;"
+                                     x-show="showResults && clienteResults.length > 0"
+                                     x-cloak>
+                                    <template x-for="(cliente, index) in clienteResults" :key="cliente.id">
+                                        <div class="px-3 py-2 border-bottom"
+                                             style="cursor: pointer;"
+                                             :class="{'bg-primary text-white': selectedIndex === index}"
+                                             @mouseenter="selectedIndex = index"
+                                             @mouseleave="selectedIndex = -1"
+                                             @click="selectCliente(cliente)">
+                                            <div class="fw-bold small" x-text="cliente.nombre"></div>
+                                            <div class="text-muted" style="font-size: 11px;"
+                                                 x-text="cliente.dni_cuit || 'Sin documento'"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Input libre -->
+                        <div x-show="!usarCliente">
+                            {{ form_emitido.destinatario(class="form-control", placeholder="Nombre del destinatario") }}
+                        </div>
                     </div>
                     <div class="mb-3">
                         {{ form_emitido.observaciones.label(class="form-label") }}

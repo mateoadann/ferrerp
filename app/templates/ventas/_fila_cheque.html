@@ -1,5 +1,6 @@
 <tr id="cheque-{{ cheque.id }}"
-    class="{% if cheque.estado == 'en_cartera' and cheque.esta_vencido %}table-danger{% elif cheque.estado == 'en_cartera' and cheque.esta_proximo_a_vencer %}table-warning{% endif %}">
+    class="{% if cheque.estado == 'en_cartera' and cheque.esta_vencido %}table-danger{% elif cheque.estado == 'en_cartera' and cheque.esta_proximo_a_vencer %}table-warning{% endif %}"
+    {% if cheque.estado == 'en_cartera' and cheque.fecha_vencimiento and not cheque.esta_vencido and cheque.fecha_vencimiento > hoy and cheque.fecha_vencimiento <= en_5_dias %}style="background-color: #fff9c4;"{% endif %}>
     <td class="table-code">{{ cheque.numero_cheque }}</td>
     <td>{{ cheque.banco.nombre if cheque.banco else '-' }}</td>
     {% if tab == 'por_cobrar' %}
@@ -22,7 +23,10 @@
         {% endif %}
     </td>
     <td>
-        {% if cheque.estado == 'en_cartera' %}
+        {% if cheque.estado == 'en_cartera' and cheque.fecha_vencimiento == hoy %}
+        <span class="badge text-white"
+              style="background-color:#ff9800;">Por cobrar hoy</span>
+        {% elif cheque.estado == 'en_cartera' %}
         <span class="badge bg-warning text-dark">En cartera</span>
         {% elif cheque.estado == 'cobrado' %}
         <span class="badge bg-success">Cobrado</span>

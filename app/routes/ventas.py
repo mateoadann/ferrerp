@@ -493,26 +493,96 @@ def punto_de_venta():
 
                         # Crear cheque si el sub-pago es con cheque
                         if fp == 'cheque':
+                            importe_cheque_div = _decimal_seguro(
+                                pago_data.get('cheque_importe'),
+                                default=monto,
+                            )
+                            if importe_cheque_div <= 0:
+                                importe_cheque_div = monto
+
                             cheque_datos = {
-                                'cheque_numero': pago_data.get('cheque_numero', ''),
+                                'cheque_numero': pago_data.get(
+                                    'cheque_numero', ''
+                                ),
                                 'cheque_banco_id': pago_data.get(
                                     'cheque_banco_id',
                                     pago_data.get('cheque_banco', ''),
                                 ),
-                                'cheque_tipo_cheque': pago_data.get('cheque_tipo_cheque', 'cheque'),
+                                'cheque_tipo_cheque': pago_data.get(
+                                    'cheque_tipo_cheque', 'cheque'
+                                ),
                                 'cheque_fecha_vencimiento': pago_data.get(
                                     'cheque_fecha_vencimiento', ''
                                 ),
                             }
-                            _crear_cheque(
+                            cheque_div = _crear_cheque(
                                 datos=cheque_datos,
                                 referencia_tipo='venta',
                                 referencia_id=venta.id,
-                                importe=monto,
+                                importe=importe_cheque_div,
                                 empresa_id=current_user.empresa_id,
                                 usuario_id=current_user.id,
                                 cliente_id=cliente_id,
                             )
+
+                            # Manejar diferencia cheque vs monto
+                            cliente_ch = Cliente.get_o_404(cliente_id)
+                            dif = importe_cheque_div - monto
+                            if dif > Decimal('0.01'):
+                                s_ant, s_post = (
+                                    cliente_ch.actualizar_saldo_favor(
+                                        dif, 'adelanto'
+                                    )
+                                )
+                                mov_d = MovimientoCuentaCorriente(
+                                    cliente_id=cliente_ch.id,
+                                    tipo='pago',
+                                    monto=dif,
+                                    saldo_anterior=s_ant,
+                                    saldo_posterior=s_post,
+                                    referencia_tipo='adelanto_cheque',
+                                    referencia_id=venta.id,
+                                    descripcion=(
+                                        'Adelanto por diferencia'
+                                        ' cheque nro '
+                                        f'{cheque_div.numero_cheque}'
+                                        ' - Venta'
+                                        f' #{venta.numero_completo}'
+                                        ' (pago parcial)'
+                                    ),
+                                    usuario_id=current_user.id,
+                                    empresa_id=(
+                                        current_user.empresa_id
+                                    ),
+                                )
+                                db.session.add(mov_d)
+                            elif dif < Decimal('-0.01'):
+                                monto_d = abs(dif)
+                                s_ant, s_post = (
+                                    cliente_ch.actualizar_saldo(
+                                        monto_d, 'cargo'
+                                    )
+                                )
+                                mov_d = MovimientoCuentaCorriente(
+                                    cliente_id=cliente_ch.id,
+                                    tipo='cargo',
+                                    monto=monto_d,
+                                    saldo_anterior=s_ant,
+                                    saldo_posterior=s_post,
+                                    referencia_tipo='saldo_cheque',
+                                    referencia_id=venta.id,
+                                    descripcion=(
+                                        'Saldo pendiente venta'
+                                        ' - pago con cheque nro'
+                                        f' {cheque_div.numero_cheque}'
+                                        ' (pago parcial)'
+                                    ),
+                                    usuario_id=current_user.id,
+                                    empresa_id=(
+                                        current_user.empresa_id
+                                    ),
+                                )
+                                db.session.add(mov_d)
 
             elif forma_pago == 'cuenta_corriente':
                 # Consumo de saldo a favor
@@ -618,15 +688,75 @@ def punto_de_venta():
 
                 # Crear cheque si corresponde
                 if forma_pago == 'cheque':
-                    _crear_cheque(
+                    importe_cheque = _decimal_seguro(
+                        request.form.get('cheque_importe'),
+                        default=venta.total,
+                    )
+                    if importe_cheque <= 0:
+                        importe_cheque = venta.total
+
+                    cheque = _crear_cheque(
                         datos=request.form,
                         referencia_tipo='venta',
                         referencia_id=venta.id,
-                        importe=venta.total,
+                        importe=importe_cheque,
                         empresa_id=current_user.empresa_id,
                         usuario_id=current_user.id,
                         cliente_id=cliente_id,
                     )
+
+                    # Manejar diferencia entre cheque y total
+                    cliente_cheque = Cliente.get_o_404(cliente_id)
+                    diferencia = importe_cheque - venta.total
+                    if diferencia > Decimal('0.01'):
+                        # Cheque mayor: saldo a favor
+                        saldo_ant, saldo_post = (
+                            cliente_cheque.actualizar_saldo_favor(
+                                diferencia, 'adelanto'
+                            )
+                        )
+                        mov_dif = MovimientoCuentaCorriente(
+                            cliente_id=cliente_cheque.id,
+                            tipo='pago',
+                            monto=diferencia,
+                            saldo_anterior=saldo_ant,
+                            saldo_posterior=saldo_post,
+                            referencia_tipo='adelanto_cheque',
+                            referencia_id=venta.id,
+                            descripcion=(
+                                'Adelanto por diferencia cheque'
+                                f' nro {cheque.numero_cheque}'
+                                f' - Venta #{venta.numero_completo}'
+                            ),
+                            usuario_id=current_user.id,
+                            empresa_id=current_user.empresa_id,
+                        )
+                        db.session.add(mov_dif)
+                    elif diferencia < Decimal('-0.01'):
+                        # Cheque menor: deuda en cuenta corriente
+                        monto_deuda = abs(diferencia)
+                        saldo_ant, saldo_post = (
+                            cliente_cheque.actualizar_saldo(
+                                monto_deuda, 'cargo'
+                            )
+                        )
+                        mov_dif = MovimientoCuentaCorriente(
+                            cliente_id=cliente_cheque.id,
+                            tipo='cargo',
+                            monto=monto_deuda,
+                            saldo_anterior=saldo_ant,
+                            saldo_posterior=saldo_post,
+                            referencia_tipo='saldo_cheque',
+                            referencia_id=venta.id,
+                            descripcion=(
+                                'Saldo pendiente venta'
+                                f' - pago con cheque'
+                                f' nro {cheque.numero_cheque}'
+                            ),
+                            usuario_id=current_user.id,
+                            empresa_id=current_user.empresa_id,
+                        )
+                        db.session.add(mov_dif)
 
             db.session.commit()
 
@@ -711,6 +841,9 @@ def cheques():
     page = request.args.get('page', 1, type=int)
     tab = request.args.get('tab', 'por_cobrar')
     q = request.args.get('q', '').strip()
+    filtro_kpi = request.args.get('filtro_kpi', '')
+    orden = request.args.get('orden', '')
+    direccion = request.args.get('dir', 'asc')
 
     hoy = date.today()
     en_7_dias = hoy + timedelta(days=7)
@@ -718,23 +851,55 @@ def cheques():
     # Determinar tipo según tab
     tipo_filtro = 'recibido' if tab == 'por_cobrar' else 'emitido'
 
-    # Query base: cheques en_cartera del tipo seleccionado
+    # Query base: todos los cheques del tipo seleccionado
     query = Cheque.query_empresa().filter(
         Cheque.tipo == tipo_filtro,
-        Cheque.estado == 'en_cartera',
     )
+
+    # Filtro por KPI clickeado
+    if filtro_kpi == 'a_cobrar' and tab == 'por_cobrar':
+        query = query.filter(
+            Cheque.estado == 'en_cartera',
+            Cheque.fecha_vencimiento <= hoy,
+        )
+    elif filtro_kpi == 'proximos':
+        query = query.filter(
+            Cheque.estado == 'en_cartera',
+            Cheque.fecha_vencimiento >= hoy,
+            Cheque.fecha_vencimiento <= en_7_dias,
+        )
+    elif filtro_kpi == 'vencidos' and tab == 'por_pagar':
+        query = query.filter(
+            Cheque.estado == 'en_cartera',
+            Cheque.fecha_vencimiento < hoy,
+        )
 
     # Búsqueda por número de cheque o nombre de banco
     if q:
-        query = query.outerjoin(Banco, Cheque.banco_id == Banco.id).filter(
+        query = query.outerjoin(
+            Banco, Cheque.banco_id == Banco.id
+        ).filter(
             db.or_(
                 Cheque.numero_cheque.ilike(f'%{q}%'),
                 Banco.nombre.ilike(f'%{q}%'),
             )
         )
 
-    # Ordenar por fecha de vencimiento ascendente (más próximos primero)
-    query = query.order_by(Cheque.fecha_vencimiento.asc())
+    # Ordenamiento dinámico por columna
+    columnas_validas = {
+        'fecha_vencimiento': Cheque.fecha_vencimiento,
+        'estado': Cheque.estado,
+        'importe': Cheque.importe,
+    }
+    columna_orden = columnas_validas.get(orden)
+    if columna_orden is not None:
+        if direccion == 'desc':
+            query = query.order_by(columna_orden.desc())
+        else:
+            query = query.order_by(columna_orden.asc())
+    else:
+        # Default: fecha de vencimiento ascendente
+        query = query.order_by(Cheque.fecha_vencimiento.asc())
 
     # Estadísticas del tab activo (sin filtro de búsqueda)
     stats_query = Cheque.query_empresa().filter(
@@ -743,7 +908,9 @@ def cheques():
     )
     total_cheques = stats_query.count()
     monto_total = (
-        db.session.query(db.func.coalesce(db.func.sum(Cheque.importe), 0))
+        db.session.query(
+            db.func.coalesce(db.func.sum(Cheque.importe), 0)
+        )
         .filter(
             Cheque.empresa_id == current_user.empresa_id,
             Cheque.tipo == tipo_filtro,
@@ -752,20 +919,26 @@ def cheques():
         .scalar()
     )
 
+    en_5_dias = hoy + timedelta(days=5)
+
     if tab == 'por_cobrar':
         # KPIs monetarios para recibidos
         monto_hoy = (
-            db.session.query(db.func.coalesce(db.func.sum(Cheque.importe), 0))
+            db.session.query(
+                db.func.coalesce(db.func.sum(Cheque.importe), 0)
+            )
             .filter(
                 Cheque.empresa_id == current_user.empresa_id,
                 Cheque.tipo == 'recibido',
                 Cheque.estado == 'en_cartera',
-                Cheque.fecha_vencimiento == hoy,
+                Cheque.fecha_vencimiento <= hoy,
             )
             .scalar()
         )
         monto_proximos = (
-            db.session.query(db.func.coalesce(db.func.sum(Cheque.importe), 0))
+            db.session.query(
+                db.func.coalesce(db.func.sum(Cheque.importe), 0)
+            )
             .filter(
                 Cheque.empresa_id == current_user.empresa_id,
                 Cheque.tipo == 'recibido',
@@ -778,13 +951,17 @@ def cheques():
         cantidad_vencidos = 0
         cantidad_proximos = 0
     else:
-        # KPIs de conteo para emitidos
+        # KPIs de conteo para emitidos (solo en_cartera = pendientes)
         monto_hoy = Decimal('0')
         monto_proximos = Decimal('0')
-        cantidad_vencidos = stats_query.filter(
+        kpi_emitidos = Cheque.query_empresa().filter(
+            Cheque.tipo == 'emitido',
+            Cheque.estado == 'en_cartera',
+        )
+        cantidad_vencidos = kpi_emitidos.filter(
             Cheque.fecha_vencimiento < hoy,
         ).count()
-        cantidad_proximos = stats_query.filter(
+        cantidad_proximos = kpi_emitidos.filter(
             Cheque.fecha_vencimiento >= hoy,
             Cheque.fecha_vencimiento <= en_7_dias,
         ).count()
@@ -813,6 +990,9 @@ def cheques():
             cheques=cheques_pag,
             tab=tab,
             q=q,
+            filtro_kpi=filtro_kpi,
+            orden=orden,
+            direccion=direccion,
             total_cheques=total_cheques,
             monto_total=monto_total,
             monto_hoy=monto_hoy,
@@ -821,6 +1001,7 @@ def cheques():
             cantidad_proximos=cantidad_proximos,
             cheque_cliente_map=cheque_cliente_map,
             hoy=hoy,
+            en_5_dias=en_5_dias,
             en_7_dias=en_7_dias,
             form_emitido=form_emitido,
         )
@@ -830,6 +1011,9 @@ def cheques():
         cheques=cheques_pag,
         tab=tab,
         q=q,
+        filtro_kpi=filtro_kpi,
+        orden=orden,
+        direccion=direccion,
         total_cheques=total_cheques,
         monto_total=monto_total,
         monto_hoy=monto_hoy,
@@ -838,8 +1022,96 @@ def cheques():
         cantidad_proximos=cantidad_proximos,
         cheque_cliente_map=cheque_cliente_map,
         hoy=hoy,
+        en_5_dias=en_5_dias,
         en_7_dias=en_7_dias,
         form_emitido=form_emitido,
+    )
+
+
+@bp.route('/cheques/kpi')
+@login_required
+@empresa_aprobada_required
+def cheques_kpi():
+    """Devolver solo las cards KPI de cheques (para HTMX)."""
+    tab = request.args.get('tab', 'por_cobrar')
+    q = request.args.get('q', '').strip()
+    filtro_kpi = request.args.get('filtro_kpi', '')
+
+    hoy = date.today()
+    en_7_dias = hoy + timedelta(days=7)
+    tipo_filtro = 'recibido' if tab == 'por_cobrar' else 'emitido'
+
+    stats_query = Cheque.query_empresa().filter(
+        Cheque.tipo == tipo_filtro,
+        Cheque.estado == 'en_cartera',
+    )
+    total_cheques = stats_query.count()
+    monto_total = (
+        db.session.query(
+            db.func.coalesce(db.func.sum(Cheque.importe), 0)
+        )
+        .filter(
+            Cheque.empresa_id == current_user.empresa_id,
+            Cheque.tipo == tipo_filtro,
+            Cheque.estado == 'en_cartera',
+        )
+        .scalar()
+    )
+
+    if tab == 'por_cobrar':
+        monto_hoy = (
+            db.session.query(
+                db.func.coalesce(db.func.sum(Cheque.importe), 0)
+            )
+            .filter(
+                Cheque.empresa_id == current_user.empresa_id,
+                Cheque.tipo == 'recibido',
+                Cheque.estado == 'en_cartera',
+                Cheque.fecha_vencimiento <= hoy,
+            )
+            .scalar()
+        )
+        monto_proximos = (
+            db.session.query(
+                db.func.coalesce(db.func.sum(Cheque.importe), 0)
+            )
+            .filter(
+                Cheque.empresa_id == current_user.empresa_id,
+                Cheque.tipo == 'recibido',
+                Cheque.estado == 'en_cartera',
+                Cheque.fecha_vencimiento >= hoy,
+                Cheque.fecha_vencimiento <= en_7_dias,
+            )
+            .scalar()
+        )
+        cantidad_vencidos = 0
+        cantidad_proximos = 0
+    else:
+        monto_hoy = Decimal('0')
+        monto_proximos = Decimal('0')
+        kpi_emitidos = Cheque.query_empresa().filter(
+            Cheque.tipo == 'emitido',
+            Cheque.estado == 'en_cartera',
+        )
+        cantidad_vencidos = kpi_emitidos.filter(
+            Cheque.fecha_vencimiento < hoy,
+        ).count()
+        cantidad_proximos = kpi_emitidos.filter(
+            Cheque.fecha_vencimiento >= hoy,
+            Cheque.fecha_vencimiento <= en_7_dias,
+        ).count()
+
+    return render_template(
+        'ventas/_kpi_cheques.html',
+        tab=tab,
+        q=q,
+        filtro_kpi=filtro_kpi,
+        total_cheques=total_cheques,
+        monto_total=monto_total,
+        monto_hoy=monto_hoy,
+        monto_proximos=monto_proximos,
+        cantidad_vencidos=cantidad_vencidos,
+        cantidad_proximos=cantidad_proximos,
     )
 
 
@@ -851,6 +1123,13 @@ def crear_cheque_emitido():
     form = ChequeEmitidoForm()
 
     if form.validate_on_submit():
+        cliente_id = form.cliente_id.data if form.cliente_id.data and form.cliente_id.data != 0 else None
+        if cliente_id:
+            cliente = Cliente.query.get(cliente_id)
+            destinatario = cliente.nombre if cliente else form.destinatario.data.strip()
+        else:
+            destinatario = form.destinatario.data.strip()
+
         cheque = Cheque(
             numero_cheque=form.numero_cheque.data.strip(),
             banco_id=form.banco_id.data,
@@ -859,7 +1138,8 @@ def crear_cheque_emitido():
             importe=Decimal(str(form.importe.data)),
             tipo='emitido',
             estado='en_cartera',
-            destinatario=form.destinatario.data.strip(),
+            cliente_id=cliente_id,
+            destinatario=destinatario,
             observaciones=form.observaciones.data or None,
             referencia_tipo=None,
             referencia_id=None,
@@ -930,17 +1210,22 @@ def cambiar_estado_cheque(id):
         'sin_fondos': 'Sin fondos',
     }
     flash(
-        f'Estado del cheque actualizado a {etiquetas.get(nuevo_estado, nuevo_estado)}.',
+        f'Estado del cheque actualizado a '
+        f'{etiquetas.get(nuevo_estado, nuevo_estado)}.',
         'success',
     )
-    return render_template(
-        'ventas/_fila_cheque.html',
-        cheque=cheque,
-        tab='por_cobrar' if cheque.tipo == 'recibido' else 'por_pagar',
-        cheque_cliente_map={},
-        hoy=date.today(),
-        en_7_dias=date.today() + timedelta(days=7),
+    resp = make_response(
+        render_template(
+            'ventas/_fila_cheque.html',
+            cheque=cheque,
+            tab='por_cobrar' if cheque.tipo == 'recibido' else 'por_pagar',
+            cheque_cliente_map={},
+            hoy=date.today(),
+            en_7_dias=date.today() + timedelta(days=7),
+        )
     )
+    resp.headers['HX-Trigger'] = 'cheques-actualizados'
+    return resp
 
 
 @bp.route('/<int:id>')
@@ -1129,6 +1414,69 @@ def anular(id):
                     empresa_id=current_user.empresa_id,
                 )
                 db.session.add(movimiento_reversion)
+
+        # Revertir adelantos por diferencia de cheque (cheque > total)
+        if venta.cliente:
+            movs_adelanto_cheque = (
+                MovimientoCuentaCorriente.query.filter_by(
+                    referencia_tipo='adelanto_cheque',
+                    referencia_id=venta.id,
+                    empresa_id=current_user.empresa_id,
+                ).all()
+            )
+            for mov_adel in movs_adelanto_cheque:
+                saldo_ant, saldo_post = (
+                    venta.cliente.actualizar_saldo_favor(
+                        mov_adel.monto, 'cargo'
+                    )
+                )
+                mov_rev = MovimientoCuentaCorriente(
+                    cliente_id=venta.cliente_id,
+                    tipo='cargo',
+                    monto=mov_adel.monto,
+                    saldo_anterior=saldo_ant,
+                    saldo_posterior=saldo_post,
+                    referencia_tipo='anul_adelanto_cheque',
+                    referencia_id=venta.id,
+                    descripcion=(
+                        'Anulación adelanto cheque'
+                        f' - Venta #{venta.numero_completo}'
+                    ),
+                    usuario_id=current_user.id,
+                    empresa_id=current_user.empresa_id,
+                )
+                db.session.add(mov_rev)
+
+            # Revertir deudas por diferencia de cheque (cheque < total)
+            movs_saldo_cheque = (
+                MovimientoCuentaCorriente.query.filter_by(
+                    referencia_tipo='saldo_cheque',
+                    referencia_id=venta.id,
+                    empresa_id=current_user.empresa_id,
+                ).all()
+            )
+            for mov_saldo in movs_saldo_cheque:
+                saldo_ant, saldo_post = (
+                    venta.cliente.actualizar_saldo(
+                        mov_saldo.monto, 'pago'
+                    )
+                )
+                mov_rev = MovimientoCuentaCorriente(
+                    cliente_id=venta.cliente_id,
+                    tipo='pago',
+                    monto=mov_saldo.monto,
+                    saldo_anterior=saldo_ant,
+                    saldo_posterior=saldo_post,
+                    referencia_tipo='anul_saldo_cheque',
+                    referencia_id=venta.id,
+                    descripcion=(
+                        'Anulación saldo cheque'
+                        f' - Venta #{venta.numero_completo}'
+                    ),
+                    usuario_id=current_user.id,
+                    empresa_id=current_user.empresa_id,
+                )
+                db.session.add(mov_rev)
 
         # Marcar venta como anulada
         venta.estado = 'anulada'

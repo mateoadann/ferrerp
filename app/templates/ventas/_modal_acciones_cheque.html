@@ -29,8 +29,7 @@
                 {% if transiciones %}
                 <form hx-post="{{ url_for('ventas.cambiar_estado_cheque', id=cheque.id) }}"
                       hx-target="#cheque-{{ cheque.id }}"
-                      hx-swap="outerHTML"
-                      hx-confirm="¿Estas seguro de cambiar el estado del cheque?">
+                      hx-swap="outerHTML">
                     <div class="mb-3">
                         <label class="form-label">Nuevo estado</label>
                         <select name="nuevo_estado" class="form-select" required>
