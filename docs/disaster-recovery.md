@@ -17,10 +17,11 @@ Plan de recuperación ante distintos escenarios de falla. Mantener actualizado.
 ## Backups
 
 - **Cron diario**: `/etc/cron.d/ferrerp-backup` corre `scripts/backup.sh` a las 5am UTC (2am ART)
-- **Retención local**: últimos 7 backups en `/opt/backups/ferrerp/` (rotación automática)
-- **Retención S3**: 30 días Standard → 180 días Glacier IR → 730 días Deep Archive → delete
-- **Encriptación**: SSE-S3 (AES-256) automática
-- **Versioning**: bucket con versioning ON (recupera archivos borrados accidentalmente)
+- **Retención**: rolling window de 7 backups, igual en local y en S3 (configurable via `KEEP_BACKUPS`)
+- **Local**: en `/opt/backups/ferrerp/` con rotación al ejecutar `backup.sh`
+- **S3**: rotación activa por el script (cuando entra el #8, se borra el #1)
+- **Encriptación**: SSE-S3 (AES-256) automática del bucket
+- **Versioning**: bucket con versioning ON. Las versiones no-current se eliminan a los 30 días
 
 ## Verificar backups antes de necesitarlos
 

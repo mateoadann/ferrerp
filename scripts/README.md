@@ -23,7 +23,7 @@ S3_BUCKET=ferrerp-backups-prod
 
 | Script | Qué hace |
 |--------|----------|
-| `backup.sh` | Backup completo (DB + uploads + config) → disco + S3, con rotación local de 7 |
+| `backup.sh` | Backup completo (DB + uploads + config) → disco + S3, con rotación rolling de 7 (configurable vía `KEEP_BACKUPS`) |
 | `restore.sh` | Restaurar desde backup local o S3, interactivo. Backup defensivo previo. |
 | `deploy.sh` | `git pull` + build + up con backup pre-deploy y rollback automático si falla healthcheck |
 | `rollback.sh` | Volver al commit anterior + restore del backup pre-deploy |
