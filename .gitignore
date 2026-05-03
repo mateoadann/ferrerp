@@ -20,6 +20,10 @@ wheels/
 .installed.cfg
 *.egg
 
+# No ignorar scripts/lib/ del proyecto (es directorio de scripts)
+!scripts/lib/
+!scripts/lib/**
+
 # Virtual environment
 venv/
 ENV/
@@ -66,6 +70,13 @@ uploads/
 # Node / Remotion
 node_modules/
 landing/remotion/out/
+
+# Backups (NUNCA commitear)
+backups/
+backups-*/
+*.dump
+*.sql.gz
+*.tar.gz.gpg
 
 # Others
 features.txt
