@@ -139,16 +139,40 @@ else
 fi
 
 # --- 7. Rotacion local: mantener ultimos 7 backups en disco ---
-log_step "Rotacion local (mantener 7 backups en disco)"
-KEEP_LOCAL=7
-mapfile -t old_backups < <(ls -1t "${BACKUP_DIR}"/ferrerp-*.tar.gz 2>/dev/null | tail -n +$((KEEP_LOCAL + 1)) || true)
+log_step "Rotacion local (mantener ${KEEP_BACKUPS:-7} backups en disco)"
+KEEP_BACKUPS="${KEEP_BACKUPS:-7}"
+mapfile -t old_backups < <(ls -1t "${BACKUP_DIR}"/ferrerp-*.tar.gz 2>/dev/null | tail -n +$((KEEP_BACKUPS + 1)) || true)
 if [[ ${#old_backups[@]} -gt 0 ]]; then
     for old in "${old_backups[@]}"; do
         rm -f "$old"
         log_info "Eliminado local: $(basename "$old")"
     done
 else
-    log_info "Sin backups viejos para rotar"
+    log_info "Sin backups locales viejos para rotar"
+fi
+
+# --- 8. Rotacion en S3: mantener ultimos N (mismo criterio que local) ---
+if [[ "$UPLOAD_S3" == "true" ]]; then
+    log_step "Rotacion S3 (mantener ${KEEP_BACKUPS} backups en bucket)"
+    # Listar objetos ordenados por fecha desc, descartar los primeros KEEP_BACKUPS, borrar el resto
+    mapfile -t old_s3_keys < <(
+        aws s3api list-objects-v2 \
+            --bucket "$S3_BUCKET" \
+            --prefix "backups/ferrerp-" \
+            --query 'reverse(sort_by(Contents, &LastModified))[*].Key' \
+            --output text 2>/dev/null \
+            | tr '\t' '\n' \
+            | grep -E '^backups/ferrerp-.*\.tar\.gz$' \
+            | tail -n +$((KEEP_BACKUPS + 1)) || true
+    )
+    if [[ ${#old_s3_keys[@]} -gt 0 ]]; then
+        for key in "${old_s3_keys[@]}"; do
+            aws s3 rm "s3://${S3_BUCKET}/${key}" --quiet
+            log_info "Eliminado S3: $(basename "$key")"
+        done
+    else
+        log_info "Sin backups S3 viejos para rotar"
+    fi
 fi
 
 log_ok "BACKUP COMPLETO: $ARCHIVE ($SIZE)"
