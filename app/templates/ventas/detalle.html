@@ -185,7 +185,7 @@
                         {% if venta.forma_pago == 'dividido' %}
                         Dividido<br>
                         {% for pago in venta.pagos %}
-                        <small><span class="badge {% if pago.forma_pago == 'efectivo' %}badge-success{% elif pago.forma_pago == 'tarjeta_debito' %}badge-info{% elif pago.forma_pago == 'tarjeta_credito' %}badge-bordo{% elif pago.forma_pago == 'transferencia' %}badge-brown{% elif pago.forma_pago == 'qr' %}badge-orange{% elif pago.forma_pago == 'cuenta_corriente' %}badge-warning{% endif %}">{% if pago.forma_pago == 'tarjeta_debito' %}Debito{% elif pago.forma_pago == 'tarjeta_credito' %}Credito{% elif pago.forma_pago == 'transferencia' %}Transfer.{% elif pago.forma_pago == 'cuenta_corriente' %}Cta. Cte.{% else %}{{ pago.forma_pago_display }}{% endif %}</span> {{ pago.monto|currency }}</small><br>
+                        <small><span class="badge {% if pago.forma_pago == 'efectivo' %}badge-success{% elif pago.forma_pago == 'tarjeta_debito' %}badge-info{% elif pago.forma_pago == 'tarjeta_credito' %}badge-bordo{% elif pago.forma_pago == 'transferencia' %}badge-brown{% elif pago.forma_pago == 'qr' %}badge-orange{% elif pago.forma_pago == 'cuenta_corriente' %}badge-warning{% elif pago.forma_pago == 'cheque' %}badge-secondary{% endif %}">{% if pago.forma_pago == 'tarjeta_debito' %}Debito{% elif pago.forma_pago == 'tarjeta_credito' %}Credito{% elif pago.forma_pago == 'transferencia' %}Transfer.{% elif pago.forma_pago == 'cuenta_corriente' %}Cta. Cte.{% else %}{{ pago.forma_pago_display }}{% endif %}</span> {{ pago.monto|currency }}</small><br>
                         {% endfor %}
                         {% elif venta.forma_pago == 'efectivo' %}
                         <span class="badge badge-success">Efectivo</span>
@@ -199,8 +199,22 @@
                         <span class="badge badge-orange">QR</span>
                         {% elif venta.forma_pago == 'cuenta_corriente' %}
                         <span class="badge badge-warning">Cta. Cte.</span>
+                        {% elif venta.forma_pago == 'cheque' %}
+                        <span class="badge badge-secondary">Cheque</span>
                         {% endif %}
                     </dd>
+
+                    {% if cheque_venta %}
+                    <dt class="col-5 text-muted">Cheque:</dt>
+                    <dd class="col-7">
+                        <a href="{{ url_for('ventas.cheques', tab='por_cobrar') }}"
+                           class="btn btn-sm btn-outline-secondary">
+                            <span class="material-symbols-rounded me-1" style="font-size:16px;vertical-align:middle;">description</span>
+                            #{{ cheque_venta.numero_cheque }}
+                            <span class="badge bg-{{ 'warning' if cheque_venta.estado == 'en_cartera' else 'success' if cheque_venta.estado == 'cobrado' else 'info' if cheque_venta.estado == 'endosado' else 'danger' }} ms-1">{{ cheque_venta.estado|replace('_', ' ')|title }}</span>
+                        </a>
+                    </dd>
+                    {% endif %}
                 </dl>
             </div>
         </div>

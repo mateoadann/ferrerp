@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+
+{% block title %}Cheques - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="d-flex align-items-center gap-2">
+        <a href="{{ url_for('ventas.historial') }}" class="btn btn-outline-secondary btn-sm" title="Volver">
+            <span class="material-symbols-rounded">arrow_back</span>
+        </a>
+        <h2 class="mb-0">Cheques</h2>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('bancos.index') }}" class="btn btn-outline-secondary" title="Gestionar bancos">
+            <span class="material-symbols-rounded">settings</span>
+        </a>
+        {% if tab == 'por_pagar' %}
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalChequeEmitido">
+            <span class="material-symbols-rounded me-2">add</span>
+            Registrar cheque emitido
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-4" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'por_cobrar' %}active{% endif %}"
+           href="{{ url_for('ventas.cheques', tab='por_cobrar') }}">
+            <span class="material-symbols-rounded me-1" style="font-size:18px;vertical-align:middle;">move_to_inbox</span>
+            Por cobrar
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'por_pagar' %}active{% endif %}"
+           href="{{ url_for('ventas.cheques', tab='por_pagar') }}">
+            <span class="material-symbols-rounded me-1" style="font-size:18px;vertical-align:middle;">outgoing_mail</span>
+            Emitidos
+        </a>
+    </li>
+</ul>
+
+<!-- Resumen KPI -->
+{% include 'ventas/_kpi_cheques.html' %}
+
+<!-- Búsqueda -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <input type="hidden" name="tab" value="{{ tab }}">
+            {% if filtro_kpi %}
+            <input type="hidden" name="filtro_kpi" value="{{ filtro_kpi }}">
+            {% endif %}
+            <div class="col-md-6">
+                <label class="form-label">Buscar</label>
+                <input type="text" name="q" class="form-control"
+                       placeholder="Numero o banco..."
+                       value="{{ q }}">
+            </div>
+            <div class="col-md-6">
+                <button type="submit" class="btn btn-secondary me-2">
+                    <span class="material-symbols-rounded me-2">search</span>
+                    Buscar
+                </button>
+                <a href="{{ url_for('ventas.cheques', tab=tab) }}" class="btn btn-outline-secondary">
+                    Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de cheques -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Nro. Cheque</th>
+                    <th>Banco</th>
+                    {% if tab == 'por_cobrar' %}
+                    <th>Cliente</th>
+                    {% endif %}
+                    {% set params_base = {'tab': tab, 'q': q, 'filtro_kpi': filtro_kpi} %}
+                    <th class="text-end">
+                        {% if orden == 'importe' and direccion == 'asc' %}
+                        <a href="{{ url_for('ventas.cheques', orden='importe', dir='desc', **params_base) }}"
+                           style="cursor:pointer;text-decoration:none;color:inherit;">
+                            Importe
+                            <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">arrow_upward</span>
+                        </a>
+                        {% elif orden == 'importe' and direccion == 'desc' %}
+                        <a href="{{ url_for('ventas.cheques', **params_base) }}"
+                           style="cursor:pointer;text-decoration:none;color:inherit;">
+                            Importe
+                            <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">arrow_downward</span>
+                        </a>
+                        {% else %}
+                        <a href="{{ url_for('ventas.cheques', orden='importe', dir='asc', **params_base) }}"
+                           style="cursor:pointer;text-decoration:none;color:inherit;">
+                            Importe
+                        </a>
+                        {% endif %}
+                    </th>
+                    <th>
+                        {% set label_fecha = 'Fecha de cobro' if tab == 'por_cobrar' else 'Fecha de pago' %}
+                        {% if orden == 'fecha_vencimiento' and direccion == 'asc' %}
+                        <a href="{{ url_for('ventas.cheques', orden='fecha_vencimiento', dir='desc', **params_base) }}"
+                           style="cursor:pointer;text-decoration:none;color:inherit;">
+                            {{ label_fecha }}
+                            <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">arrow_upward</span>
+                        </a>
+                        {% elif orden == 'fecha_vencimiento' and direccion == 'desc' %}
+                        <a href="{{ url_for('ventas.cheques', **params_base) }}"
+                           style="cursor:pointer;text-decoration:none;color:inherit;">
+                            {{ label_fecha }}
+                            <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">arrow_downward</span>
+                        </a>
+                        {% else %}
+                        <a href="{{ url_for('ventas.cheques', orden='fecha_vencimiento', dir='asc', **params_base) }}"
+                           style="cursor:pointer;text-decoration:none;color:inherit;">
+                            {{ label_fecha }}
+                        </a>
+                        {% endif %}
+                    </th>
+                    <th>
+                        {% if orden == 'estado' and direccion == 'asc' %}
+                        <a href="{{ url_for('ventas.cheques', orden='estado', dir='desc', **params_base) }}"
+                           style="cursor:pointer;text-decoration:none;color:inherit;">
+                            Estado
+                            <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">arrow_upward</span>
+                        </a>
+                        {% elif orden == 'estado' and direccion == 'desc' %}
+                        <a href="{{ url_for('ventas.cheques', **params_base) }}"
+                           style="cursor:pointer;text-decoration:none;color:inherit;">
+                            Estado
+                            <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">arrow_downward</span>
+                        </a>
+                        {% else %}
+                        <a href="{{ url_for('ventas.cheques', orden='estado', dir='asc', **params_base) }}"
+                           style="cursor:pointer;text-decoration:none;color:inherit;">
+                            Estado
+                        </a>
+                        {% endif %}
+                    </th>
+                    {% if tab == 'por_cobrar' %}
+                    <th>Referencia</th>
+                    {% else %}
+                    <th>Destinatario</th>
+                    {% endif %}
+                    <th>Fecha registro</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="cheques-tbody">
+                {% for cheque in cheques.items %}
+                {% include 'ventas/_fila_cheque.html' %}
+                {% else %}
+                <tr>
+                    <td colspan="{{ 10 if tab == 'por_cobrar' else 9 }}">
+                        <div class="empty-state">
+                            <span class="material-symbols-rounded">description</span>
+                            {% if tab == 'por_cobrar' %}
+                            <p>No hay cheques pendientes de cobro</p>
+                            {% else %}
+                            <p>No hay cheques emitidos pendientes</p>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Paginacion -->
+{% if cheques.pages > 1 %}
+{% set pagination = cheques %}
+{% include 'components/pagination.html' %}
+{% endif %}
+
+<!-- Modal para registrar cheque emitido -->
+{% if tab == 'por_pagar' %}
+{% include 'ventas/_form_cheque_emitido.html' %}
+{% endif %}
+{% endblock %}

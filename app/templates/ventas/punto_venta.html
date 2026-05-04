@@ -187,10 +187,15 @@
                     <button type="button" class="btn btn-sm btn-outline-secondary"
                             x-show="clienteId"
                             x-cloak
-                            @click="clienteId = ''; clienteNombre = 'Consumidor Final'"
+                            @click="clienteId = ''; clienteNombre = 'Consumidor Final'; clienteData = null; montoSaldoFavor = 0"
                             style="font-size: 10px; padding: 1px 6px;">
                         <span class="material-symbols-rounded" style="font-size: 14px;">close</span>
                     </button>
+                    <span class="badge bg-info ms-1"
+                          x-show="clienteData && clienteData.tiene_saldo_a_favor"
+                          x-cloak>
+                        Saldo a favor: <span x-text="clienteData ? formatCurrency(clienteData.saldo_a_favor) : '$0,00'"></span>
+                    </span>
                 </div>
                 <!-- Buscador de clientes -->
                 <div class="position-relative">
@@ -323,11 +328,81 @@
                         <small>Cta. Cte.</small>
                     </div>
                     <div class="payment-method"
+                         :class="{'active': formaPago === 'cheque'}"
+                         @click="formaPago = 'cheque'"
+                         :disabled="!clienteId">
+                        <span class="material-symbols-rounded d-block mb-1">description</span>
+                        <small>Cheque</small>
+                    </div>
+                    <div class="payment-method"
                          :class="{'active': formaPago === 'dividido'}"
                          @click="formaPago = 'dividido'">
                         <span class="material-symbols-rounded d-block mb-1">call_split</span>
                         <small>Dividido</small>
                     </div>
+                </div>
+            </div>
+
+            <!-- Seccion datos de cheque (pago directo) -->
+            <div x-show="formaPago === 'cheque'" x-cloak>
+                <!-- Advertencia: requiere cliente -->
+                <div class="small text-danger mb-2"
+                     x-show="!clienteId">
+                    <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;">error</span>
+                    Para pago con cheque debe seleccionar un cliente
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Banco *</label>
+                        <select class="form-select form-select-sm"
+                                x-model="chequeBancoId">
+                            <option value="">Seleccionar banco...</option>
+                            <template x-for="banco in bancosList" :key="banco.id">
+                                <option :value="banco.id" x-text="banco.nombre"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div class="col-6 d-flex align-items-end">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chequeEcheq"
+                                   :checked="chequeTipoCheque === 'echeq'"
+                                   @change="chequeTipoCheque = $event.target.checked ? 'echeq' : 'cheque'">
+                            <label class="form-check-label small" for="chequeEcheq">Echeq</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Nro. Cheque *</label>
+                        <input type="text" class="form-control form-control-sm"
+                               x-model="chequeNumero" placeholder="Ej: 12345678">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Importe del cheque *</label>
+                        <input type="text" class="form-control form-control-sm"
+                               data-mask="money" inputmode="decimal"
+                               x-model="chequeImporte"
+                               x-init="initMoneyInput($el)"
+                               placeholder="$0,00">
+                    </div>
+                </div>
+                <!-- Indicador de diferencia cheque vs total -->
+                <div x-show="chequeImporteNum > 0 && Math.abs(chequeImporteNum - totalConIva) > 0.01"
+                     x-cloak class="mb-2">
+                    <div class="small px-1"
+                         :class="chequeImporteNum > totalConIva ? 'text-success' : 'text-warning'">
+                        <span class="material-symbols-rounded"
+                              style="font-size: 14px; vertical-align: middle;"
+                              x-text="chequeImporteNum > totalConIva ? 'savings' : 'account_balance_wallet'"></span>
+                        <span x-text="chequeImporteNum > totalConIva
+                            ? 'Saldo a favor: ' + formatCurrency(chequeImporteNum - totalConIva)
+                            : 'Saldo a cta. cte.: ' + formatCurrency(totalConIva - chequeImporteNum)"></span>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small text-muted">Fecha de cobro *</label>
+                    <input type="date" class="form-control form-control-sm"
+                           x-model="chequeFechaVencimiento">
                 </div>
             </div>
 
@@ -343,6 +418,7 @@
                             <option value="transferencia">Transferencia</option>
                             <option value="qr">QR</option>
                             <option value="cuenta_corriente">Cuenta Corriente</option>
+                            <option value="cheque">Cheque</option>
                         </select>
                     </div>
                     <div class="col-6">
@@ -355,6 +431,51 @@
                                placeholder="$0,00">
                     </div>
                 </div>
+                <!-- Campos cheque para metodo 1 -->
+                <div x-show="pagoDividido1.forma === 'cheque'" x-cloak class="mb-2">
+                    <!-- Advertencia: requiere cliente -->
+                    <div class="small text-danger mb-1"
+                         x-show="!clienteId">
+                        <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;">error</span>
+                        Para pago con cheque debe seleccionar un cliente
+                    </div>
+                    <div class="border rounded p-2 bg-light">
+                        <div class="small text-muted fw-semibold mb-2">Datos del cheque</div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-7">
+                                <label class="form-label small text-muted">Banco *</label>
+                                <select class="form-select form-select-sm"
+                                        x-model="pagoDividido1.cheque_banco_id">
+                                    <option value="">Seleccionar banco...</option>
+                                    <template x-for="banco in bancosList" :key="banco.id">
+                                        <option :value="banco.id" x-text="banco.nombre"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div class="col-5 d-flex align-items-end justify-content-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           :id="'echeq_div1'"
+                                           :checked="pagoDividido1.cheque_tipo_cheque === 'echeq'"
+                                           @change="pagoDividido1.cheque_tipo_cheque = $event.target.checked ? 'echeq' : 'cheque'">
+                                    <label class="form-check-label small" :for="'echeq_div1'">Echeq</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label small text-muted">Nro. Cheque *</label>
+                                <input type="text" class="form-control form-control-sm"
+                                       x-model="pagoDividido1.cheque_numero" placeholder="Ej: 12345678">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small text-muted">Fecha de cobro *</label>
+                                <input type="date" class="form-control form-control-sm"
+                                       x-model="pagoDividido1.cheque_fecha_vencimiento">
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="row g-2 mb-2">
                     <div class="col-6">
                         <label class="form-label small text-muted">Metodo 2</label>
@@ -365,6 +486,7 @@
                             <option value="transferencia">Transferencia</option>
                             <option value="qr">QR</option>
                             <option value="cuenta_corriente">Cuenta Corriente</option>
+                            <option value="cheque">Cheque</option>
                         </select>
                     </div>
                     <div class="col-6">
@@ -377,6 +499,51 @@
                                placeholder="$0,00">
                     </div>
                 </div>
+                <!-- Campos cheque para metodo 2 -->
+                <div x-show="pagoDividido2.forma === 'cheque'" x-cloak class="mb-2">
+                    <!-- Advertencia: requiere cliente -->
+                    <div class="small text-danger mb-1"
+                         x-show="!clienteId">
+                        <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;">error</span>
+                        Para pago con cheque debe seleccionar un cliente
+                    </div>
+                    <div class="border rounded p-2 bg-light">
+                        <div class="small text-muted fw-semibold mb-2">Datos del cheque</div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-7">
+                                <label class="form-label small text-muted">Banco *</label>
+                                <select class="form-select form-select-sm"
+                                        x-model="pagoDividido2.cheque_banco_id">
+                                    <option value="">Seleccionar banco...</option>
+                                    <template x-for="banco in bancosList" :key="banco.id">
+                                        <option :value="banco.id" x-text="banco.nombre"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div class="col-5 d-flex align-items-end justify-content-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           :id="'echeq_div2'"
+                                           :checked="pagoDividido2.cheque_tipo_cheque === 'echeq'"
+                                           @change="pagoDividido2.cheque_tipo_cheque = $event.target.checked ? 'echeq' : 'cheque'">
+                                    <label class="form-check-label small" :for="'echeq_div2'">Echeq</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label small text-muted">Nro. Cheque *</label>
+                                <input type="text" class="form-control form-control-sm"
+                                       x-model="pagoDividido2.cheque_numero" placeholder="Ej: 12345678">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small text-muted">Fecha de cobro *</label>
+                                <input type="date" class="form-control form-control-sm"
+                                       x-model="pagoDividido2.cheque_fecha_vencimiento">
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <!-- Indicador de validacion -->
                 <div class="small px-1"
                      :class="sumaValida ? 'text-success' : 'text-danger'">
@@ -385,12 +552,44 @@
                     <span x-text="sumaValida ? 'Los montos suman correctamente' : (!montosPositivos ? 'Cada monto debe ser mayor a 0' : 'Los montos no coinciden con el total')"></span>
                 </div>
                 <div class="small text-danger px-1 mt-1"
-                     x-show="pagoDividido1.forma === pagoDividido2.forma"
+                     x-show="pagoDividido1.forma === pagoDividido2.forma && pagoDividido1.forma !== 'cheque'"
                      x-cloak>
                     <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;">error</span>
                     Las formas de pago deben ser distintas
                 </div>
             </div>
+
+            <!-- Sección consumo de saldo a favor -->
+            <template x-if="mostrarSaldoFavor">
+                <div class="border border-info rounded p-2 mt-2 mb-2" style="background: #e8f4fd;">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="small fw-bold text-info">
+                            <span class="material-symbols-rounded align-middle" style="font-size: 16px;">savings</span>
+                            Saldo a favor: <span x-text="clienteData ? formatCurrency(clienteData.saldo_a_favor) : '$0,00'"></span>
+                        </span>
+                    </div>
+                    <div class="d-flex align-items-center gap-1">
+                        <span class="small text-muted text-nowrap">Consumir:</span>
+                        <input type="number"
+                               x-model.number="montoSaldoFavor"
+                               class="form-control form-control-sm"
+                               step="0.01"
+                               min="0"
+                               :max="clienteData ? Math.min(clienteData.saldo_a_favor, montoCC) : 0"
+                               placeholder="0.00"
+                               style="max-width: 120px;">
+                        <button type="button"
+                                class="btn btn-info btn-sm text-nowrap"
+                                @click="montoSaldoFavor = clienteData ? Math.min(clienteData.saldo_a_favor, montoCC) : 0">
+                            Todo
+                        </button>
+                    </div>
+                    <div class="small text-muted mt-1"
+                         x-show="formaPago === 'dividido'">
+                        Aplica sobre porción Cta. Cte. (<span x-text="formatCurrency(montoCC)"></span>)
+                    </div>
+                </div>
+            </template>
 
             <!-- Calculo de vuelto (solo efectivo) -->
             <div x-show="formaPago === 'efectivo'" x-cloak>
@@ -419,7 +618,7 @@
             <div class="d-grid gap-2">
                 <button class="btn btn-primary btn-confirm-sale"
                         @click="confirmarVenta()"
-                        :disabled="cart.length === 0 || processing">
+                        :disabled="cart.length === 0 || processing || (formaPago === 'cheque' && !clienteId)">
                     <span class="material-symbols-rounded me-2">check_circle</span>
                     <span x-text="processing ? 'Procesando...' : 'Confirmar Venta (F12)'"></span>
                 </button>
@@ -442,7 +641,13 @@
         <input type="hidden" name="descuento_monto_exacto"
                :value="descuentoMontoExacto !== null ? descuentoMontoExacto.toFixed(2) : ''">
         <input type="hidden" name="items_json" :value="JSON.stringify(cart)">
+        <input type="hidden" name="monto_saldo_favor" :value="mostrarSaldoFavor ? montoSaldoFavor : 0">
         <input type="hidden" name="pago_dividido_json" id="pago_dividido_json">
+        <input type="hidden" name="cheque_numero" x-model="chequeNumero">
+        <input type="hidden" name="cheque_banco_id" x-model="chequeBancoId">
+        <input type="hidden" name="cheque_tipo_cheque" x-model="chequeTipoCheque">
+        <input type="hidden" name="cheque_fecha_vencimiento" x-model="chequeFechaVencimiento">
+        <input type="hidden" name="cheque_importe" :value="chequeImporteNum">
     </form>
 </div>
 {% endblock %}
@@ -458,18 +663,26 @@ function posApp() {
         cart: [],
         clienteId: '',
         clienteNombre: 'Consumidor Final',
+        clienteData: null,
         clienteQuery: '',
         clienteResults: [],
         showClienteResults: false,
         clienteSelectedIndex: -1,
         productSelectedIndex: -1,
         formaPago: 'efectivo',
+        montoSaldoFavor: 0,
         descuentoPorcentaje: 0,
         modoDescuento: 'porcentaje',
         totalDeseado: '',
         montoRecibido: '',
-        pagoDividido1: { forma: 'efectivo', monto: '' },
-        pagoDividido2: { forma: 'qr', monto: '' },
+        pagoDividido1: { forma: 'efectivo', monto: '', cheque_numero: '', cheque_banco_id: '', cheque_tipo_cheque: 'cheque', cheque_fecha_vencimiento: '' },
+        pagoDividido2: { forma: 'qr', monto: '', cheque_numero: '', cheque_banco_id: '', cheque_tipo_cheque: 'cheque', cheque_fecha_vencimiento: '' },
+        chequeNumero: '',
+        chequeBancoId: '',
+        chequeTipoCheque: 'cheque',
+        chequeFechaVencimiento: '',
+        chequeImporte: '',
+        bancosList: [],
         processing: false,
         alertMessage: '',
         alertTimer: null,
@@ -571,6 +784,43 @@ function posApp() {
 
         get vuelto() {
             return Math.max(0, parseMoneyNumber(this.montoRecibido) - this.totalConIva);
+        },
+
+        // Indica si alguna porción de la venta se paga con cuenta corriente
+        get tieneParteCC() {
+            if (this.formaPago === 'cuenta_corriente') return true;
+            if (this.formaPago === 'dividido') {
+                return this.pagoDividido1.forma === 'cuenta_corriente' ||
+                       this.pagoDividido2.forma === 'cuenta_corriente';
+            }
+            return false;
+        },
+
+        // Monto de la porción CC (total si es CC simple, monto parcial si dividido)
+        get montoCC() {
+            if (this.formaPago === 'cuenta_corriente') return this.total;
+            if (this.formaPago === 'dividido') {
+                if (this.pagoDividido1.forma === 'cuenta_corriente') {
+                    return parseMoneyNumber(this.pagoDividido1.monto) || 0;
+                }
+                if (this.pagoDividido2.forma === 'cuenta_corriente') {
+                    return parseMoneyNumber(this.pagoDividido2.monto) || 0;
+                }
+            }
+            return 0;
+        },
+
+        // Importe numérico del cheque (pago directo)
+        get chequeImporteNum() {
+            return parseMoneyNumber(this.chequeImporte) || 0;
+        },
+
+        // Indica si debe mostrarse la sección de consumo de saldo a favor
+        get mostrarSaldoFavor() {
+            return this.clienteId &&
+                   this.clienteData &&
+                   this.clienteData.tiene_saldo_a_favor &&
+                   this.tieneParteCC;
         },
 
         // Alterna el modo de descuento de un item entre porcentaje y precio final ($)
@@ -677,12 +927,19 @@ function posApp() {
                 cart: this.cart,
                 clienteId: this.clienteId,
                 clienteNombre: this.clienteNombre,
+                clienteData: this.clienteData,
+                montoSaldoFavor: this.montoSaldoFavor,
                 formaPago: this.formaPago,
                 descuentoPorcentaje: this.descuentoPorcentaje,
                 modoDescuento: this.modoDescuento,
                 totalDeseado: this.totalDeseado,
                 pagoDividido1: this.pagoDividido1,
                 pagoDividido2: this.pagoDividido2,
+                chequeNumero: this.chequeNumero,
+                chequeBancoId: this.chequeBancoId,
+                chequeTipoCheque: this.chequeTipoCheque,
+                chequeFechaVencimiento: this.chequeFechaVencimiento,
+                chequeImporte: this.chequeImporte,
             };
             localStorage.setItem(this.storageKey, JSON.stringify(payload));
         },
@@ -706,6 +963,12 @@ function posApp() {
                 if (payload.clienteNombre) {
                     this.clienteNombre = payload.clienteNombre;
                 }
+                if (payload.clienteData) {
+                    this.clienteData = payload.clienteData;
+                }
+                if (payload.montoSaldoFavor !== undefined && payload.montoSaldoFavor !== null) {
+                    this.montoSaldoFavor = payload.montoSaldoFavor;
+                }
                 if (payload.formaPago) {
                     this.formaPago = payload.formaPago;
                 }
@@ -718,11 +981,30 @@ function posApp() {
                     this.calcularDescuentoDesdeTotal();
                 }
                 if (payload.pagoDividido1) {
-                    this.pagoDividido1 = payload.pagoDividido1;
+                    this.pagoDividido1 = {
+                        forma: payload.pagoDividido1.forma || 'efectivo',
+                        monto: payload.pagoDividido1.monto || '',
+                        cheque_numero: payload.pagoDividido1.cheque_numero || '',
+                        cheque_banco_id: payload.pagoDividido1.cheque_banco_id || '',
+                        cheque_tipo_cheque: payload.pagoDividido1.cheque_tipo_cheque || 'cheque',
+                        cheque_fecha_vencimiento: payload.pagoDividido1.cheque_fecha_vencimiento || '',
+                    };
                 }
                 if (payload.pagoDividido2) {
-                    this.pagoDividido2 = payload.pagoDividido2;
+                    this.pagoDividido2 = {
+                        forma: payload.pagoDividido2.forma || 'qr',
+                        monto: payload.pagoDividido2.monto || '',
+                        cheque_numero: payload.pagoDividido2.cheque_numero || '',
+                        cheque_banco_id: payload.pagoDividido2.cheque_banco_id || '',
+                        cheque_tipo_cheque: payload.pagoDividido2.cheque_tipo_cheque || 'cheque',
+                        cheque_fecha_vencimiento: payload.pagoDividido2.cheque_fecha_vencimiento || '',
+                    };
                 }
+                this.chequeNumero = payload.chequeNumero || '';
+                this.chequeBancoId = payload.chequeBancoId || '';
+                this.chequeTipoCheque = payload.chequeTipoCheque || 'cheque';
+                this.chequeFechaVencimiento = payload.chequeFechaVencimiento || '';
+                this.chequeImporte = payload.chequeImporte || '';
             } catch (error) {
                 localStorage.removeItem(this.storageKey);
             }
@@ -855,9 +1137,22 @@ function posApp() {
         selectCliente(cliente) {
             this.clienteId = cliente.id;
             this.clienteNombre = cliente.nombre;
+            this.clienteData = cliente;
+            this.montoSaldoFavor = 0;
             this.clienteQuery = '';
             this.clienteResults = [];
             this.showClienteResults = false;
+        },
+
+        // Cargar lista de bancos para selects de cheque
+        async fetchBancos() {
+            try {
+                const response = await fetch('{{ url_for("bancos.listar_json") }}');
+                this.bancosList = await response.json();
+            } catch (error) {
+                console.error('Error cargando bancos:', error);
+                this.bancosList = [];
+            }
         },
 
         async limpiarCarrito() {
@@ -876,9 +1171,16 @@ function posApp() {
                 this.montoRecibido = '';
                 this.clienteId = '';
                 this.clienteNombre = 'Consumidor Final';
+                this.clienteData = null;
+                this.montoSaldoFavor = 0;
                 this.formaPago = 'efectivo';
-                this.pagoDividido1 = { forma: 'efectivo', monto: '' };
-                this.pagoDividido2 = { forma: 'qr', monto: '' };
+                this.pagoDividido1 = { forma: 'efectivo', monto: '', cheque_numero: '', cheque_banco_id: '', cheque_tipo_cheque: 'cheque', cheque_fecha_vencimiento: '' };
+                this.pagoDividido2 = { forma: 'qr', monto: '', cheque_numero: '', cheque_banco_id: '', cheque_tipo_cheque: 'cheque', cheque_fecha_vencimiento: '' };
+                this.chequeNumero = '';
+                this.chequeBancoId = '';
+                this.chequeTipoCheque = 'cheque';
+                this.chequeFechaVencimiento = '';
+                this.chequeImporte = '';
                 this.clearPersistedState();
             }
         },
@@ -923,19 +1225,55 @@ function posApp() {
                 return;
             }
 
+            // Validar datos de cheque (pago directo)
+            if (this.formaPago === 'cheque') {
+                if (!this.clienteId) {
+                    this.mostrarAlerta('Para pago con cheque debe seleccionar un cliente.');
+                    return;
+                }
+                if (!this.chequeBancoId) {
+                    this.mostrarAlerta('El banco del cheque es obligatorio.');
+                    return;
+                }
+                if (!this.chequeNumero.trim()) {
+                    this.mostrarAlerta('El número de cheque es obligatorio.');
+                    return;
+                }
+                if (!this.chequeFechaVencimiento) {
+                    this.mostrarAlerta('La fecha de cobro del cheque es obligatoria.');
+                    return;
+                }
+                if (this.chequeImporteNum <= 0) {
+                    this.mostrarAlerta('El importe del cheque es obligatorio.');
+                    return;
+                }
+                // Cheque menor que el total requiere cliente con CC habilitada
+                if (this.chequeImporteNum < this.totalConIva && !this.clienteId) {
+                    this.mostrarAlerta(
+                        'Si el cheque es menor al total, '
+                        + 'se requiere cliente para registrar la deuda.'
+                    );
+                    return;
+                }
+            }
+
             if (this.formaPago === 'dividido') {
                 if (!this.sumaValida) {
                     this.mostrarAlerta('Los montos no coinciden con el total.');
                     return;
                 }
-                if (this.pagoDividido1.forma === this.pagoDividido2.forma) {
+                if (this.pagoDividido1.forma === this.pagoDividido2.forma && this.pagoDividido1.forma !== 'cheque') {
                     this.mostrarAlerta('Las formas de pago deben ser distintas.');
                     return;
                 }
                 const m1 = parseMoneyNumber(this.pagoDividido1.monto);
                 const m2 = parseMoneyNumber(this.pagoDividido2.monto);
-                if (m1 <= 0 || m2 <= 0) {
-                    this.mostrarAlerta('Cada monto debe ser mayor a 0.');
+                if (m1 <= 0) {
+                    this.mostrarAlerta('El monto del método 1 debe ser mayor a 0.');
+                    return;
+                }
+                if (m2 <= 0) {
+                    this.mostrarAlerta('El monto del método 2 debe ser mayor a 0.');
                     return;
                 }
                 if (this.pagoDividido1.forma === 'cuenta_corriente' ||
@@ -945,11 +1283,75 @@ function posApp() {
                         return;
                     }
                 }
-                // Serializar JSON al hidden field
-                document.getElementById('pago_dividido_json').value = JSON.stringify([
-                    { forma_pago: this.pagoDividido1.forma, monto: m1 },
-                    { forma_pago: this.pagoDividido2.forma, monto: m2 },
-                ]);
+                // Validar datos de cheque en sub-pagos divididos
+                if (this.pagoDividido1.forma === 'cheque') {
+                    if (!this.clienteId) {
+                        this.mostrarAlerta('Para pago con cheque debe seleccionar un cliente.');
+                        return;
+                    }
+                    if (!this.pagoDividido1.cheque_banco_id) {
+                        this.mostrarAlerta('Falta seleccionar el banco del cheque (método 1).');
+                        return;
+                    }
+                    if (!(this.pagoDividido1.cheque_numero || '').trim()) {
+                        this.mostrarAlerta('Falta el número de cheque (método 1).');
+                        return;
+                    }
+                    if (!this.pagoDividido1.cheque_fecha_vencimiento) {
+                        this.mostrarAlerta('Falta la fecha de cobro del cheque (método 1).');
+                        return;
+                    }
+                }
+                if (this.pagoDividido2.forma === 'cheque') {
+                    if (!this.clienteId) {
+                        this.mostrarAlerta('Para pago con cheque debe seleccionar un cliente.');
+                        return;
+                    }
+                    if (!this.pagoDividido2.cheque_banco_id) {
+                        this.mostrarAlerta('Falta seleccionar el banco del cheque (método 2).');
+                        return;
+                    }
+                    if (!(this.pagoDividido2.cheque_numero || '').trim()) {
+                        this.mostrarAlerta('Falta el número de cheque (método 2).');
+                        return;
+                    }
+                    if (!this.pagoDividido2.cheque_fecha_vencimiento) {
+                        this.mostrarAlerta('Falta la fecha de cobro del cheque (método 2).');
+                        return;
+                    }
+                }
+
+                // Serializar JSON al hidden field (incluye datos de cheque si aplica).
+                // Importe del cheque == monto del bloque (siempre coinciden en dividido).
+                const pago1 = { forma_pago: this.pagoDividido1.forma, monto: m1 };
+                const pago2 = { forma_pago: this.pagoDividido2.forma, monto: m2 };
+                if (this.pagoDividido1.forma === 'cheque') {
+                    pago1.cheque_numero = this.pagoDividido1.cheque_numero;
+                    pago1.cheque_banco_id = this.pagoDividido1.cheque_banco_id;
+                    pago1.cheque_tipo_cheque = this.pagoDividido1.cheque_tipo_cheque || 'cheque';
+                    pago1.cheque_fecha_vencimiento = this.pagoDividido1.cheque_fecha_vencimiento;
+                    pago1.cheque_importe = m1;
+                }
+                if (this.pagoDividido2.forma === 'cheque') {
+                    pago2.cheque_numero = this.pagoDividido2.cheque_numero;
+                    pago2.cheque_banco_id = this.pagoDividido2.cheque_banco_id;
+                    pago2.cheque_tipo_cheque = this.pagoDividido2.cheque_tipo_cheque || 'cheque';
+                    pago2.cheque_fecha_vencimiento = this.pagoDividido2.cheque_fecha_vencimiento;
+                    pago2.cheque_importe = m2;
+                }
+                document.getElementById('pago_dividido_json').value = JSON.stringify([pago1, pago2]);
+            }
+
+            // Validar monto de saldo a favor
+            if (this.mostrarSaldoFavor && this.montoSaldoFavor > 0) {
+                if (this.clienteData && this.montoSaldoFavor > this.clienteData.saldo_a_favor) {
+                    this.mostrarAlerta('El monto a consumir no puede superar el saldo a favor del cliente.');
+                    return;
+                }
+                if (this.montoSaldoFavor > this.montoCC) {
+                    this.mostrarAlerta('El monto a consumir no puede superar el monto de cuenta corriente.');
+                    return;
+                }
             }
 
             if (this.formaPago === 'efectivo' && parseMoneyNumber(this.montoRecibido) < this.total) {
@@ -974,6 +1376,9 @@ function posApp() {
                 this.restoreState();
             }
 
+            // Cargar bancos para selects de cheque
+            this.fetchBancos();
+
             this.$watch('cart', () => this.persistState());
             this.$watch('clienteId', () => this.persistState());
             this.$watch('clienteNombre', () => this.persistState());
@@ -983,6 +1388,20 @@ function posApp() {
             this.$watch('totalDeseado', () => this.persistState());
             this.$watch('pagoDividido1', () => this.persistState(), { deep: true });
             this.$watch('pagoDividido2', () => this.persistState(), { deep: true });
+            this.$watch('montoSaldoFavor', () => this.persistState());
+            this.$watch('chequeImporte', () => this.persistState());
+
+            // Establecer default inteligente cuando se activa saldo a favor
+            this.$watch('mostrarSaldoFavor', (show) => {
+                if (show && this.clienteData) {
+                    this.montoSaldoFavor = Math.min(
+                        this.clienteData.saldo_a_favor,
+                        this.montoCC
+                    );
+                } else {
+                    this.montoSaldoFavor = 0;
+                }
+            });
 
             // Recalcular descuento cuando cambia el subtotal en modo total
             this.$watch('subtotal', (newSubtotal) => {
