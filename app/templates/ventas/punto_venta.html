@@ -439,55 +439,40 @@
                         <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;">error</span>
                         Para pago con cheque debe seleccionar un cliente
                     </div>
-                    <div class="row g-2">
-                        <div class="col-4">
-                            <select class="form-select form-select-sm"
-                                    x-model="pagoDividido1.cheque_banco_id">
-                                <option value="">Banco...</option>
-                                <template x-for="banco in bancosList" :key="banco.id">
-                                    <option :value="banco.id" x-text="banco.nombre"></option>
-                                </template>
-                            </select>
-                        </div>
-                        <div class="col-4">
-                            <input type="text" class="form-control form-control-sm"
-                                   x-model="pagoDividido1.cheque_numero" placeholder="Nro. Cheque">
-                        </div>
-                        <div class="col-4">
-                            <input type="date" class="form-control form-control-sm"
-                                   x-model="pagoDividido1.cheque_fecha_vencimiento">
-                        </div>
-                    </div>
-                    <div class="row g-2 mt-1">
-                        <div class="col-4 d-flex align-items-center">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox"
-                                       :id="'echeq_div1'"
-                                       :checked="pagoDividido1.cheque_tipo_cheque === 'echeq'"
-                                       @change="pagoDividido1.cheque_tipo_cheque = $event.target.checked ? 'echeq' : 'cheque'">
-                                <label class="form-check-label small" :for="'echeq_div1'">Echeq</label>
+                    <div class="border rounded p-2 bg-light">
+                        <div class="small text-muted fw-semibold mb-2">Datos del cheque</div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-7">
+                                <label class="form-label small text-muted">Banco *</label>
+                                <select class="form-select form-select-sm"
+                                        x-model="pagoDividido1.cheque_banco_id">
+                                    <option value="">Seleccionar banco...</option>
+                                    <template x-for="banco in bancosList" :key="banco.id">
+                                        <option :value="banco.id" x-text="banco.nombre"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div class="col-5 d-flex align-items-end justify-content-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           :id="'echeq_div1'"
+                                           :checked="pagoDividido1.cheque_tipo_cheque === 'echeq'"
+                                           @change="pagoDividido1.cheque_tipo_cheque = $event.target.checked ? 'echeq' : 'cheque'">
+                                    <label class="form-check-label small" :for="'echeq_div1'">Echeq</label>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-8">
-                            <label class="form-label small text-muted mb-0">Importe cheque</label>
-                            <input type="text" class="form-control form-control-sm"
-                                   data-mask="money" inputmode="decimal"
-                                   x-model="pagoDividido1.cheque_importe"
-                                   x-init="initMoneyInput($el)"
-                                   placeholder="$0,00">
-                        </div>
-                    </div>
-                    <!-- Indicador diferencia cheque vs monto asignado (dividido 1) -->
-                    <div x-show="divCheque1Num > 0 && Math.abs(divCheque1Num - parseMoneyNumber(pagoDividido1.monto)) > 0.01"
-                         x-cloak class="mt-1">
-                        <div class="small px-1"
-                             :class="divCheque1Num > parseMoneyNumber(pagoDividido1.monto) ? 'text-success' : 'text-warning'">
-                            <span class="material-symbols-rounded"
-                                  style="font-size: 14px; vertical-align: middle;"
-                                  x-text="divCheque1Num > parseMoneyNumber(pagoDividido1.monto) ? 'savings' : 'account_balance_wallet'"></span>
-                            <span x-text="divCheque1Num > parseMoneyNumber(pagoDividido1.monto)
-                                ? 'Saldo a favor: ' + formatCurrency(divCheque1Num - parseMoneyNumber(pagoDividido1.monto))
-                                : 'Saldo a cta. cte.: ' + formatCurrency(parseMoneyNumber(pagoDividido1.monto) - divCheque1Num)"></span>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label small text-muted">Nro. Cheque *</label>
+                                <input type="text" class="form-control form-control-sm"
+                                       x-model="pagoDividido1.cheque_numero" placeholder="Ej: 12345678">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small text-muted">Fecha de cobro *</label>
+                                <input type="date" class="form-control form-control-sm"
+                                       x-model="pagoDividido1.cheque_fecha_vencimiento">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -522,55 +507,40 @@
                         <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;">error</span>
                         Para pago con cheque debe seleccionar un cliente
                     </div>
-                    <div class="row g-2">
-                        <div class="col-4">
-                            <select class="form-select form-select-sm"
-                                    x-model="pagoDividido2.cheque_banco_id">
-                                <option value="">Banco...</option>
-                                <template x-for="banco in bancosList" :key="banco.id">
-                                    <option :value="banco.id" x-text="banco.nombre"></option>
-                                </template>
-                            </select>
-                        </div>
-                        <div class="col-4">
-                            <input type="text" class="form-control form-control-sm"
-                                   x-model="pagoDividido2.cheque_numero" placeholder="Nro. Cheque">
-                        </div>
-                        <div class="col-4">
-                            <input type="date" class="form-control form-control-sm"
-                                   x-model="pagoDividido2.cheque_fecha_vencimiento">
-                        </div>
-                    </div>
-                    <div class="row g-2 mt-1">
-                        <div class="col-4 d-flex align-items-center">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox"
-                                       :id="'echeq_div2'"
-                                       :checked="pagoDividido2.cheque_tipo_cheque === 'echeq'"
-                                       @change="pagoDividido2.cheque_tipo_cheque = $event.target.checked ? 'echeq' : 'cheque'">
-                                <label class="form-check-label small" :for="'echeq_div2'">Echeq</label>
+                    <div class="border rounded p-2 bg-light">
+                        <div class="small text-muted fw-semibold mb-2">Datos del cheque</div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-7">
+                                <label class="form-label small text-muted">Banco *</label>
+                                <select class="form-select form-select-sm"
+                                        x-model="pagoDividido2.cheque_banco_id">
+                                    <option value="">Seleccionar banco...</option>
+                                    <template x-for="banco in bancosList" :key="banco.id">
+                                        <option :value="banco.id" x-text="banco.nombre"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div class="col-5 d-flex align-items-end justify-content-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           :id="'echeq_div2'"
+                                           :checked="pagoDividido2.cheque_tipo_cheque === 'echeq'"
+                                           @change="pagoDividido2.cheque_tipo_cheque = $event.target.checked ? 'echeq' : 'cheque'">
+                                    <label class="form-check-label small" :for="'echeq_div2'">Echeq</label>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-8">
-                            <label class="form-label small text-muted mb-0">Importe cheque</label>
-                            <input type="text" class="form-control form-control-sm"
-                                   data-mask="money" inputmode="decimal"
-                                   x-model="pagoDividido2.cheque_importe"
-                                   x-init="initMoneyInput($el)"
-                                   placeholder="$0,00">
-                        </div>
-                    </div>
-                    <!-- Indicador diferencia cheque vs monto asignado (dividido 2) -->
-                    <div x-show="divCheque2Num > 0 && Math.abs(divCheque2Num - parseMoneyNumber(pagoDividido2.monto)) > 0.01"
-                         x-cloak class="mt-1">
-                        <div class="small px-1"
-                             :class="divCheque2Num > parseMoneyNumber(pagoDividido2.monto) ? 'text-success' : 'text-warning'">
-                            <span class="material-symbols-rounded"
-                                  style="font-size: 14px; vertical-align: middle;"
-                                  x-text="divCheque2Num > parseMoneyNumber(pagoDividido2.monto) ? 'savings' : 'account_balance_wallet'"></span>
-                            <span x-text="divCheque2Num > parseMoneyNumber(pagoDividido2.monto)
-                                ? 'Saldo a favor: ' + formatCurrency(divCheque2Num - parseMoneyNumber(pagoDividido2.monto))
-                                : 'Saldo a cta. cte.: ' + formatCurrency(parseMoneyNumber(pagoDividido2.monto) - divCheque2Num)"></span>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label small text-muted">Nro. Cheque *</label>
+                                <input type="text" class="form-control form-control-sm"
+                                       x-model="pagoDividido2.cheque_numero" placeholder="Ej: 12345678">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small text-muted">Fecha de cobro *</label>
+                                <input type="date" class="form-control form-control-sm"
+                                       x-model="pagoDividido2.cheque_fecha_vencimiento">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -705,8 +675,8 @@ function posApp() {
         modoDescuento: 'porcentaje',
         totalDeseado: '',
         montoRecibido: '',
-        pagoDividido1: { forma: 'efectivo', monto: '', cheque_numero: '', cheque_banco_id: '', cheque_tipo_cheque: 'cheque', cheque_fecha_vencimiento: '', cheque_importe: '' },
-        pagoDividido2: { forma: 'qr', monto: '', cheque_numero: '', cheque_banco_id: '', cheque_tipo_cheque: 'cheque', cheque_fecha_vencimiento: '', cheque_importe: '' },
+        pagoDividido1: { forma: 'efectivo', monto: '', cheque_numero: '', cheque_banco_id: '', cheque_tipo_cheque: 'cheque', cheque_fecha_vencimiento: '' },
+        pagoDividido2: { forma: 'qr', monto: '', cheque_numero: '', cheque_banco_id: '', cheque_tipo_cheque: 'cheque', cheque_fecha_vencimiento: '' },
         chequeNumero: '',
         chequeBancoId: '',
         chequeTipoCheque: 'cheque',
@@ -843,16 +813,6 @@ function posApp() {
         // Importe numérico del cheque (pago directo)
         get chequeImporteNum() {
             return parseMoneyNumber(this.chequeImporte) || 0;
-        },
-
-        // Importe numérico del cheque en dividido 1
-        get divCheque1Num() {
-            return parseMoneyNumber(this.pagoDividido1.cheque_importe) || 0;
-        },
-
-        // Importe numérico del cheque en dividido 2
-        get divCheque2Num() {
-            return parseMoneyNumber(this.pagoDividido2.cheque_importe) || 0;
         },
 
         // Indica si debe mostrarse la sección de consumo de saldo a favor
@@ -1028,7 +988,6 @@ function posApp() {
                         cheque_banco_id: payload.pagoDividido1.cheque_banco_id || '',
                         cheque_tipo_cheque: payload.pagoDividido1.cheque_tipo_cheque || 'cheque',
                         cheque_fecha_vencimiento: payload.pagoDividido1.cheque_fecha_vencimiento || '',
-                        cheque_importe: payload.pagoDividido1.cheque_importe || '',
                     };
                 }
                 if (payload.pagoDividido2) {
@@ -1039,7 +998,6 @@ function posApp() {
                         cheque_banco_id: payload.pagoDividido2.cheque_banco_id || '',
                         cheque_tipo_cheque: payload.pagoDividido2.cheque_tipo_cheque || 'cheque',
                         cheque_fecha_vencimiento: payload.pagoDividido2.cheque_fecha_vencimiento || '',
-                        cheque_importe: payload.pagoDividido2.cheque_importe || '',
                     };
                 }
                 this.chequeNumero = payload.chequeNumero || '';
@@ -1216,8 +1174,8 @@ function posApp() {
                 this.clienteData = null;
                 this.montoSaldoFavor = 0;
                 this.formaPago = 'efectivo';
-                this.pagoDividido1 = { forma: 'efectivo', monto: '', cheque_numero: '', cheque_banco_id: '', cheque_tipo_cheque: 'cheque', cheque_fecha_vencimiento: '', cheque_importe: '' };
-                this.pagoDividido2 = { forma: 'qr', monto: '', cheque_numero: '', cheque_banco_id: '', cheque_tipo_cheque: 'cheque', cheque_fecha_vencimiento: '', cheque_importe: '' };
+                this.pagoDividido1 = { forma: 'efectivo', monto: '', cheque_numero: '', cheque_banco_id: '', cheque_tipo_cheque: 'cheque', cheque_fecha_vencimiento: '' };
+                this.pagoDividido2 = { forma: 'qr', monto: '', cheque_numero: '', cheque_banco_id: '', cheque_tipo_cheque: 'cheque', cheque_fecha_vencimiento: '' };
                 this.chequeNumero = '';
                 this.chequeBancoId = '';
                 this.chequeTipoCheque = 'cheque';
@@ -1310,8 +1268,12 @@ function posApp() {
                 }
                 const m1 = parseMoneyNumber(this.pagoDividido1.monto);
                 const m2 = parseMoneyNumber(this.pagoDividido2.monto);
-                if (m1 <= 0 || m2 <= 0) {
-                    this.mostrarAlerta('Cada monto debe ser mayor a 0.');
+                if (m1 <= 0) {
+                    this.mostrarAlerta('El monto del método 1 debe ser mayor a 0.');
+                    return;
+                }
+                if (m2 <= 0) {
+                    this.mostrarAlerta('El monto del método 2 debe ser mayor a 0.');
                     return;
                 }
                 if (this.pagoDividido1.forma === 'cuenta_corriente' ||
@@ -1327,14 +1289,16 @@ function posApp() {
                         this.mostrarAlerta('Para pago con cheque debe seleccionar un cliente.');
                         return;
                     }
-                    if (!this.pagoDividido1.cheque_banco_id ||
-                        !(this.pagoDividido1.cheque_numero || '').trim() ||
-                        !this.pagoDividido1.cheque_fecha_vencimiento) {
-                        this.mostrarAlerta('Completa los datos del cheque del Metodo 1.');
+                    if (!this.pagoDividido1.cheque_banco_id) {
+                        this.mostrarAlerta('Falta seleccionar el banco del cheque (método 1).');
                         return;
                     }
-                    if (this.divCheque1Num <= 0) {
-                        this.mostrarAlerta('El importe del cheque del Metodo 1 es obligatorio.');
+                    if (!(this.pagoDividido1.cheque_numero || '').trim()) {
+                        this.mostrarAlerta('Falta el número de cheque (método 1).');
+                        return;
+                    }
+                    if (!this.pagoDividido1.cheque_fecha_vencimiento) {
+                        this.mostrarAlerta('Falta la fecha de cobro del cheque (método 1).');
                         return;
                     }
                 }
@@ -1343,19 +1307,22 @@ function posApp() {
                         this.mostrarAlerta('Para pago con cheque debe seleccionar un cliente.');
                         return;
                     }
-                    if (!this.pagoDividido2.cheque_banco_id ||
-                        !(this.pagoDividido2.cheque_numero || '').trim() ||
-                        !this.pagoDividido2.cheque_fecha_vencimiento) {
-                        this.mostrarAlerta('Completa los datos del cheque del Metodo 2.');
+                    if (!this.pagoDividido2.cheque_banco_id) {
+                        this.mostrarAlerta('Falta seleccionar el banco del cheque (método 2).');
                         return;
                     }
-                    if (this.divCheque2Num <= 0) {
-                        this.mostrarAlerta('El importe del cheque del Metodo 2 es obligatorio.');
+                    if (!(this.pagoDividido2.cheque_numero || '').trim()) {
+                        this.mostrarAlerta('Falta el número de cheque (método 2).');
+                        return;
+                    }
+                    if (!this.pagoDividido2.cheque_fecha_vencimiento) {
+                        this.mostrarAlerta('Falta la fecha de cobro del cheque (método 2).');
                         return;
                     }
                 }
 
-                // Serializar JSON al hidden field (incluye datos de cheque si aplica)
+                // Serializar JSON al hidden field (incluye datos de cheque si aplica).
+                // Importe del cheque == monto del bloque (siempre coinciden en dividido).
                 const pago1 = { forma_pago: this.pagoDividido1.forma, monto: m1 };
                 const pago2 = { forma_pago: this.pagoDividido2.forma, monto: m2 };
                 if (this.pagoDividido1.forma === 'cheque') {
@@ -1363,14 +1330,14 @@ function posApp() {
                     pago1.cheque_banco_id = this.pagoDividido1.cheque_banco_id;
                     pago1.cheque_tipo_cheque = this.pagoDividido1.cheque_tipo_cheque || 'cheque';
                     pago1.cheque_fecha_vencimiento = this.pagoDividido1.cheque_fecha_vencimiento;
-                    pago1.cheque_importe = this.divCheque1Num;
+                    pago1.cheque_importe = m1;
                 }
                 if (this.pagoDividido2.forma === 'cheque') {
                     pago2.cheque_numero = this.pagoDividido2.cheque_numero;
                     pago2.cheque_banco_id = this.pagoDividido2.cheque_banco_id;
                     pago2.cheque_tipo_cheque = this.pagoDividido2.cheque_tipo_cheque || 'cheque';
                     pago2.cheque_fecha_vencimiento = this.pagoDividido2.cheque_fecha_vencimiento;
-                    pago2.cheque_importe = this.divCheque2Num;
+                    pago2.cheque_importe = m2;
                 }
                 document.getElementById('pago_dividido_json').value = JSON.stringify([pago1, pago2]);
             }
