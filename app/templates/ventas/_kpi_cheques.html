@@ -1,9 +1,18 @@
+{% set tooltip_total = 'Cantidad total de cheques recibidos pendientes de cobro.' if tab == 'por_cobrar' else 'Cantidad total de cheques emitidos pendientes de pago.' %}
+{% set tooltip_monto = 'Suma total en dinero de los cheques recibidos pendientes de cobro.' if tab == 'por_cobrar' else 'Suma total en dinero de los cheques emitidos pendientes de pago.' %}
+{% set tooltip_hoy = 'Monto de cheques que vencen hoy y se pueden cobrar.' if tab == 'por_cobrar' else 'Cantidad de cheques emitidos cuya fecha de pago ya pasó.' %}
+{% set tooltip_prox = 'Monto de cheques que vencen en los próximos 7 días.' if tab == 'por_cobrar' else 'Cantidad de cheques emitidos que vencen en los próximos 7 días.' %}
 <div id="kpi-cheques" class="row g-3 mb-4"
      hx-get="{{ url_for('ventas.cheques_kpi', tab=tab) }}"
      hx-trigger="cheques-actualizados from:body"
      hx-swap="outerHTML">
     <div class="col-sm-6 col-lg-3">
-        <div class="card h-100">
+        <div class="card h-100 position-relative">
+            <span class="material-symbols-rounded text-muted position-absolute top-0 end-0 m-2"
+                  style="font-size: 18px; cursor: help;"
+                  data-bs-toggle="tooltip"
+                  data-bs-placement="top"
+                  title="{{ tooltip_total }}">info</span>
             <div class="card-body d-flex align-items-center gap-3">
                 <span class="material-symbols-rounded fs-1 text-primary">description</span>
                 <div>
@@ -14,7 +23,12 @@
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
-        <div class="card h-100">
+        <div class="card h-100 position-relative">
+            <span class="material-symbols-rounded text-muted position-absolute top-0 end-0 m-2"
+                  style="font-size: 18px; cursor: help;"
+                  data-bs-toggle="tooltip"
+                  data-bs-placement="top"
+                  title="{{ tooltip_monto }}">info</span>
             <div class="card-body d-flex align-items-center gap-3">
                 <span class="material-symbols-rounded fs-1 text-success">payments</span>
                 <div>
@@ -29,8 +43,14 @@
     <div class="col-sm-6 col-lg-3">
         <a href="{{ url_for('ventas.cheques', tab=tab, q=q, filtro_kpi=('' if filtro_kpi == kpi_danger else kpi_danger)) }}"
            class="text-decoration-none">
-            <div class="card h-100"
+            <div class="card h-100 position-relative"
                  style="cursor:pointer;{% if filtro_kpi == kpi_danger %}border:2px solid #dc3545;{% endif %}">
+                <span class="material-symbols-rounded text-muted position-absolute top-0 end-0 m-2"
+                      style="font-size: 18px; cursor: help;"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="top"
+                      title="{{ tooltip_hoy }}"
+                      onclick="event.stopPropagation(); event.preventDefault();">info</span>
                 <div class="card-body d-flex align-items-center gap-3">
                     <span class="material-symbols-rounded fs-1 text-danger">{% if tab == 'por_cobrar' %}today{% else %}error{% endif %}</span>
                     <div>
@@ -44,8 +64,14 @@
     <div class="col-sm-6 col-lg-3">
         <a href="{{ url_for('ventas.cheques', tab=tab, q=q, filtro_kpi=('' if filtro_kpi == kpi_warn else kpi_warn)) }}"
            class="text-decoration-none">
-            <div class="card h-100"
+            <div class="card h-100 position-relative"
                  style="cursor:pointer;{% if filtro_kpi == kpi_warn %}border:2px solid #ffc107;{% endif %}">
+                <span class="material-symbols-rounded text-muted position-absolute top-0 end-0 m-2"
+                      style="font-size: 18px; cursor: help;"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="top"
+                      title="{{ tooltip_prox }}"
+                      onclick="event.stopPropagation(); event.preventDefault();">info</span>
                 <div class="card-body d-flex align-items-center gap-3">
                     <span class="material-symbols-rounded fs-1 text-warning">{% if tab == 'por_cobrar' %}upcoming{% else %}warning{% endif %}</span>
                     <div>
@@ -57,3 +83,13 @@
         </a>
     </div>
 </div>
+<script>
+    (function () {
+        const triggers = document.querySelectorAll('#kpi-cheques [data-bs-toggle="tooltip"]');
+        triggers.forEach(function (el) {
+            if (!bootstrap.Tooltip.getInstance(el)) {
+                new bootstrap.Tooltip(el);
+            }
+        });
+    })();
+</script>

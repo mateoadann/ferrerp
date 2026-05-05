@@ -1,6 +1,5 @@
 """Modelo de Venta."""
 
-from decimal import Decimal
 
 from ..extensions import db
 from ..utils.helpers import ahora_argentina
@@ -93,6 +92,15 @@ class Venta(EmpresaMixin, db.Model):
     def es_anulable(self):
         """Verifica si la venta puede ser anulada."""
         return self.estado == 'completada'
+
+    @property
+    def cheques_asociados(self):
+        """Lista de cheques recibidos vinculados a esta venta."""
+        from .cheque import Cheque
+        return Cheque.query.filter_by(
+            referencia_tipo='venta',
+            referencia_id=self.id,
+        ).all()
 
     def calcular_totales(self):
         """Calcula subtotal y total basado en los detalles."""

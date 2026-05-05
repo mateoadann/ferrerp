@@ -78,7 +78,9 @@
             <thead>
                 <tr>
                     <th>Nro. Cheque</th>
+                    {% if tab == 'por_pagar' %}
                     <th>Banco</th>
+                    {% endif %}
                     {% if tab == 'por_cobrar' %}
                     <th>Cliente</th>
                     {% endif %}
@@ -158,7 +160,7 @@
                 {% include 'ventas/_fila_cheque.html' %}
                 {% else %}
                 <tr>
-                    <td colspan="{{ 10 if tab == 'por_cobrar' else 9 }}">
+                    <td colspan="8">
                         <div class="empty-state">
                             <span class="material-symbols-rounded">description</span>
                             {% if tab == 'por_cobrar' %}

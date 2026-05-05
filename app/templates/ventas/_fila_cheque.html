@@ -2,7 +2,9 @@
     class="{% if cheque.estado == 'en_cartera' and cheque.esta_vencido %}table-danger{% elif cheque.estado == 'en_cartera' and cheque.esta_proximo_a_vencer %}table-warning{% endif %}"
     {% if cheque.estado == 'en_cartera' and cheque.fecha_vencimiento and not cheque.esta_vencido and cheque.fecha_vencimiento > hoy and cheque.fecha_vencimiento <= en_5_dias %}style="background-color: #fff9c4;"{% endif %}>
     <td class="table-code">{{ cheque.numero_cheque }}</td>
+    {% if tab == 'por_pagar' %}
     <td>{{ cheque.banco.nombre if cheque.banco else '-' }}</td>
+    {% endif %}
     {% if tab == 'por_cobrar' %}
     <td>{{ cheque.cliente.nombre if cheque.cliente else '-' }}</td>
     {% endif %}

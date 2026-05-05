@@ -204,20 +204,85 @@
                         {% endif %}
                     </dd>
 
-                    {% if cheque_venta %}
-                    <dt class="col-5 text-muted">Cheque:</dt>
-                    <dd class="col-7">
-                        <a href="{{ url_for('ventas.cheques', tab='por_cobrar') }}"
-                           class="btn btn-sm btn-outline-secondary">
-                            <span class="material-symbols-rounded me-1" style="font-size:16px;vertical-align:middle;">description</span>
-                            #{{ cheque_venta.numero_cheque }}
-                            <span class="badge bg-{{ 'warning' if cheque_venta.estado == 'en_cartera' else 'success' if cheque_venta.estado == 'cobrado' else 'info' if cheque_venta.estado == 'endosado' else 'danger' }} ms-1">{{ cheque_venta.estado|replace('_', ' ')|title }}</span>
-                        </a>
-                    </dd>
-                    {% endif %}
                 </dl>
             </div>
         </div>
+
+        {% if cheques_venta %}
+        <div class="card mb-4">
+            <div class="card-header d-flex align-items-center gap-2">
+                <span class="material-symbols-rounded" style="font-size:18px;">payments</span>
+                {{ 'Cheques recibidos' if cheques_venta|length > 1 else 'Cheque recibido' }}
+            </div>
+            <div class="card-body">
+                {% for cheque in cheques_venta %}
+                <div class="{% if not loop.last %}border-bottom pb-3 mb-3{% endif %}">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="mb-1">
+                                <span class="text-muted small d-block">Número</span>
+                                <a href="{{ url_for('ventas.cheques', tab='por_cobrar') }}"
+                                   class="fw-semibold text-decoration-none">
+                                    #{{ cheque.numero_cheque }}
+                                </a>
+                                {% if cheque.tipo_cheque == 'echeq' %}
+                                <span class="badge badge-info ms-1" style="font-size:10px;">echeq</span>
+                                {% endif %}
+                            </div>
+                            {% if cheque.banco %}
+                            <div class="mb-1">
+                                <span class="text-muted small d-block">Banco</span>
+                                <span>
+                                    <span class="material-symbols-rounded me-1" style="font-size:14px;vertical-align:middle;">account_balance</span>
+                                    {{ cheque.banco.nombre }}
+                                </span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-1">
+                                <span class="text-muted small d-block">Fecha de cobro</span>
+                                <span>
+                                    <span class="material-symbols-rounded me-1" style="font-size:14px;vertical-align:middle;">calendar_month</span>
+                                    {{ cheque.fecha_vencimiento|date }}
+                                </span>
+                            </div>
+                            <div class="mb-1">
+                                <span class="text-muted small d-block">Importe</span>
+                                <span class="fw-semibold">
+                                    <span class="material-symbols-rounded me-1" style="font-size:14px;vertical-align:middle;">attach_money</span>
+                                    {{ cheque.importe|currency }}
+                                </span>
+                            </div>
+                            <div>
+                                <span class="badge
+                                    {% if cheque.estado == 'en_cartera' %}bg-warning text-dark
+                                    {% elif cheque.estado == 'cobrado' %}badge-success
+                                    {% elif cheque.estado == 'endosado' %}badge-info
+                                    {% elif cheque.estado == 'sin_fondos' %}badge-danger
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ cheque.estado|replace('_', ' ')|title }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+
+                {% if diferencia_cheque > 0 %}
+                <div class="alert alert-success d-flex align-items-center gap-2 mb-0 mt-3 py-2">
+                    <span class="material-symbols-rounded" style="font-size:18px;">trending_up</span>
+                    <span>Saldo a favor del cliente: <strong>{{ diferencia_cheque|currency }}</strong></span>
+                </div>
+                {% elif diferencia_cheque < 0 %}
+                <div class="alert alert-warning d-flex align-items-center gap-2 mb-0 mt-3 py-2">
+                    <span class="material-symbols-rounded" style="font-size:18px;">account_balance_wallet</span>
+                    <span>Saldo a cuenta corriente: <strong>{{ (diferencia_cheque * -1)|currency }}</strong></span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
 
         <div class="card">
             <div class="card-header">Cliente</div>
