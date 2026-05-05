@@ -68,6 +68,7 @@ def _crear_cheque(
     empresa_id,
     usuario_id,
     cliente_id=None,
+    tipo='recibido',
 ):
     """Crea un registro de Cheque a partir de los datos del formulario.
 
@@ -80,6 +81,7 @@ def _crear_cheque(
         empresa_id: ID de la empresa
         usuario_id: ID del usuario
         cliente_id: ID del cliente (para cheques recibidos)
+        tipo: 'recibido' (default) o 'emitido'
 
     Returns:
         Cheque creado
@@ -94,31 +96,40 @@ def _crear_cheque(
 
     if not numero:
         raise ValueError('El número de cheque es obligatorio.')
-    if not banco_id_str:
-        raise ValueError('El banco del cheque es obligatorio.')
+
+    # Para cheques emitidos, el banco es obligatorio (sale de MI cuenta).
+    # Para cheques recibidos, el banco es opcional.
+    if not banco_id_str and tipo == 'emitido':
+        raise ValueError('El banco es obligatorio para cheques emitidos.')
+
     if not fecha_venc_str:
         raise ValueError('La fecha de vencimiento del cheque es obligatoria.')
 
-    # Intentar como ID numérico primero, luego como nombre (compatibilidad)
-    try:
-        banco_id = int(banco_id_str)
-        banco = Banco.query.filter_by(id=banco_id, empresa_id=empresa_id).first()
-    except (ValueError, TypeError):
-        # Fallback: buscar por nombre (compatibilidad con POS texto)
-        nombre_norm = banco_id_str.strip().title()
-        banco = Banco.query.filter_by(empresa_id=empresa_id, nombre=nombre_norm).first()
-        if not banco:
-            # Crear banco on-the-fly si no existe
-            banco = Banco(
-                nombre=nombre_norm,
-                empresa_id=empresa_id,
-                activo=True,
-            )
-            db.session.add(banco)
-            db.session.flush()
+    banco_id_resuelto = None
+    if banco_id_str:
+        # Intentar como ID numérico primero, luego como nombre (compatibilidad)
+        try:
+            banco_id = int(banco_id_str)
+            banco = Banco.query.filter_by(id=banco_id, empresa_id=empresa_id).first()
+        except (ValueError, TypeError):
+            # Fallback: buscar por nombre (compatibilidad con POS texto)
+            # Solo aplica a cheques emitidos (POS texto no se usa para recibidos)
+            nombre_norm = banco_id_str.strip().title()
+            banco = Banco.query.filter_by(empresa_id=empresa_id, nombre=nombre_norm).first()
+            if not banco and tipo == 'emitido':
+                # Crear banco on-the-fly si no existe (solo para emitidos)
+                banco = Banco(
+                    nombre=nombre_norm,
+                    empresa_id=empresa_id,
+                    activo=True,
+                )
+                db.session.add(banco)
+                db.session.flush()
 
-    if not banco:
-        raise ValueError('El banco seleccionado no existe.')
+        if not banco:
+            raise ValueError('El banco seleccionado no existe.')
+
+        banco_id_resuelto = banco.id
 
     try:
         fecha_vencimiento = datetime.strptime(fecha_venc_str, '%Y-%m-%d').date()
@@ -127,10 +138,10 @@ def _crear_cheque(
 
     cheque = Cheque(
         numero_cheque=numero,
-        banco_id=banco.id,
+        banco_id=banco_id_resuelto,
         fecha_vencimiento=fecha_vencimiento,
         importe=importe,
-        tipo='recibido',
+        tipo=tipo,
         tipo_cheque=tipo_cheque,
         estado='en_cartera',
         referencia_tipo=referencia_tipo,
@@ -1123,12 +1134,7 @@ def crear_cheque_emitido():
     form = ChequeEmitidoForm()
 
     if form.validate_on_submit():
-        cliente_id = form.cliente_id.data if form.cliente_id.data and form.cliente_id.data != 0 else None
-        if cliente_id:
-            cliente = Cliente.query.get(cliente_id)
-            destinatario = cliente.nombre if cliente else form.destinatario.data.strip()
-        else:
-            destinatario = form.destinatario.data.strip()
+        destinatario = (form.destinatario.data or '').strip() or None
 
         cheque = Cheque(
             numero_cheque=form.numero_cheque.data.strip(),
@@ -1138,7 +1144,6 @@ def crear_cheque_emitido():
             importe=Decimal(str(form.importe.data)),
             tipo='emitido',
             estado='en_cartera',
-            cliente_id=cliente_id,
             destinatario=destinatario,
             observaciones=form.observaciones.data or None,
             referencia_tipo=None,
@@ -1234,17 +1239,22 @@ def detalle(id):
     """Ver detalle de venta."""
     venta = Venta.get_o_404(id)
 
-    # Buscar cheque asociado a la venta
-    cheque_venta = Cheque.query.filter_by(
+    # Buscar cheques asociados a la venta (puede haber más de uno en pago dividido)
+    cheques_venta = Cheque.query.filter_by(
         referencia_tipo='venta',
         referencia_id=venta.id,
         empresa_id=current_user.empresa_id,
-    ).first()
+    ).all()
+
+    total_cheques = sum((c.importe for c in cheques_venta), Decimal('0'))
+    diferencia_cheque = total_cheques - venta.total if cheques_venta else Decimal('0')
 
     return render_template(
         'ventas/detalle.html',
         venta=venta,
-        cheque_venta=cheque_venta,
+        cheques_venta=cheques_venta,
+        total_cheques=total_cheques,
+        diferencia_cheque=diferencia_cheque,
     )
 
 

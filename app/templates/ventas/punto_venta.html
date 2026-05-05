@@ -352,16 +352,6 @@
                     Para pago con cheque debe seleccionar un cliente
                 </div>
                 <div class="row g-2 mb-2">
-                    <div class="col-6">
-                        <label class="form-label small text-muted">Banco *</label>
-                        <select class="form-select form-select-sm"
-                                x-model="chequeBancoId">
-                            <option value="">Seleccionar banco...</option>
-                            <template x-for="banco in bancosList" :key="banco.id">
-                                <option :value="banco.id" x-text="banco.nombre"></option>
-                            </template>
-                        </select>
-                    </div>
                     <div class="col-6 d-flex align-items-end">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="chequeEcheq"
@@ -442,17 +432,7 @@
                     <div class="border rounded p-2 bg-light">
                         <div class="small text-muted fw-semibold mb-2">Datos del cheque</div>
                         <div class="row g-2 mb-2">
-                            <div class="col-7">
-                                <label class="form-label small text-muted">Banco *</label>
-                                <select class="form-select form-select-sm"
-                                        x-model="pagoDividido1.cheque_banco_id">
-                                    <option value="">Seleccionar banco...</option>
-                                    <template x-for="banco in bancosList" :key="banco.id">
-                                        <option :value="banco.id" x-text="banco.nombre"></option>
-                                    </template>
-                                </select>
-                            </div>
-                            <div class="col-5 d-flex align-items-end justify-content-end">
+                            <div class="col-12 d-flex align-items-end justify-content-end">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox"
                                            :id="'echeq_div1'"
@@ -510,17 +490,7 @@
                     <div class="border rounded p-2 bg-light">
                         <div class="small text-muted fw-semibold mb-2">Datos del cheque</div>
                         <div class="row g-2 mb-2">
-                            <div class="col-7">
-                                <label class="form-label small text-muted">Banco *</label>
-                                <select class="form-select form-select-sm"
-                                        x-model="pagoDividido2.cheque_banco_id">
-                                    <option value="">Seleccionar banco...</option>
-                                    <template x-for="banco in bancosList" :key="banco.id">
-                                        <option :value="banco.id" x-text="banco.nombre"></option>
-                                    </template>
-                                </select>
-                            </div>
-                            <div class="col-5 d-flex align-items-end justify-content-end">
+                            <div class="col-12 d-flex align-items-end justify-content-end">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox"
                                            :id="'echeq_div2'"
@@ -1231,10 +1201,6 @@ function posApp() {
                     this.mostrarAlerta('Para pago con cheque debe seleccionar un cliente.');
                     return;
                 }
-                if (!this.chequeBancoId) {
-                    this.mostrarAlerta('El banco del cheque es obligatorio.');
-                    return;
-                }
                 if (!this.chequeNumero.trim()) {
                     this.mostrarAlerta('El número de cheque es obligatorio.');
                     return;
@@ -1289,10 +1255,6 @@ function posApp() {
                         this.mostrarAlerta('Para pago con cheque debe seleccionar un cliente.');
                         return;
                     }
-                    if (!this.pagoDividido1.cheque_banco_id) {
-                        this.mostrarAlerta('Falta seleccionar el banco del cheque (método 1).');
-                        return;
-                    }
                     if (!(this.pagoDividido1.cheque_numero || '').trim()) {
                         this.mostrarAlerta('Falta el número de cheque (método 1).');
                         return;
@@ -1305,10 +1267,6 @@ function posApp() {
                 if (this.pagoDividido2.forma === 'cheque') {
                     if (!this.clienteId) {
                         this.mostrarAlerta('Para pago con cheque debe seleccionar un cliente.');
-                        return;
-                    }
-                    if (!this.pagoDividido2.cheque_banco_id) {
-                        this.mostrarAlerta('Falta seleccionar el banco del cheque (método 2).');
                         return;
                     }
                     if (!(this.pagoDividido2.cheque_numero || '').trim()) {

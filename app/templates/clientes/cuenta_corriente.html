@@ -431,10 +431,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         alert('El número de cheque es obligatorio.');
                         return;
                     }
-                    if (!chequeBancoCC.value.trim()) {
-                        alert('El banco del cheque es obligatorio.');
-                        return;
-                    }
                     if (!chequeFechaCC.value) {
                         alert('La fecha de vencimiento del cheque es obligatoria.');
                         return;
@@ -504,10 +500,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (formaPagoAdelantoInput.value === 'cheque') {
                     if (!chequeNumeroAdelanto.value.trim()) {
                         alert('El número de cheque es obligatorio.');
-                        return;
-                    }
-                    if (!chequeBancoAdelanto.value.trim()) {
-                        alert('El banco del cheque es obligatorio.');
                         return;
                     }
                     if (!chequeFechaAdelanto.value) {
