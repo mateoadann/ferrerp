@@ -11,6 +11,10 @@
         <h2 class="mb-0">Cheques</h2>
     </div>
     <div class="d-flex gap-2">
+        <a href="{{ url_for('ventas.calendario_cheques') }}" class="btn btn-outline-secondary" title="Ver calendario">
+            <span class="material-symbols-rounded me-1" style="font-size:18px;vertical-align:middle;">calendar_month</span>
+            Calendario
+        </a>
         <a href="{{ url_for('bancos.index') }}" class="btn btn-outline-secondary" title="Gestionar bancos">
             <span class="material-symbols-rounded">settings</span>
         </a>

@@ -1,5 +1,6 @@
 """Rutas de ventas y punto de venta."""
 
+import calendar
 import json
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -1535,7 +1536,7 @@ def buscar_producto():
     productos = (
         Producto.query_empresa()
         .filter(
-            Producto.activo == True,
+            Producto.activo.is_(True),
             Producto.stock_actual > 0,
             db.or_(
                 Producto.codigo.ilike(f'%{q}%'),
@@ -1556,3 +1557,256 @@ def api_producto(id):
     """API para obtener datos de producto (para el POS)."""
     producto = Producto.get_o_404(id)
     return jsonify(producto.to_dict())
+
+
+# ---------------------------------------------------------------------------
+# Helpers para el calendario de cheques
+# ---------------------------------------------------------------------------
+
+_NOMBRES_MESES = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+]
+
+_ETIQUETAS_ESTADO = {
+    'en_cartera': 'En cartera',
+    'cobrado': 'Cobrado',
+    'endosado': 'Endosado',
+    'sin_fondos': 'Sin fondos',
+}
+
+
+def _mes_anterior(anio, mes):
+    """Retorna (anio, mes) del mes anterior."""
+    if mes == 1:
+        return anio - 1, 12
+    return anio, mes - 1
+
+
+def _mes_siguiente(anio, mes):
+    """Retorna (anio, mes) del mes siguiente."""
+    if mes == 12:
+        return anio + 1, 1
+    return anio, mes + 1
+
+
+def _primer_dia(anio, mes):
+    """Retorna el primer día del mes."""
+    return date(anio, mes, 1)
+
+
+def _ultimo_dia(anio, mes):
+    """Retorna el último día del mes."""
+    ultimo = calendar.monthrange(anio, mes)[1]
+    return date(anio, mes, ultimo)
+
+
+def _construir_semanas(anio, mes):
+    """Construye la grilla de semanas para un mes (lun-dom).
+
+    Retorna lista de semanas; cada semana es lista de 7 dicts con:
+    - fecha: date | None (None = celda vacía de padding)
+    - dia_numero: int
+    - pertenece_al_mes: bool
+    """
+    # calendar.monthcalendar devuelve 0 para días fuera del mes
+    semanas_raw = calendar.monthcalendar(anio, mes)
+    semanas = []
+    for semana_raw in semanas_raw:
+        semana = []
+        for num_dia in semana_raw:
+            if num_dia == 0:
+                # Día que pertenece al mes anterior o siguiente
+                semana.append({'fecha': None, 'dia_numero': 0, 'pertenece_al_mes': False})
+            else:
+                semana.append({
+                    'fecha': date(anio, mes, num_dia),
+                    'dia_numero': num_dia,
+                    'pertenece_al_mes': True,
+                })
+        semanas.append(semana)
+    return semanas
+
+
+def _tooltip_cheque(cheque):
+    """Arma el texto del tooltip Bootstrap (HTML) para un chip de cheque."""
+    tipo_label = 'Recibido' if cheque.tipo == 'recibido' else 'Emitido'
+    estado_label = _ETIQUETAS_ESTADO.get(cheque.estado, cheque.estado)
+
+    importe_fmt = f'${cheque.importe:,.2f}'
+
+    partes = [
+        f'<strong>#{cheque.numero_cheque}</strong>',
+        tipo_label,
+        f'Importe: {importe_fmt}',
+    ]
+
+    if cheque.tipo == 'recibido':
+        if cheque.cliente:
+            partes.append(f'Cliente: {cheque.cliente.nombre}')
+    else:
+        if cheque.destinatario:
+            partes.append(f'Destinatario: {cheque.destinatario}')
+        banco = cheque.banco.nombre if cheque.banco else '-'
+        partes.append(f'Banco: {banco}')
+
+    partes.append(f'Estado: {estado_label}')
+
+    return '<br>'.join(partes)
+
+
+def _texto_chip(cheque):
+    """Texto breve para mostrar en el chip del calendario."""
+    importe = cheque.importe
+    if importe >= 1_000_000:
+        return f'${importe / 1_000_000:.1f}M'
+    if importe >= 1_000:
+        return f'${importe / 1_000:.0f}k'
+    return f'${importe:.0f}'
+
+
+def _agrupar_cheques_por_dia(cheques):
+    """Agrupa cheques por (fecha_vencimiento, tipo).
+
+    Retorna dict: fecha_date -> {'recibidos': list, 'emitidos': list}
+    Cada cheque en la lista lleva un campo extra 'tooltip' y 'chip_texto'.
+    """
+    agrupados = {}
+    for cheque in cheques:
+        fv = cheque.fecha_vencimiento
+        if fv not in agrupados:
+            agrupados[fv] = {'recibidos': [], 'emitidos': []}
+        entrada = {
+            'id': cheque.id,
+            'numero_cheque': cheque.numero_cheque,
+            'importe': cheque.importe,
+            'estado': cheque.estado,
+            'tipo': cheque.tipo,
+            'tooltip': _tooltip_cheque(cheque),
+            'chip_texto': _texto_chip(cheque),
+        }
+        if cheque.tipo == 'recibido':
+            agrupados[fv]['recibidos'].append(entrada)
+        else:
+            agrupados[fv]['emitidos'].append(entrada)
+    return agrupados
+
+
+def _construir_meses(anio_central, mes_central, cheques_por_dia):
+    """Construye la estructura de 3 meses para el template.
+
+    Retorna lista de 3 dicts con: nombre, anio, semanas.
+    """
+    meses_config = [
+        _mes_anterior(anio_central, mes_central),
+        (anio_central, mes_central),
+        _mes_siguiente(anio_central, mes_central),
+    ]
+    hoy = date.today()
+    resultado = []
+    for anio, mes in meses_config:
+        semanas_raw = _construir_semanas(anio, mes)
+        semanas = []
+        for semana in semanas_raw:
+            dias = []
+            for dia in semana:
+                if dia['fecha'] is not None:
+                    fv = dia['fecha']
+                    datos_dia = cheques_por_dia.get(fv, {'recibidos': [], 'emitidos': []})
+                    recibidos = datos_dia['recibidos']
+                    emitidos = datos_dia['emitidos']
+                    todos = recibidos + emitidos
+                    visible = todos[:3]
+                    ocultos = todos[3:]
+                else:
+                    recibidos = []
+                    emitidos = []
+                    visible = []
+                    ocultos = []
+                    fv = None
+
+                dias.append({
+                    'fecha': fv,
+                    'dia_numero': dia['dia_numero'],
+                    'pertenece_al_mes': dia['pertenece_al_mes'],
+                    'es_hoy': fv == hoy if fv else False,
+                    'recibidos': recibidos,
+                    'emitidos': emitidos,
+                    'chips_visibles': visible,
+                    'chips_ocultos': ocultos,
+                    'total_cheques': len(recibidos) + len(emitidos),
+                })
+            semanas.append(dias)
+        resultado.append({
+            'nombre': _NOMBRES_MESES[mes - 1],
+            'anio': anio,
+            'mes': mes,
+            'semanas': semanas,
+        })
+    return resultado
+
+
+# ---------------------------------------------------------------------------
+# Vista calendario de cheques
+# ---------------------------------------------------------------------------
+
+
+@bp.route('/cheques/calendario')
+@login_required
+@empresa_aprobada_required
+def calendario_cheques():
+    """Vista calendario de cheques: 3 meses simultáneos."""
+    # Parsear mes_central (YYYY-MM, default = mes actual)
+    hoy = date.today()
+    mes_central_param = request.args.get('mes_central', '')
+    try:
+        dt = datetime.strptime(mes_central_param, '%Y-%m')
+        anio_central = dt.year
+        mes_central = dt.month
+    except (ValueError, TypeError):
+        anio_central = hoy.year
+        mes_central = hoy.month
+
+    # Rango de fechas: primer día del mes anterior → último día del mes siguiente
+    anio_prev, mes_prev = _mes_anterior(anio_central, mes_central)
+    anio_next, mes_next = _mes_siguiente(anio_central, mes_central)
+    fecha_inicio = _primer_dia(anio_prev, mes_prev)
+    fecha_fin = _ultimo_dia(anio_next, mes_next)
+
+    # Query: todos los cheques de la empresa en el rango (sin filtrar por estado)
+    cheques = (
+        Cheque.query_empresa()
+        .filter(
+            Cheque.fecha_vencimiento >= fecha_inicio,
+            Cheque.fecha_vencimiento <= fecha_fin,
+        )
+        .all()
+    )
+
+    cheques_por_dia = _agrupar_cheques_por_dia(cheques)
+    meses = _construir_meses(anio_central, mes_central, cheques_por_dia)
+
+    # URLs de navegación
+    anio_prev_nav, mes_prev_nav = _mes_anterior(anio_central, mes_central)
+    anio_next_nav, mes_next_nav = _mes_siguiente(anio_central, mes_central)
+    prev_url = url_for(
+        'ventas.calendario_cheques',
+        mes_central=f'{anio_prev_nav:04d}-{mes_prev_nav:02d}',
+    )
+    next_url = url_for(
+        'ventas.calendario_cheques',
+        mes_central=f'{anio_next_nav:04d}-{mes_next_nav:02d}',
+    )
+    hoy_url = url_for('ventas.calendario_cheques')
+
+    return render_template(
+        'ventas/calendario_cheques.html',
+        meses=meses,
+        mes_central_anio=anio_central,
+        mes_central_mes=mes_central,
+        mes_central_nombre=_NOMBRES_MESES[mes_central - 1],
+        prev_url=prev_url,
+        next_url=next_url,
+        hoy_url=hoy_url,
+        hoy=hoy,
+    )
