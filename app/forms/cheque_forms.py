@@ -2,7 +2,14 @@
 
 from flask_login import current_user
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, DateField, DecimalField, IntegerField, SelectField, StringField, TextAreaField
+from wtforms import (
+    BooleanField,
+    DateField,
+    DecimalField,
+    SelectField,
+    StringField,
+    TextAreaField,
+)
 from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
 from ..models.banco import Banco
@@ -51,14 +58,8 @@ class ChequeEmitidoForm(FlaskForm):
         render_kw={'placeholder': '0.00', 'step': '0.01', 'min': '0.01'},
     )
 
-    cliente_id = IntegerField(
-        'Destinatario',
-        validators=[Optional()],
-        default=0,
-    )
-
     destinatario = StringField(
-        'O escribir nombre',
+        'Destinatario',
         validators=[
             Optional(),
             Length(
@@ -96,16 +97,3 @@ class ChequeEmitidoForm(FlaskForm):
         except Exception:
             self.banco_id.choices = []
 
-    def validate(self, extra_validators=None):
-        """Valida que se haya elegido un cliente o escrito un destinatario."""
-        if not super().validate(extra_validators):
-            return False
-
-        cliente_elegido = self.cliente_id.data and self.cliente_id.data != 0
-        destinatario_escrito = self.destinatario.data and self.destinatario.data.strip()
-
-        if not cliente_elegido and not destinatario_escrito:
-            self.destinatario.errors.append('Debe seleccionar un cliente o escribir un destinatario')
-            return False
-
-        return True

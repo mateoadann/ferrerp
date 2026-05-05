@@ -542,8 +542,8 @@ class TestCrearChequeEmitido:
         assert cheque is not None
         assert cheque.tipo_cheque == 'echeq'
 
-    def test_crear_cheque_emitido_sin_destinatario_falla(self, app_con_login):
-        """POST /ventas/cheques/emitido sin destinatario redirige con error."""
+    def test_crear_cheque_emitido_sin_destinatario_y_sin_cliente_funciona(self, app_con_login):
+        """POST /ventas/cheques/emitido sin destinatario ni cliente crea el cheque correctamente."""
         empresa = _crear_empresa_aprobada()
         usuario = _crear_usuario_con_email(empresa.id)
         banco = _crear_banco(empresa.id)
@@ -561,15 +561,18 @@ class TestCrearChequeEmitido:
                     date.today() + timedelta(days=30)
                 ).isoformat(),
                 'importe': '5000.00',
-                # destinatario omitido
+                # destinatario omitido intencionalmente
             },
             follow_redirects=False,
         )
 
-        # Redirige (validación falla, no crea cheque)
+        # Debe redirigir correctamente (cheque creado)
         assert resp.status_code == 302
         cheque = Cheque.query.filter_by(numero_cheque='11111111').first()
-        assert cheque is None
+        assert cheque is not None
+        assert cheque.tipo == 'emitido'
+        assert cheque.cliente_id is None
+        assert cheque.destinatario is None or cheque.destinatario == ''
 
     def test_crear_cheque_emitido_sin_importe_falla(self, app_con_login):
         """POST /ventas/cheques/emitido sin importe no crea cheque."""
