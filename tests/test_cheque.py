@@ -637,8 +637,8 @@ class TestChequeEmitidoFormValidacion:
                 form = ChequeEmitidoForm()
                 assert form.validate() is True
 
-    def test_form_sin_destinatario_invalido(self, app):
-        """Formulario sin destinatario no pasa validación."""
+    def test_form_sin_destinatario_es_valido(self, app):
+        """Formulario sin destinatario pasa validación (destinatario es opcional)."""
         from app.forms.cheque_forms import ChequeEmitidoForm
 
         empresa = _crear_empresa()
@@ -661,8 +661,7 @@ class TestChequeEmitidoFormValidacion:
         ):
             with patch('app.forms.cheque_forms.current_user', usuario):
                 form = ChequeEmitidoForm()
-                assert form.validate() is False
-                assert 'destinatario' in form.errors
+                assert form.validate() is True
 
     def test_form_sin_numero_cheque_invalido(self, app):
         """Formulario sin numero_cheque no pasa validación."""
