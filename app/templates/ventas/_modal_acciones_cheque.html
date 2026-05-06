@@ -15,8 +15,10 @@
                 <dl class="row mb-3">
                     <dt class="col-4 text-muted">Numero:</dt>
                     <dd class="col-8">{{ cheque.numero_cheque }}</dd>
+                    {% if cheque.tipo == 'emitido' %}
                     <dt class="col-4 text-muted">Banco:</dt>
                     <dd class="col-8">{{ cheque.banco.nombre if cheque.banco else '-' }}</dd>
+                    {% endif %}
                     <dt class="col-4 text-muted">Importe:</dt>
                     <dd class="col-8 fw-bold">{{ cheque.importe|currency }}</dd>
                     <dt class="col-4 text-muted">Estado actual:</dt>

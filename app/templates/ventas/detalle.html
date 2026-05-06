@@ -270,7 +270,7 @@
                 {% endfor %}
 
                 {% if diferencia_cheque > 0 %}
-                <div class="alert alert-success d-flex align-items-center gap-2 mb-0 mt-3 py-2">
+                <div class="alert alert-success alert-permanent d-flex align-items-center gap-2 mb-0 mt-3 py-2">
                     <span class="material-symbols-rounded" style="font-size:18px;">trending_up</span>
                     <span>Saldo a favor del cliente: <strong>{{ diferencia_cheque|currency }}</strong></span>
                 </div>
