@@ -256,12 +256,12 @@
                             </div>
                             <div>
                                 <span class="badge
-                                    {% if cheque.estado == 'en_cartera' %}bg-warning text-dark
-                                    {% elif cheque.estado == 'cobrado' %}badge-success
+                                    {% if cheque.estado in ('en_cartera', 'emitido') %}bg-warning text-dark
+                                    {% elif cheque.estado in ('cobrado', 'pagado') %}badge-success
                                     {% elif cheque.estado == 'endosado' %}badge-info
                                     {% elif cheque.estado == 'sin_fondos' %}badge-danger
                                     {% else %}bg-secondary{% endif %}">
-                                    {{ cheque.estado|replace('_', ' ')|title }}
+                                    {{ cheque|etiqueta_estado_cheque }}
                                 </span>
                             </div>
                         </div>

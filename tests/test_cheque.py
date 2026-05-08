@@ -53,13 +53,24 @@ def _crear_banco(empresa_id, nombre='Banco Nacion'):
 
 
 def _crear_cheque(empresa_id, usuario_id, **kwargs):
-    """Helper: crea un cheque con datos por defecto."""
+    """Helper: crea un cheque con datos por defecto.
+
+    El estado por defecto se ajusta según el tipo:
+    - tipo='recibido' (default) -> estado='en_cartera'
+    - tipo='emitido'             -> estado='emitido'
+    El caller puede sobreescribir cualquiera con kwargs.
+    """
     # Si no se pasa banco_id, crear uno automáticamente
     if 'banco_id' not in kwargs:
         banco = Banco.query.filter_by(empresa_id=empresa_id).first()
         if not banco:
             banco = _crear_banco(empresa_id)
         kwargs['banco_id'] = banco.id
+
+    tipo_default = kwargs.get('tipo', 'recibido')
+    estado_default = (
+        'emitido' if tipo_default == 'emitido' else 'en_cartera'
+    )
 
     datos = {
         'numero_cheque': '00012345',
@@ -68,7 +79,7 @@ def _crear_cheque(empresa_id, usuario_id, **kwargs):
         'importe': Decimal('5000.00'),
         'referencia_tipo': 'venta',
         'referencia_id': 1,
-        'estado': 'en_cartera',
+        'estado': estado_default,
         'empresa_id': empresa_id,
         'usuario_id': usuario_id,
     }
@@ -233,7 +244,7 @@ class TestChequeModelo:
         }
 
     def test_transiciones_disponibles_emitido(self, app):
-        """Un cheque emitido en_cartera solo puede ir a cobrado."""
+        """Un cheque emitido puede ir a pagado o sin_fondos."""
         empresa = _crear_empresa()
         usuario = _crear_usuario(empresa.id)
         db.session.commit()
@@ -242,11 +253,13 @@ class TestChequeModelo:
             empresa_id=empresa.id,
             usuario_id=usuario.id,
             tipo='emitido',
-            estado='en_cartera',
+            estado='emitido',
             destinatario='Proveedor X',
         )
 
-        assert cheque.transiciones_disponibles == ['cobrado']
+        assert set(cheque.transiciones_disponibles) == {
+            'pagado', 'sin_fondos',
+        }
 
     def test_transiciones_disponibles_estado_terminal(self, app):
         """Un cheque en estado terminal no tiene transiciones."""
@@ -284,13 +297,34 @@ class TestTransicionValida:
         from app.models.cheque import transicion_valida
         assert transicion_valida('recibido', 'en_cartera', 'sin_fondos') is True
 
-    def test_emitido_en_cartera_a_cobrado(self, app):
+    def test_emitido_a_pagado(self, app):
         from app.models.cheque import transicion_valida
-        assert transicion_valida('emitido', 'en_cartera', 'cobrado') is True
+        assert transicion_valida('emitido', 'emitido', 'pagado') is True
+
+    def test_emitido_a_sin_fondos(self, app):
+        from app.models.cheque import transicion_valida
+        assert transicion_valida('emitido', 'emitido', 'sin_fondos') is True
 
     def test_emitido_no_puede_endosar(self, app):
         from app.models.cheque import transicion_valida
-        assert transicion_valida('emitido', 'en_cartera', 'endosado') is False
+        assert transicion_valida('emitido', 'emitido', 'endosado') is False
+
+    def test_emitido_no_puede_estar_en_cartera(self, app):
+        """Un cheque emitido no usa el estado 'en_cartera' (es de recibidos)."""
+        from app.models.cheque import transicion_valida
+        # No definimos transición desde 'en_cartera' para emitidos
+        assert transicion_valida('emitido', 'en_cartera', 'pagado') is False
+
+    def test_pagado_es_terminal(self, app):
+        """Un cheque emitido pagado no puede cambiar de estado (terminal)."""
+        from app.models.cheque import transicion_valida
+        assert transicion_valida('emitido', 'pagado', 'sin_fondos') is False
+        assert transicion_valida('emitido', 'pagado', 'emitido') is False
+
+    def test_emitido_sin_fondos_es_terminal(self, app):
+        """Un cheque emitido sin_fondos es terminal."""
+        from app.models.cheque import transicion_valida
+        assert transicion_valida('emitido', 'sin_fondos', 'pagado') is False
 
     def test_cobrado_no_puede_cambiar(self, app):
         from app.models.cheque import transicion_valida
@@ -503,7 +537,7 @@ class TestCrearChequeEmitido:
         cheque = Cheque.query.filter_by(numero_cheque='55667788').first()
         assert cheque is not None
         assert cheque.tipo == 'emitido'
-        assert cheque.estado == 'en_cartera'
+        assert cheque.estado == 'emitido'
         assert cheque.tipo_cheque == 'cheque'
         assert cheque.destinatario == 'Proveedor ABC'
         assert cheque.importe == Decimal('15000.00')
@@ -767,8 +801,8 @@ class TestCambiarEstadoCheque:
         db.session.refresh(cheque)
         assert cheque.estado == 'sin_fondos'
 
-    def test_emitido_en_cartera_a_cobrado(self, app_con_login):
-        """Emitido en_cartera -> cobrado es válido."""
+    def test_cheque_emitido_transicion_emitido_a_pagado(self, app_con_login):
+        """Emitido emitido -> pagado es válido."""
         empresa = _crear_empresa_aprobada()
         usuario = _crear_usuario_con_email(empresa.id)
         db.session.commit()
@@ -777,22 +811,22 @@ class TestCambiarEstadoCheque:
             empresa_id=empresa.id,
             usuario_id=usuario.id,
             tipo='emitido',
-            estado='en_cartera',
+            estado='emitido',
             destinatario='Proveedor Y',
         )
 
         client = _login_client(app_con_login, usuario)
         resp = client.post(
             f'/ventas/cheques/{cheque.id}/cambiar-estado',
-            data={'nuevo_estado': 'cobrado'},
+            data={'nuevo_estado': 'pagado'},
         )
 
         assert resp.status_code == 200
         db.session.refresh(cheque)
-        assert cheque.estado == 'cobrado'
+        assert cheque.estado == 'pagado'
 
-    def test_emitido_no_puede_endosar(self, app_con_login):
-        """Emitido en_cartera -> endosado es inválido (retorna 422)."""
+    def test_cheque_emitido_transicion_emitido_a_sin_fondos(self, app_con_login):
+        """Emitido emitido -> sin_fondos es válido."""
         empresa = _crear_empresa_aprobada()
         usuario = _crear_usuario_con_email(empresa.id)
         db.session.commit()
@@ -801,7 +835,57 @@ class TestCambiarEstadoCheque:
             empresa_id=empresa.id,
             usuario_id=usuario.id,
             tipo='emitido',
-            estado='en_cartera',
+            estado='emitido',
+            destinatario='Proveedor SF',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.post(
+            f'/ventas/cheques/{cheque.id}/cambiar-estado',
+            data={'nuevo_estado': 'sin_fondos'},
+        )
+
+        assert resp.status_code == 200
+        db.session.refresh(cheque)
+        assert cheque.estado == 'sin_fondos'
+
+    def test_cheque_emitido_transicion_invalida_pagado_a_sin_fondos(
+        self, app_con_login
+    ):
+        """Un cheque emitido en estado terminal pagado no puede cambiar."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='pagado',
+            destinatario='Proveedor Pagado',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.post(
+            f'/ventas/cheques/{cheque.id}/cambiar-estado',
+            data={'nuevo_estado': 'sin_fondos'},
+        )
+
+        assert resp.status_code == 422
+        db.session.refresh(cheque)
+        assert cheque.estado == 'pagado'
+
+    def test_emitido_no_puede_endosar(self, app_con_login):
+        """Emitido emitido -> endosado es inválido (retorna 422)."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
             destinatario='Proveedor Z',
         )
 
@@ -813,7 +897,7 @@ class TestCambiarEstadoCheque:
 
         assert resp.status_code == 422
         db.session.refresh(cheque)
-        assert cheque.estado == 'en_cartera'
+        assert cheque.estado == 'emitido'
 
     def test_estado_terminal_no_puede_cambiar(self, app_con_login):
         """Un cheque cobrado no puede cambiar de estado (retorna 422)."""
@@ -933,12 +1017,12 @@ class TestAgendaTabFiltrado:
             estado='en_cartera',
             numero_cheque='REC001',
         )
-        # Crear cheque emitido en_cartera (no debe aparecer)
+        # Crear cheque emitido (estado vivo 'emitido', no debe aparecer)
         _crear_cheque(
             empresa_id=empresa.id,
             usuario_id=usuario.id,
             tipo='emitido',
-            estado='en_cartera',
+            estado='emitido',
             numero_cheque='EMI001',
             destinatario='Proveedor Tab',
         )
@@ -968,7 +1052,7 @@ class TestAgendaTabFiltrado:
             empresa_id=empresa.id,
             usuario_id=usuario.id,
             tipo='emitido',
-            estado='en_cartera',
+            estado='emitido',
             numero_cheque='EMI002',
             destinatario='Proveedor Tab2',
         )
@@ -998,7 +1082,7 @@ class TestAgendaTabFiltrado:
             empresa_id=empresa.id,
             usuario_id=usuario.id,
             tipo='emitido',
-            estado='en_cartera',
+            estado='emitido',
             numero_cheque='EMI003',
             destinatario='Proveedor Default',
         )
@@ -1353,3 +1437,246 @@ class TestVentaAnularCheque:
         # Verificar que el cheque volvió a en_cartera (no anulado)
         db.session.refresh(cheque)
         assert cheque.estado == 'en_cartera'
+
+
+# ---------------------------------------------------------------------------
+# Tests de KPIs monetarios para cheques emitidos
+# ---------------------------------------------------------------------------
+
+
+class TestKpiChequesEmitidos:
+    """KPIs Vencidos y Prox. a vencer ahora devuelven monto, no cantidad."""
+
+    def test_kpi_vencidos_devuelve_monto(self, app_con_login):
+        """La card 'Vencidos' suma los importes de cheques emitidos vencidos."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        db.session.commit()
+
+        # Dos cheques vencidos por importes distintos
+        _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='VENC001',
+            destinatario='Proveedor 1',
+            importe=Decimal('1000.00'),
+            fecha_vencimiento=date.today() - timedelta(days=5),
+        )
+        _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='VENC002',
+            destinatario='Proveedor 2',
+            importe=Decimal('2500.50'),
+            fecha_vencimiento=date.today() - timedelta(days=1),
+        )
+        # Otro pagado (no debe contar)
+        _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='pagado',
+            numero_cheque='PAG001',
+            destinatario='Proveedor 3',
+            importe=Decimal('999.99'),
+            fecha_vencimiento=date.today() - timedelta(days=10),
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get('/ventas/cheques?tab=por_pagar')
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        # 1000 + 2500.50 = 3500.50; el filter currency formatea con coma
+        assert '$3,500.50' in html
+
+    def test_kpi_proximos_devuelve_monto(self, app_con_login):
+        """La card 'Prox. a vencer' suma importes de cheques próximos a vencer."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        db.session.commit()
+
+        _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='PROX001',
+            destinatario='Proveedor 1',
+            importe=Decimal('1500.00'),
+            fecha_vencimiento=date.today() + timedelta(days=2),
+        )
+        _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='PROX002',
+            destinatario='Proveedor 2',
+            importe=Decimal('500.00'),
+            fecha_vencimiento=date.today() + timedelta(days=5),
+        )
+        # Cheque más allá de los 7 días: no cuenta
+        _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='LEJOS001',
+            destinatario='Proveedor 3',
+            importe=Decimal('99999.00'),
+            fecha_vencimiento=date.today() + timedelta(days=30),
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get('/ventas/cheques?tab=por_pagar')
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        # 1500 + 500 = 2000.00
+        assert '$2,000.00' in html
+
+
+# ---------------------------------------------------------------------------
+# Tests de filtros KPI (renombrado a_cobrar -> a_pagar para emitidos)
+# ---------------------------------------------------------------------------
+
+
+class TestFiltroKpiAPagar:
+    """El filtro 'a_pagar' (tab emitidos) filtra cheques con vencimiento <= hoy."""
+
+    def test_filtro_kpi_a_pagar_filtra_emitidos(self, app_con_login):
+        """filtro_kpi=a_pagar en tab por_pagar filtra cheques vencidos+hoy."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        db.session.commit()
+
+        # Vencido: debe aparecer
+        _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='VENCAPAGAR',
+            destinatario='Proveedor V',
+            fecha_vencimiento=date.today() - timedelta(days=2),
+        )
+        # Futuro: no debe aparecer
+        _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='FUTUROAPAGAR',
+            destinatario='Proveedor F',
+            fecha_vencimiento=date.today() + timedelta(days=30),
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(
+            '/ventas/cheques?tab=por_pagar&filtro_kpi=a_pagar'
+        )
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'VENCAPAGAR' in html
+        assert 'FUTUROAPAGAR' not in html
+
+    def test_filtro_kpi_a_cobrar_compat_emitidos(self, app_con_login):
+        """Compat: 'a_cobrar' en tab por_pagar se trata igual que 'a_pagar'."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        db.session.commit()
+
+        _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='COMPATVENC',
+            destinatario='Proveedor C',
+            fecha_vencimiento=date.today() - timedelta(days=3),
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(
+            '/ventas/cheques?tab=por_pagar&filtro_kpi=a_cobrar'
+        )
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'COMPATVENC' in html
+
+
+# ---------------------------------------------------------------------------
+# Tests de estados nuevos para cheques emitidos
+# ---------------------------------------------------------------------------
+
+
+class TestEstadosEmitidos:
+    """Tests de los estados específicos para cheques emitidos."""
+
+    def test_etiqueta_estado_emitido(self, app):
+        """etiqueta_estado para tipo emitido devuelve etiquetas correctas."""
+        from app.models.cheque import etiqueta_estado
+
+        assert etiqueta_estado('emitido', 'emitido') == 'Emitido'
+        assert etiqueta_estado('emitido', 'pagado') == 'Pagado'
+        assert etiqueta_estado('emitido', 'sin_fondos') == 'Sin fondos'
+
+    def test_etiqueta_estado_recibido(self, app):
+        """etiqueta_estado para tipo recibido devuelve etiquetas correctas."""
+        from app.models.cheque import etiqueta_estado
+
+        assert etiqueta_estado('recibido', 'en_cartera') == 'En cartera'
+        assert etiqueta_estado('recibido', 'cobrado') == 'Cobrado'
+        assert etiqueta_estado('recibido', 'endosado') == 'Endosado'
+        assert etiqueta_estado('recibido', 'sin_fondos') == 'Sin fondos'
+
+    def test_esta_pendiente_emitido(self, app):
+        """esta_pendiente devuelve True para emitido en estado 'emitido'."""
+        empresa = _crear_empresa()
+        usuario = _crear_usuario(empresa.id)
+        db.session.commit()
+
+        cheque_pendiente = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            destinatario='Proveedor P',
+        )
+        assert cheque_pendiente.esta_pendiente is True
+
+    def test_esta_pendiente_emitido_pagado(self, app):
+        """esta_pendiente devuelve False para emitido en estado 'pagado'."""
+        empresa = _crear_empresa()
+        usuario = _crear_usuario(empresa.id)
+        db.session.commit()
+
+        cheque_pagado = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='pagado',
+            destinatario='Proveedor Pa',
+        )
+        assert cheque_pagado.esta_pendiente is False
+
+    def test_esta_pendiente_recibido(self, app):
+        """esta_pendiente devuelve True para recibido en_cartera."""
+        empresa = _crear_empresa()
+        usuario = _crear_usuario(empresa.id)
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='recibido',
+            estado='en_cartera',
+        )
+        assert cheque.esta_pendiente is True

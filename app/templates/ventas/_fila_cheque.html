@@ -1,6 +1,6 @@
 <tr id="cheque-{{ cheque.id }}"
-    class="{% if cheque.estado == 'en_cartera' and cheque.esta_vencido %}table-danger{% elif cheque.estado == 'en_cartera' and cheque.esta_proximo_a_vencer %}table-warning{% endif %}"
-    {% if cheque.estado == 'en_cartera' and cheque.fecha_vencimiento and not cheque.esta_vencido and cheque.fecha_vencimiento > hoy and cheque.fecha_vencimiento <= en_5_dias %}style="background-color: #fff9c4;"{% endif %}>
+    class="{% if cheque.esta_pendiente and cheque.esta_vencido %}table-danger{% elif cheque.esta_pendiente and cheque.esta_proximo_a_vencer %}table-warning{% endif %}"
+    {% if cheque.esta_pendiente and cheque.fecha_vencimiento and not cheque.esta_vencido and cheque.fecha_vencimiento > hoy and cheque.fecha_vencimiento <= en_5_dias %}style="background-color: #fff9c4;"{% endif %}>
     <td class="table-code">{{ cheque.numero_cheque }}</td>
     {% if tab == 'por_pagar' %}
     <td>{{ cheque.banco.nombre if cheque.banco else '-' }}</td>
@@ -10,12 +10,12 @@
     {% endif %}
     <td class="text-end fw-bold">{{ cheque.importe|currency }}</td>
     <td>
-        {% if cheque.estado == 'en_cartera' and cheque.esta_vencido %}
+        {% if cheque.esta_pendiente and cheque.esta_vencido %}
         <span class="text-danger fw-semibold" title="Vencido">
             {{ cheque.fecha_vencimiento.strftime('%d/%m/%Y') }}
             <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">error</span>
         </span>
-        {% elif cheque.estado == 'en_cartera' and cheque.esta_proximo_a_vencer %}
+        {% elif cheque.esta_pendiente and cheque.esta_proximo_a_vencer %}
         <span class="text-warning fw-semibold" title="Proximo a vencer">
             {{ cheque.fecha_vencimiento.strftime('%d/%m/%Y') }}
             <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">warning</span>
@@ -25,17 +25,17 @@
         {% endif %}
     </td>
     <td>
-        {% if cheque.estado == 'en_cartera' and cheque.fecha_vencimiento == hoy %}
+        {% if cheque.esta_pendiente and cheque.fecha_vencimiento == hoy %}
         <span class="badge text-white"
-              style="background-color:#ff9800;">Por cobrar hoy</span>
-        {% elif cheque.estado == 'en_cartera' %}
-        <span class="badge bg-warning text-dark">En cartera</span>
-        {% elif cheque.estado == 'cobrado' %}
-        <span class="badge bg-success">Cobrado</span>
+              style="background-color:#ff9800;">{{ 'Por cobrar hoy' if cheque.tipo == 'recibido' else 'Por pagar hoy' }}</span>
+        {% elif cheque.estado in ('en_cartera', 'emitido') %}
+        <span class="badge bg-warning text-dark">{{ cheque|etiqueta_estado_cheque }}</span>
+        {% elif cheque.estado == 'cobrado' or cheque.estado == 'pagado' %}
+        <span class="badge bg-success">{{ cheque|etiqueta_estado_cheque }}</span>
         {% elif cheque.estado == 'endosado' %}
-        <span class="badge bg-info">Endosado</span>
+        <span class="badge bg-info">{{ cheque|etiqueta_estado_cheque }}</span>
         {% elif cheque.estado == 'sin_fondos' %}
-        <span class="badge bg-danger">Sin fondos</span>
+        <span class="badge bg-danger">{{ cheque|etiqueta_estado_cheque }}</span>
         {% endif %}
     </td>
     {% if tab == 'por_cobrar' %}
@@ -59,7 +59,7 @@
     {% endif %}
     <td>{{ cheque.created_at|datetime }}</td>
     <td>
-        {% if cheque.estado == 'en_cartera' %}
+        {% if cheque.esta_pendiente %}
         <button class="btn btn-sm btn-outline-primary"
                 title="Acciones"
                 data-bs-toggle="modal"

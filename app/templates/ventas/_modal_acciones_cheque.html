@@ -21,7 +21,7 @@
                     <dd class="col-8 fw-bold">{{ cheque.importe|currency }}</dd>
                     <dt class="col-4 text-muted">Estado actual:</dt>
                     <dd class="col-8">
-                        <span class="badge bg-warning text-dark">En cartera</span>
+                        <span class="badge bg-warning text-dark">{{ cheque|etiqueta_estado_cheque }}</span>
                     </dd>
                 </dl>
 
@@ -38,6 +38,7 @@
                             <option value="{{ estado }}">
                                 {% if estado == 'cobrado' %}Cobrado
                                 {% elif estado == 'endosado' %}Endosado
+                                {% elif estado == 'pagado' %}Pagado
                                 {% elif estado == 'sin_fondos' %}Sin fondos
                                 {% endif %}
                             </option>

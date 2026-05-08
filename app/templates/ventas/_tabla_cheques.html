@@ -33,7 +33,7 @@
                     <span class="material-symbols-rounded fs-1 text-danger">{% if tab == 'por_cobrar' %}today{% else %}error{% endif %}</span>
                     <div>
                         <div class="text-muted small">{{ 'A cobrar' if tab == 'por_cobrar' else 'Vencidos' }}</div>
-                        <div class="fs-4 fw-bold text-danger">{{ monto_hoy|currency if tab == 'por_cobrar' else cantidad_vencidos }}</div>
+                        <div class="fs-4 fw-bold text-danger">{{ (monto_hoy if tab == 'por_cobrar' else monto_vencidos)|currency }}</div>
                     </div>
                 </div>
             </div>
@@ -48,7 +48,7 @@
                     <span class="material-symbols-rounded fs-1 text-warning">{% if tab == 'por_cobrar' %}upcoming{% else %}warning{% endif %}</span>
                     <div>
                         <div class="text-muted small">{{ 'Prox. a cobrar (7d)' if tab == 'por_cobrar' else 'Prox. a vencer' }}</div>
-                        <div class="fs-4 fw-bold text-warning">{{ monto_proximos|currency if tab == 'por_cobrar' else cantidad_proximos }}</div>
+                        <div class="fs-4 fw-bold text-warning">{{ (monto_proximos if tab == 'por_cobrar' else monto_proximos_emitidos)|currency }}</div>
                     </div>
                 </div>
             </div>

@@ -859,30 +859,46 @@ def cheques():
     hoy = date.today()
     en_7_dias = hoy + timedelta(days=7)
 
-    # Determinar tipo según tab
+    # Determinar tipo y estado "vivo" (pendiente) según tab
     tipo_filtro = 'recibido' if tab == 'por_cobrar' else 'emitido'
+    estado_vivo = 'en_cartera' if tab == 'por_cobrar' else 'emitido'
 
     # Query base: todos los cheques del tipo seleccionado
     query = Cheque.query_empresa().filter(
         Cheque.tipo == tipo_filtro,
     )
 
-    # Filtro por KPI clickeado
-    if filtro_kpi == 'a_cobrar' and tab == 'por_cobrar':
+    # Filtro por KPI clickeado.
+    # Para tab por_pagar usamos 'a_pagar', pero también aceptamos 'a_cobrar'
+    # como compatibilidad con bookmarks viejos.
+    if (
+        tab == 'por_cobrar'
+        and filtro_kpi in ('a_cobrar', 'a_pagar')
+    ):
         query = query.filter(
-            Cheque.estado == 'en_cartera',
+            Cheque.estado == estado_vivo,
             Cheque.fecha_vencimiento <= hoy,
         )
     elif filtro_kpi == 'proximos':
         query = query.filter(
-            Cheque.estado == 'en_cartera',
+            Cheque.estado == estado_vivo,
             Cheque.fecha_vencimiento >= hoy,
             Cheque.fecha_vencimiento <= en_7_dias,
         )
     elif filtro_kpi == 'vencidos' and tab == 'por_pagar':
         query = query.filter(
-            Cheque.estado == 'en_cartera',
+            Cheque.estado == estado_vivo,
             Cheque.fecha_vencimiento < hoy,
+        )
+    elif (
+        tab == 'por_pagar'
+        and filtro_kpi in ('a_pagar', 'a_cobrar')
+    ):
+        # Compatibilidad: si llegara 'a_pagar' al tab emitidos lo tratamos
+        # como filtro vencidos+hoy (mismo concepto que en recibidos).
+        query = query.filter(
+            Cheque.estado == estado_vivo,
+            Cheque.fecha_vencimiento <= hoy,
         )
 
     # Búsqueda por número de cheque o nombre de banco
@@ -915,7 +931,7 @@ def cheques():
     # Estadísticas del tab activo (sin filtro de búsqueda)
     stats_query = Cheque.query_empresa().filter(
         Cheque.tipo == tipo_filtro,
-        Cheque.estado == 'en_cartera',
+        Cheque.estado == estado_vivo,
     )
     total_cheques = stats_query.count()
     monto_total = (
@@ -925,7 +941,7 @@ def cheques():
         .filter(
             Cheque.empresa_id == current_user.empresa_id,
             Cheque.tipo == tipo_filtro,
-            Cheque.estado == 'en_cartera',
+            Cheque.estado == estado_vivo,
         )
         .scalar()
     )
@@ -959,23 +975,37 @@ def cheques():
             )
             .scalar()
         )
-        cantidad_vencidos = 0
-        cantidad_proximos = 0
+        monto_vencidos = Decimal('0')
+        monto_proximos_emitidos = Decimal('0')
     else:
-        # KPIs de conteo para emitidos (solo en_cartera = pendientes)
+        # KPIs monetarios para emitidos (solo estado vivo = 'emitido')
         monto_hoy = Decimal('0')
         monto_proximos = Decimal('0')
-        kpi_emitidos = Cheque.query_empresa().filter(
-            Cheque.tipo == 'emitido',
-            Cheque.estado == 'en_cartera',
+        monto_vencidos = (
+            db.session.query(
+                db.func.coalesce(db.func.sum(Cheque.importe), 0)
+            )
+            .filter(
+                Cheque.empresa_id == current_user.empresa_id,
+                Cheque.tipo == 'emitido',
+                Cheque.estado == 'emitido',
+                Cheque.fecha_vencimiento < hoy,
+            )
+            .scalar()
         )
-        cantidad_vencidos = kpi_emitidos.filter(
-            Cheque.fecha_vencimiento < hoy,
-        ).count()
-        cantidad_proximos = kpi_emitidos.filter(
-            Cheque.fecha_vencimiento >= hoy,
-            Cheque.fecha_vencimiento <= en_7_dias,
-        ).count()
+        monto_proximos_emitidos = (
+            db.session.query(
+                db.func.coalesce(db.func.sum(Cheque.importe), 0)
+            )
+            .filter(
+                Cheque.empresa_id == current_user.empresa_id,
+                Cheque.tipo == 'emitido',
+                Cheque.estado == 'emitido',
+                Cheque.fecha_vencimiento >= hoy,
+                Cheque.fecha_vencimiento <= en_7_dias,
+            )
+            .scalar()
+        )
 
     # Paginar resultados
     cheques_pag = paginar_query(query, page)
@@ -1008,8 +1038,8 @@ def cheques():
             monto_total=monto_total,
             monto_hoy=monto_hoy,
             monto_proximos=monto_proximos,
-            cantidad_vencidos=cantidad_vencidos,
-            cantidad_proximos=cantidad_proximos,
+            monto_vencidos=monto_vencidos,
+            monto_proximos_emitidos=monto_proximos_emitidos,
             cheque_cliente_map=cheque_cliente_map,
             hoy=hoy,
             en_5_dias=en_5_dias,
@@ -1029,8 +1059,8 @@ def cheques():
         monto_total=monto_total,
         monto_hoy=monto_hoy,
         monto_proximos=monto_proximos,
-        cantidad_vencidos=cantidad_vencidos,
-        cantidad_proximos=cantidad_proximos,
+        monto_vencidos=monto_vencidos,
+        monto_proximos_emitidos=monto_proximos_emitidos,
         cheque_cliente_map=cheque_cliente_map,
         hoy=hoy,
         en_5_dias=en_5_dias,
@@ -1051,10 +1081,11 @@ def cheques_kpi():
     hoy = date.today()
     en_7_dias = hoy + timedelta(days=7)
     tipo_filtro = 'recibido' if tab == 'por_cobrar' else 'emitido'
+    estado_vivo = 'en_cartera' if tab == 'por_cobrar' else 'emitido'
 
     stats_query = Cheque.query_empresa().filter(
         Cheque.tipo == tipo_filtro,
-        Cheque.estado == 'en_cartera',
+        Cheque.estado == estado_vivo,
     )
     total_cheques = stats_query.count()
     monto_total = (
@@ -1064,7 +1095,7 @@ def cheques_kpi():
         .filter(
             Cheque.empresa_id == current_user.empresa_id,
             Cheque.tipo == tipo_filtro,
-            Cheque.estado == 'en_cartera',
+            Cheque.estado == estado_vivo,
         )
         .scalar()
     )
@@ -1095,22 +1126,36 @@ def cheques_kpi():
             )
             .scalar()
         )
-        cantidad_vencidos = 0
-        cantidad_proximos = 0
+        monto_vencidos = Decimal('0')
+        monto_proximos_emitidos = Decimal('0')
     else:
         monto_hoy = Decimal('0')
         monto_proximos = Decimal('0')
-        kpi_emitidos = Cheque.query_empresa().filter(
-            Cheque.tipo == 'emitido',
-            Cheque.estado == 'en_cartera',
+        monto_vencidos = (
+            db.session.query(
+                db.func.coalesce(db.func.sum(Cheque.importe), 0)
+            )
+            .filter(
+                Cheque.empresa_id == current_user.empresa_id,
+                Cheque.tipo == 'emitido',
+                Cheque.estado == 'emitido',
+                Cheque.fecha_vencimiento < hoy,
+            )
+            .scalar()
         )
-        cantidad_vencidos = kpi_emitidos.filter(
-            Cheque.fecha_vencimiento < hoy,
-        ).count()
-        cantidad_proximos = kpi_emitidos.filter(
-            Cheque.fecha_vencimiento >= hoy,
-            Cheque.fecha_vencimiento <= en_7_dias,
-        ).count()
+        monto_proximos_emitidos = (
+            db.session.query(
+                db.func.coalesce(db.func.sum(Cheque.importe), 0)
+            )
+            .filter(
+                Cheque.empresa_id == current_user.empresa_id,
+                Cheque.tipo == 'emitido',
+                Cheque.estado == 'emitido',
+                Cheque.fecha_vencimiento >= hoy,
+                Cheque.fecha_vencimiento <= en_7_dias,
+            )
+            .scalar()
+        )
 
     return render_template(
         'ventas/_kpi_cheques.html',
@@ -1121,8 +1166,8 @@ def cheques_kpi():
         monto_total=monto_total,
         monto_hoy=monto_hoy,
         monto_proximos=monto_proximos,
-        cantidad_vencidos=cantidad_vencidos,
-        cantidad_proximos=cantidad_proximos,
+        monto_vencidos=monto_vencidos,
+        monto_proximos_emitidos=monto_proximos_emitidos,
     )
 
 
@@ -1143,7 +1188,7 @@ def crear_cheque_emitido():
             fecha_vencimiento=form.fecha_vencimiento.data,
             importe=Decimal(str(form.importe.data)),
             tipo='emitido',
-            estado='en_cartera',
+            estado='emitido',
             destinatario=destinatario,
             observaciones=form.observaciones.data or None,
             referencia_tipo=None,
@@ -1209,14 +1254,11 @@ def cambiar_estado_cheque(id):
     cheque.estado = nuevo_estado
     db.session.commit()
 
-    etiquetas = {
-        'cobrado': 'Cobrado',
-        'endosado': 'Endosado',
-        'sin_fondos': 'Sin fondos',
-    }
+    from ..models.cheque import etiqueta_estado
+
     flash(
         f'Estado del cheque actualizado a '
-        f'{etiquetas.get(nuevo_estado, nuevo_estado)}.',
+        f'{etiqueta_estado(cheque.tipo, nuevo_estado)}.',
         'success',
     )
     resp = make_response(
@@ -1389,13 +1431,18 @@ def anular(id):
             )
             db.session.add(movimiento_caja)
 
-        # Devolver cheques asociados a la venta a en_cartera
+        # Devolver cheques asociados a la venta a su estado vivo.
+        # Los cheques que vienen como pago de una venta son recibidos,
+        # así que vuelven a 'en_cartera'. Mantenemos el switch por tipo
+        # por consistencia con la nueva máquina de estados.
         cheques_venta = Cheque.query.filter_by(
             referencia_tipo='venta',
             referencia_id=venta.id,
         ).all()
         for cheque in cheques_venta:
-            cheque.estado = 'en_cartera'
+            cheque.estado = (
+                'emitido' if cheque.tipo == 'emitido' else 'en_cartera'
+            )
 
         # Revertir consumo de saldo a favor si lo hubo
         if venta.cliente:
