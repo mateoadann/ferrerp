@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from flask import (
     Blueprint,
+    abort,
     flash,
     jsonify,
     make_response,
@@ -17,6 +18,7 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required
+from sqlalchemy import or_
 from werkzeug.exceptions import HTTPException
 
 from ..extensions import db
@@ -1176,9 +1178,14 @@ def acciones_cheque(id):
         empresa_id=current_user.empresa_id,
     ).first_or_404()
 
+    desde_calendario = request.args.get('desde_calendario', '').strip() in (
+        '1', 'true', 'si', 'sí',
+    )
+
     return render_template(
         'ventas/_modal_acciones_cheque.html',
         cheque=cheque,
+        desde_calendario=desde_calendario,
     )
 
 
@@ -1628,36 +1635,13 @@ def _construir_semanas(anio, mes):
     return semanas
 
 
-def _tooltip_cheque(cheque):
-    """Arma el texto del tooltip Bootstrap (HTML) para un chip de cheque."""
-    tipo_label = 'Recibido' if cheque.tipo == 'recibido' else 'Emitido'
-    estado_label = _ETIQUETAS_ESTADO.get(cheque.estado, cheque.estado)
+def _formatear_monto_compacto(importe):
+    """Formatea un Decimal de forma compacta para los recuadros del calendario.
 
-    importe_fmt = f'${cheque.importe:,.2f}'
-
-    partes = [
-        f'<strong>#{cheque.numero_cheque}</strong>',
-        tipo_label,
-        f'Importe: {importe_fmt}',
-    ]
-
-    if cheque.tipo == 'recibido':
-        if cheque.cliente:
-            partes.append(f'Cliente: {cheque.cliente.nombre}')
-    else:
-        if cheque.destinatario:
-            partes.append(f'Destinatario: {cheque.destinatario}')
-        banco = cheque.banco.nombre if cheque.banco else '-'
-        partes.append(f'Banco: {banco}')
-
-    partes.append(f'Estado: {estado_label}')
-
-    return '<br>'.join(partes)
-
-
-def _texto_chip(cheque):
-    """Texto breve para mostrar en el chip del calendario."""
-    importe = cheque.importe
+    Ejemplos: $999 → '$999', $40.000 → '$40k', $2.500.000 → '$2.5M'.
+    """
+    if importe is None:
+        return '$0'
     if importe >= 1_000_000:
         return f'${importe / 1_000_000:.1f}M'
     if importe >= 1_000:
@@ -1666,43 +1650,52 @@ def _texto_chip(cheque):
 
 
 def _agrupar_cheques_por_dia(cheques):
-    """Agrupa cheques por (fecha_vencimiento, tipo).
+    """Agrupa cheques por fecha de vencimiento sumando totales por tipo.
 
-    Retorna dict: fecha_date -> {'recibidos': list, 'emitidos': list}
-    Cada cheque en la lista lleva un campo extra 'tooltip' y 'chip_texto'.
+    Retorna dict: fecha_date -> {
+        'recibidos': {'total': Decimal, 'cantidad': int},
+        'emitidos': {'total': Decimal, 'cantidad': int},
+    }
     """
     agrupados = {}
     for cheque in cheques:
         fv = cheque.fecha_vencimiento
         if fv not in agrupados:
-            agrupados[fv] = {'recibidos': [], 'emitidos': []}
-        entrada = {
-            'id': cheque.id,
-            'numero_cheque': cheque.numero_cheque,
-            'importe': cheque.importe,
-            'estado': cheque.estado,
-            'tipo': cheque.tipo,
-            'tooltip': _tooltip_cheque(cheque),
-            'chip_texto': _texto_chip(cheque),
-        }
-        if cheque.tipo == 'recibido':
-            agrupados[fv]['recibidos'].append(entrada)
-        else:
-            agrupados[fv]['emitidos'].append(entrada)
+            agrupados[fv] = {
+                'recibidos': {'total': Decimal('0'), 'cantidad': 0},
+                'emitidos': {'total': Decimal('0'), 'cantidad': 0},
+            }
+        bucket = (
+            agrupados[fv]['recibidos']
+            if cheque.tipo == 'recibido'
+            else agrupados[fv]['emitidos']
+        )
+        bucket['total'] += cheque.importe
+        bucket['cantidad'] += 1
     return agrupados
 
 
 def _construir_meses(anio_central, mes_central, cheques_por_dia):
     """Construye la estructura de 3 meses para el template.
 
-    Retorna lista de 3 dicts con: nombre, anio, semanas.
+    Retorna lista de 3 dicts con: nombre, anio, mes, semanas.
+    La ventana es asimétrica: [mes_central, mes_central+1, mes_central+2].
+    El mes anterior no se muestra porque sus cheques ya están saldados.
+    Cada celda incluye totales por tipo de cheque.
     """
+    anio_m1, mes_m1 = (anio_central, mes_central)
+    anio_m2, mes_m2 = _mes_siguiente(anio_m1, mes_m1)
+    anio_m3, mes_m3 = _mes_siguiente(anio_m2, mes_m2)
     meses_config = [
-        _mes_anterior(anio_central, mes_central),
-        (anio_central, mes_central),
-        _mes_siguiente(anio_central, mes_central),
+        (anio_m1, mes_m1),
+        (anio_m2, mes_m2),
+        (anio_m3, mes_m3),
     ]
     hoy = date.today()
+    vacio = {
+        'recibidos': {'total': Decimal('0'), 'cantidad': 0},
+        'emitidos': {'total': Decimal('0'), 'cantidad': 0},
+    }
     resultado = []
     for anio, mes in meses_config:
         semanas_raw = _construir_semanas(anio, mes)
@@ -1710,31 +1703,26 @@ def _construir_meses(anio_central, mes_central, cheques_por_dia):
         for semana in semanas_raw:
             dias = []
             for dia in semana:
-                if dia['fecha'] is not None:
-                    fv = dia['fecha']
-                    datos_dia = cheques_por_dia.get(fv, {'recibidos': [], 'emitidos': []})
+                fv = dia['fecha']
+                if fv is not None:
+                    datos_dia = cheques_por_dia.get(fv, vacio)
                     recibidos = datos_dia['recibidos']
                     emitidos = datos_dia['emitidos']
-                    todos = recibidos + emitidos
-                    visible = todos[:3]
-                    ocultos = todos[3:]
                 else:
-                    recibidos = []
-                    emitidos = []
-                    visible = []
-                    ocultos = []
-                    fv = None
+                    recibidos = vacio['recibidos']
+                    emitidos = vacio['emitidos']
 
                 dias.append({
                     'fecha': fv,
                     'dia_numero': dia['dia_numero'],
                     'pertenece_al_mes': dia['pertenece_al_mes'],
                     'es_hoy': fv == hoy if fv else False,
-                    'recibidos': recibidos,
-                    'emitidos': emitidos,
-                    'chips_visibles': visible,
-                    'chips_ocultos': ocultos,
-                    'total_cheques': len(recibidos) + len(emitidos),
+                    'recibidos_total': recibidos['total'],
+                    'recibidos_cantidad': recibidos['cantidad'],
+                    'recibidos_total_fmt': _formatear_monto_compacto(recibidos['total']),
+                    'emitidos_total': emitidos['total'],
+                    'emitidos_cantidad': emitidos['cantidad'],
+                    'emitidos_total_fmt': _formatear_monto_compacto(emitidos['total']),
                 })
             semanas.append(dias)
         resultado.append({
@@ -1749,6 +1737,22 @@ def _construir_meses(anio_central, mes_central, cheques_por_dia):
 # ---------------------------------------------------------------------------
 # Vista calendario de cheques
 # ---------------------------------------------------------------------------
+
+
+def _parsear_banco_id(valor):
+    """Convierte un query param de banco_id a int o None.
+
+    Acepta '', 'todos', None o un int. Devuelve None si no hay filtro válido.
+    """
+    if valor is None:
+        return None
+    valor = str(valor).strip()
+    if valor == '' or valor.lower() == 'todos':
+        return None
+    try:
+        return int(valor)
+    except (ValueError, TypeError):
+        return None
 
 
 @bp.route('/cheques/calendario')
@@ -1767,37 +1771,68 @@ def calendario_cheques():
         anio_central = hoy.year
         mes_central = hoy.month
 
-    # Rango de fechas: primer día del mes anterior → último día del mes siguiente
-    anio_prev, mes_prev = _mes_anterior(anio_central, mes_central)
-    anio_next, mes_next = _mes_siguiente(anio_central, mes_central)
-    fecha_inicio = _primer_dia(anio_prev, mes_prev)
-    fecha_fin = _ultimo_dia(anio_next, mes_next)
+    # Filtro opcional por banco (solo afecta a cheques emitidos)
+    banco_id_param = request.args.get('banco_id', '')
+    banco_id_int = _parsear_banco_id(banco_id_param)
 
-    # Query: todos los cheques de la empresa en el rango (sin filtrar por estado)
-    cheques = (
-        Cheque.query_empresa()
-        .filter(
-            Cheque.fecha_vencimiento >= fecha_inicio,
-            Cheque.fecha_vencimiento <= fecha_fin,
-        )
-        .all()
+    # Rango de fechas (ventana asimétrica): primer día del mes central →
+    # último día del mes_central + 2. El mes anterior no se muestra porque sus
+    # cheques ya están saldados.
+    anio_m2, mes_m2 = _mes_siguiente(anio_central, mes_central)
+    anio_m3, mes_m3 = _mes_siguiente(anio_m2, mes_m2)
+    fecha_inicio = _primer_dia(anio_central, mes_central)
+    fecha_fin = _ultimo_dia(anio_m3, mes_m3)
+
+    # Query: solo cheques en cartera (los endosados/cobrados/sin_fondos ya no
+    # son del usuario y no deben sumarse en los totales del calendario).
+    q = Cheque.query_empresa().filter(
+        Cheque.fecha_vencimiento >= fecha_inicio,
+        Cheque.fecha_vencimiento <= fecha_fin,
+        Cheque.estado == 'en_cartera',
     )
+    if banco_id_int is not None:
+        # Recibidos no se filtran por banco (no tienen banco asociado).
+        # Emitidos sí se filtran por banco_id.
+        q = q.filter(
+            or_(
+                Cheque.tipo == 'recibido',
+                Cheque.banco_id == banco_id_int,
+            )
+        )
+    cheques = q.all()
 
     cheques_por_dia = _agrupar_cheques_por_dia(cheques)
     meses = _construir_meses(anio_central, mes_central, cheques_por_dia)
 
-    # URLs de navegación
+    # Bancos activos para el dropdown del filtro
+    bancos = (
+        Banco.query_empresa()
+        .filter_by(activo=True)
+        .order_by(Banco.nombre)
+        .all()
+    )
+
+    # URLs de navegación (preservando el banco_id si está set)
+    banco_id_str = str(banco_id_int) if banco_id_int is not None else ''
+    nav_kwargs = {}
+    if banco_id_str:
+        nav_kwargs['banco_id'] = banco_id_str
     anio_prev_nav, mes_prev_nav = _mes_anterior(anio_central, mes_central)
     anio_next_nav, mes_next_nav = _mes_siguiente(anio_central, mes_central)
     prev_url = url_for(
         'ventas.calendario_cheques',
         mes_central=f'{anio_prev_nav:04d}-{mes_prev_nav:02d}',
+        **nav_kwargs,
     )
     next_url = url_for(
         'ventas.calendario_cheques',
         mes_central=f'{anio_next_nav:04d}-{mes_next_nav:02d}',
+        **nav_kwargs,
     )
-    hoy_url = url_for('ventas.calendario_cheques')
+    hoy_url = url_for(
+        'ventas.calendario_cheques',
+        **nav_kwargs,
+    )
 
     return render_template(
         'ventas/calendario_cheques.html',
@@ -1809,4 +1844,43 @@ def calendario_cheques():
         next_url=next_url,
         hoy_url=hoy_url,
         hoy=hoy,
+        bancos=bancos,
+        banco_id_seleccionado=banco_id_str,
+    )
+
+
+@bp.route('/cheques/calendario/dia')
+@login_required
+@empresa_aprobada_required
+def calendario_cheques_dia():
+    """Devuelve el partial del sidenav con los cheques de un día y tipo dado."""
+    fecha_param = request.args.get('fecha', '').strip()
+    tipo_param = request.args.get('tipo', '').strip()
+    banco_id_int = _parsear_banco_id(request.args.get('banco_id', ''))
+
+    if tipo_param not in ('recibido', 'emitido'):
+        abort(400, description='Tipo de cheque inválido.')
+
+    try:
+        fecha_obj = datetime.strptime(fecha_param, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        abort(400, description='Fecha inválida (formato esperado YYYY-MM-DD).')
+
+    q = Cheque.query_empresa().filter(
+        Cheque.fecha_vencimiento == fecha_obj,
+        Cheque.tipo == tipo_param,
+        Cheque.estado == 'en_cartera',
+    )
+    # El filtro por banco solo aplica a cheques emitidos (los recibidos no tienen banco).
+    if tipo_param == 'emitido' and banco_id_int is not None:
+        q = q.filter(Cheque.banco_id == banco_id_int)
+
+    cheques = q.order_by(Cheque.importe.desc(), Cheque.numero_cheque).all()
+
+    return render_template(
+        'ventas/_sidenav_cheques_dia.html',
+        cheques=cheques,
+        fecha=fecha_obj,
+        tipo=tipo_param,
+        banco_id_actual=str(banco_id_int) if banco_id_int is not None else '',
     )

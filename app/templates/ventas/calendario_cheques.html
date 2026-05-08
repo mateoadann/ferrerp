@@ -31,41 +31,50 @@
   .cal-celda.hoy .cal-num-dia {
     color: #0d6efd;
   }
-  .cal-chips {
+  .cal-recuadros {
     display: flex;
     flex-direction: column;
     gap: 2px;
   }
-  .cal-chip {
-    font-size: 0.68rem;
-    line-height: 1.2;
-    padding: 1px 4px;
-    border-radius: 3px;
+  .cal-recuadro {
+    border: 0;
+    border-radius: 4px;
+    color: #fff;
     cursor: pointer;
+    padding: 2px 5px;
+    text-align: left;
+    line-height: 1.1;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+  }
+  .cal-recuadro:hover {
+    filter: brightness(1.07);
+  }
+  .cal-recuadro:focus {
+    outline: 2px solid #0d6efd;
+    outline-offset: 1px;
+  }
+  .recuadro-recibido {
+    background-color: #198754;
+  }
+  .recuadro-emitido {
+    background-color: #dc3545;
+  }
+  .cal-recuadro-monto {
+    font-size: 0.74rem;
+    font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 100%;
-    display: block;
-    text-decoration: none;
   }
-  .cal-chip.chip-recibido {
-    background-color: #198754;
-    color: #fff;
-  }
-  .cal-chip.chip-recibido.chip-cerrado {
-    opacity: 0.6;
-  }
-  .cal-chip.chip-emitido {
-    background-color: #dc3545;
-    color: #fff;
-  }
-  .cal-chip.chip-emitido.chip-cerrado {
-    opacity: 0.6;
-  }
-  .cal-chip.chip-mas {
-    background-color: #6c757d;
-    color: #fff;
+  .cal-recuadro-cantidad {
+    font-size: 0.62rem;
+    font-weight: 500;
+    opacity: 0.9;
+    white-space: nowrap;
   }
   .cal-header-dia {
     font-size: 0.72rem;
@@ -91,6 +100,14 @@
   table.cal-tabla th {
     width: 14.28%;
   }
+  /* Leyenda usa los mismos colores pero formato chip estático */
+  .cal-leyenda-chip {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: #fff;
+  }
 </style>
 {% endblock %}
 
@@ -110,11 +127,36 @@
   </div>
 </div>
 
-{# Leyenda #}
-<div class="d-flex align-items-center gap-3 mb-3 px-1">
-  <span class="cal-chip chip-recibido" style="position:static;font-size:0.75rem;padding:2px 8px;">Recibido</span>
-  <span class="cal-chip chip-emitido" style="position:static;font-size:0.75rem;padding:2px 8px;">Emitido</span>
-  <small class="text-muted">Los chips con menor opacidad corresponden a cheques ya cerrados (cobrados/endosados).</small>
+{# Leyenda + filtros #}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 px-1">
+  <div class="d-flex align-items-center gap-3">
+    <span class="cal-leyenda-chip recuadro-recibido">Recibidos</span>
+    <span class="cal-leyenda-chip recuadro-emitido">Emitidos</span>
+    <small class="text-muted">Cada recuadro muestra el total $ del día. Click para ver detalle.</small>
+  </div>
+  <form method="get" action="{{ url_for('ventas.calendario_cheques') }}" class="d-flex align-items-center gap-2">
+    <input
+      type="hidden"
+      name="mes_central"
+      value="{{ '%04d-%02d'|format(mes_central_anio, mes_central_mes) }}"
+    >
+    <label for="filtro-banco" class="form-label mb-0 small text-muted">Por banco:</label>
+    <select
+      id="filtro-banco"
+      name="banco_id"
+      class="form-select form-select-sm"
+      style="min-width: 180px;"
+      onchange="this.form.submit()"
+    >
+      <option value="">Todos los bancos</option>
+      {% for banco in bancos %}
+      <option
+        value="{{ banco.id }}"
+        {% if banco_id_seleccionado == banco.id|string %}selected{% endif %}
+      >{{ banco.nombre }}</option>
+      {% endfor %}
+    </select>
+  </form>
 </div>
 
 {# Botonera de navegación #}
@@ -134,18 +176,7 @@
 </div>
 
 {# Grilla de 3 meses #}
-<div
-  class="row g-3"
-  x-data="{
-    abierto: false,
-    chequesModal: [],
-    abrirModal(cheques) {
-      this.chequesModal = cheques;
-      this.abierto = true;
-    }
-  }"
->
-
+<div class="row g-3">
   {% for mes in meses %}
   <div class="col-lg-4 col-12">
     <div class="p-2 border rounded bg-white">
@@ -167,24 +198,38 @@
             <td class="cal-celda{% if not dia.pertenece_al_mes %} fuera-mes{% endif %}{% if dia.es_hoy %} hoy{% endif %}">
               {% if dia.fecha is not none %}
               <div class="cal-num-dia">{{ dia.dia_numero }}</div>
-              <div class="cal-chips">
-                {% for chip in dia.chips_visibles %}
-                {% set es_cerrado = chip.estado in ('cobrado', 'endosado', 'sin_fondos') %}
-                <span
-                  class="cal-chip chip-{{ chip.tipo }}{% if es_cerrado %} chip-cerrado{% endif %}"
-                  data-bs-toggle="tooltip"
-                  data-bs-placement="top"
-                  data-bs-html="true"
-                  title="{{ chip.tooltip }}"
-                >{{ chip.chip_texto }}</span>
-                {% endfor %}
-                {% if dia.chips_ocultos %}
-                {% set todos_dia = dia.chips_visibles + dia.chips_ocultos %}
-                <span
-                  class="cal-chip chip-mas"
-                  style="cursor:pointer;"
-                  @click="abrirModal({{ todos_dia | tojson }})"
-                >+{{ dia.chips_ocultos | length }} más</span>
+              <div class="cal-recuadros">
+                {% if dia.pertenece_al_mes and dia.recibidos_cantidad > 0 %}
+                <button
+                  type="button"
+                  class="cal-recuadro recuadro-recibido"
+                  hx-get="{{ url_for('ventas.calendario_cheques_dia') }}?fecha={{ dia.fecha.isoformat() }}&tipo=recibido"
+                  hx-target="#sidenav-cheques-dia"
+                  hx-swap="innerHTML"
+                  data-bs-toggle="offcanvas"
+                  data-bs-target="#sidenav-cheques-dia-offcanvas"
+                  aria-controls="sidenav-cheques-dia-offcanvas"
+                  title="Ver cheques recibidos del {{ dia.fecha.strftime('%d/%m/%Y') }}"
+                >
+                  <span class="cal-recuadro-monto">{{ dia.recibidos_total_fmt }}</span>
+                  <span class="cal-recuadro-cantidad">{{ dia.recibidos_cantidad }}</span>
+                </button>
+                {% endif %}
+                {% if dia.pertenece_al_mes and dia.emitidos_cantidad > 0 %}
+                <button
+                  type="button"
+                  class="cal-recuadro recuadro-emitido"
+                  hx-get="{{ url_for('ventas.calendario_cheques_dia') }}?fecha={{ dia.fecha.isoformat() }}&tipo=emitido{% if banco_id_seleccionado %}&banco_id={{ banco_id_seleccionado }}{% endif %}"
+                  hx-target="#sidenav-cheques-dia"
+                  hx-swap="innerHTML"
+                  data-bs-toggle="offcanvas"
+                  data-bs-target="#sidenav-cheques-dia-offcanvas"
+                  aria-controls="sidenav-cheques-dia-offcanvas"
+                  title="Ver cheques emitidos del {{ dia.fecha.strftime('%d/%m/%Y') }}"
+                >
+                  <span class="cal-recuadro-monto">{{ dia.emitidos_total_fmt }}</span>
+                  <span class="cal-recuadro-cantidad">{{ dia.emitidos_cantidad }}</span>
+                </button>
                 {% endif %}
               </div>
               {% else %}
@@ -199,74 +244,23 @@
     </div>
   </div>
   {% endfor %}
+</div>
 
-  {# Modal Alpine.js para día con muchos cheques #}
-  <div
-    class="modal fade"
-    id="modalChequesDelDia"
-    tabindex="-1"
-    :class="{ 'show d-block': abierto }"
-    @keydown.escape.window="abierto = false"
-    x-show="abierto"
-    x-cloak
-  >
-    <div class="modal-dialog modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Cheques del día</h5>
-          <button type="button" class="btn-close" @click="abierto = false"></button>
-        </div>
-        <div class="modal-body">
-          <template x-for="chip in chequesModal" :key="chip.id">
-            <div
-              class="d-flex align-items-center gap-2 mb-2 p-2 rounded border"
-              :class="chip.tipo === 'recibido' ? 'border-success' : 'border-danger'"
-            >
-              <span
-                class="badge"
-                :class="chip.tipo === 'recibido' ? 'bg-success' : 'bg-danger'"
-                x-text="chip.tipo === 'recibido' ? 'Recibido' : 'Emitido'"
-              ></span>
-              <div class="flex-grow-1">
-                <div class="fw-semibold" style="font-size:0.85rem;" x-text="'#' + chip.numero_cheque"></div>
-                <div class="text-muted" style="font-size:0.78rem;">
-                  <span x-text="'$' + parseFloat(chip.importe).toLocaleString('es-AR', {minimumFractionDigits:2})"></span>
-                  &mdash;
-                  <span x-text="chip.estado === 'en_cartera' ? 'En cartera' : chip.estado === 'cobrado' ? 'Cobrado' : chip.estado === 'endosado' ? 'Endosado' : 'Sin fondos'"></span>
-                </div>
-              </div>
-            </div>
-          </template>
-          <template x-if="chequesModal.length === 0">
-            <p class="text-muted">No hay cheques.</p>
-          </template>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary btn-sm" @click="abierto = false">Cerrar</button>
-        </div>
-      </div>
-    </div>
+{# Sidenav lateral derecho con detalle del día #}
+<div
+  class="offcanvas offcanvas-end"
+  tabindex="-1"
+  id="sidenav-cheques-dia-offcanvas"
+  aria-labelledby="sidenav-cheques-dia-titulo"
+  style="width: 480px;"
+>
+  <div id="sidenav-cheques-dia">
+    {# Se rellena vía HTMX al hacer click en un recuadro #}
   </div>
-  <div
-    class="modal-backdrop fade show"
-    x-show="abierto"
-    x-cloak
-    @click="abierto = false"
-  ></div>
+</div>
 
-</div>{# /row x-data #}
+{# Container donde HTMX inyecta el modal de cambio de estado.
+   Vive fuera del offcanvas para que el modal se monte limpio en el body. #}
+<div id="modal-acciones-cheque-container"></div>
 
-{% endblock %}
-
-{% block extra_js %}
-<script>
-(function () {
-  var tooltipEls = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-  tooltipEls.forEach(function (el) {
-    if (!bootstrap.Tooltip.getInstance(el)) {
-      new bootstrap.Tooltip(el, { html: true });
-    }
-  });
-})();
-</script>
 {% endblock %}

@@ -28,10 +28,15 @@
                 </dl>
 
                 {% set transiciones = cheque.transiciones_disponibles %}
+                {% set desde_calendario = desde_calendario|default(false) %}
                 {% if transiciones %}
                 <form hx-post="{{ url_for('ventas.cambiar_estado_cheque', id=cheque.id) }}"
+                      {% if desde_calendario %}
+                      hx-swap="none"
+                      {% else %}
                       hx-target="#cheque-{{ cheque.id }}"
-                      hx-swap="outerHTML">
+                      hx-swap="outerHTML"
+                      {% endif %}>
                     <div class="mb-3">
                         <label class="form-label">Nuevo estado</label>
                         <select name="nuevo_estado" class="form-select" required>
