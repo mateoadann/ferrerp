@@ -2010,6 +2010,73 @@ class TestEditarCheque:
         assert cheque_b.destinatario == 'Proveedor B'
         assert cheque_b.observaciones == 'Obs B'
 
+    def test_editar_cheque_actualiza_fila(self, app_con_login):
+        """POST editar dispara HX-Trigger=cheques-actualizados.
+
+        El listado escucha ese evento (wrapper #cheques-tabla-wrapper en
+        cheques.html) y refresca la tabla automaticamente, evitando el
+        recargar manual que el usuario tenia que hacer antes.
+        """
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        banco = _crear_banco(empresa.id, 'Banco Refresh')
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='REFRESH-001',
+            banco_id=banco.id,
+            importe=Decimal('1000.00'),
+            destinatario='Antes',
+            observaciones='Antes',
+        )
+        nueva_fecha = (date.today() + timedelta(days=10)).isoformat()
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.post(
+            f'/ventas/cheques/{cheque.id}/editar',
+            data={
+                'numero_cheque': 'REFRESH-001',
+                'banco_id': str(banco.id),
+                'fecha_vencimiento': nueva_fecha,
+                'importe': '1000.00',
+                'destinatario': 'Despues',
+                'observaciones': 'Despues',
+            },
+        )
+
+        assert resp.status_code == 200
+        # El header HX-Trigger es lo que dispara el refresh del listado
+        assert resp.headers.get('HX-Trigger') == 'cheques-actualizados'
+        # Y los cambios estan persistidos
+        db.session.refresh(cheque)
+        assert cheque.destinatario == 'Despues'
+        assert cheque.observaciones == 'Despues'
+
+    def test_listado_cheques_tiene_listener_de_refresh(
+        self, app_con_login
+    ):
+        """El listado debe tener un wrapper que escuche cheques-actualizados.
+
+        Sin esto, la tabla no se refresca tras editar un cheque.
+        """
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        db.session.commit()
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get('/ventas/cheques?tab=por_pagar')
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        # Existe el wrapper de la tabla con el id que se reemplaza
+        assert 'cheques-tabla-wrapper' in html
+        # Y el listener HTMX para el evento cheques-actualizados
+        assert 'cheques-actualizados from:body' in html
+
     def test_listado_cheques_renderiza_link_modal(self, app_con_login):
         """El listado de cheques debe renderizar el numero como link al modal de detalle."""
         empresa = _crear_empresa_aprobada()
