@@ -374,19 +374,21 @@ body {
     color: #E65100;
 }
 
-/* Badge especifico para cheques digitales (echeq).
-   Solo se muestra cuando cheque.tipo_cheque == 'echeq'. La ausencia
-   del badge indica un cheque fisico (caso default). */
-.badge-echeq {
+/* Marca minimalista para cheques digitales (echeq): cuadrado
+   redondeado de 20x20 con la letra "E". Solo se renderiza cuando
+   cheque.tipo_cheque == 'echeq'. La ausencia de la marca indica un
+   cheque fisico (caso default). */
+.marca-echeq {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    background-color: #DBEAFE;
-    color: #1D4ED8;
-}
-
-.badge-echeq .material-symbols-rounded {
-    font-size: 14px;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    background-color: #E6F1FB;
+    color: #185FA5;
+    font-size: 12px;
+    font-weight: 500;
     line-height: 1;
 }
 

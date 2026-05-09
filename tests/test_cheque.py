@@ -2062,9 +2062,9 @@ class TestModalDetalleBadgeYCamposVacios:
 
         assert resp.status_code == 200
         html = resp.data.decode()
-        # La clase del badge debe estar presente
-        assert 'badge-echeq' in html
-        # El texto visible "Echeq" debe estar presente
+        # La clase de la marca minimalista debe estar presente
+        assert 'marca-echeq' in html
+        # El atributo accesible "Echeq" debe estar presente (title/aria-label)
         assert 'Echeq' in html
 
     def test_modal_detalle_no_muestra_badge_si_cheque_fisico(
@@ -2090,8 +2090,8 @@ class TestModalDetalleBadgeYCamposVacios:
 
         assert resp.status_code == 200
         html = resp.data.decode()
-        # La clase del badge NO debe estar
-        assert 'badge-echeq' not in html
+        # La clase de la marca NO debe estar (cheque fisico = sin marca)
+        assert 'marca-echeq' not in html
 
     def test_modal_detalle_oculta_banco_si_null(self, app_con_login):
         """Si el cheque no tiene banco asociado, la fila Banco se oculta."""
