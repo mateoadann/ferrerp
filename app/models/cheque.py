@@ -6,13 +6,21 @@ from ..extensions import db
 from ..utils.helpers import ahora_argentina
 from .mixins import EmpresaMixin
 
-# Transiciones de estado válidas por tipo de cheque
+# Transiciones de estado válidas por tipo de cheque.
+#
+# Para emitidos se aceptan dos nombres del estado vivo:
+# - 'en_cartera': nombre histórico (rama feature/039 sola)
+# - 'emitido': nombre post-rename de feature/036
+# Esta defensa permite que el sidenav del calendario muestre el botón
+# "Cambiar estado" para emitidos sin importar cuál de los dos nombres
+# tenga la fila en DB después del merge con feature/036.
 TRANSICIONES_CHEQUE = {
     'recibido': {
         'en_cartera': ['endosado', 'cobrado', 'sin_fondos'],
     },
     'emitido': {
         'en_cartera': ['cobrado'],
+        'emitido': ['cobrado'],
     },
 }
 

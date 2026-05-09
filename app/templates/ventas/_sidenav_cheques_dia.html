@@ -65,6 +65,8 @@ Variables esperadas:
           <div class="fw-bold">{{ cheque.importe|currency }}</div>
           {% if cheque.estado == 'en_cartera' %}
           <span class="badge bg-warning text-dark">En cartera</span>
+          {% elif cheque.estado == 'emitido' %}
+          <span class="badge bg-warning text-dark">Emitido</span>
           {% elif cheque.estado == 'cobrado' %}
           <span class="badge bg-success">Cobrado</span>
           {% elif cheque.estado == 'endosado' %}
@@ -75,7 +77,11 @@ Variables esperadas:
         </div>
       </div>
 
-      {% if cheque.estado == 'en_cartera' and cheque.transiciones_disponibles %}
+      {# El botón aparece para cualquier cheque con transiciones disponibles
+         (estado vivo). transiciones_disponibles ya encapsula la lógica:
+         retorna lista vacía para estados terminales y para emitidos en
+         estado='emitido' (post-merge 036) retorna ['cobrado']. #}
+      {% if cheque.transiciones_disponibles %}
       <div class="mt-2 d-flex justify-content-end">
         <button
           type="button"

@@ -588,6 +588,101 @@ class TestCalendarioSidenavDia:
         assert resp.status_code == 200
         assert 'No hay cheques' in resp.data.decode()
 
+    def test_sidenav_recibido_muestra_boton_cambiar_estado(
+        self, app_con_login
+    ):
+        """Cheque recibido en estado 'en_cartera' debe mostrar botón
+        'Cambiar estado' apuntando al modal de acciones."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario(empresa.id)
+        db.session.commit()
+
+        hoy = date.today()
+        fv = date(hoy.year, hoy.month, 18)
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='recibido',
+            numero_cheque='REC_BTN',
+            fecha_vencimiento=fv,
+            estado='en_cartera',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(
+            f'/ventas/cheques/calendario/dia?fecha={fv.isoformat()}'
+            '&tipo=recibido'
+        )
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'REC_BTN' in html
+        # El botón "Cambiar estado" debe estar presente.
+        assert 'Cambiar estado' in html
+        # Y debe apuntar al endpoint de acciones con desde_calendario=1.
+        assert (
+            f'/ventas/cheques/{cheque.id}/acciones?desde_calendario=1' in html
+        )
+
+    def test_sidenav_emitido_muestra_boton_cambiar_estado(
+        self, app_con_login
+    ):
+        """REGRESIÓN: cheque emitido vivo debe mostrar botón 'Cambiar estado'
+        en el sidenav, igual que los recibidos. Cubre los dos nombres del
+        estado vivo: 'en_cartera' (rama 039 sola) y 'emitido' (post-merge
+        con feature/036)."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario(empresa.id)
+        db.session.commit()
+
+        hoy = date.today()
+        fv = date(hoy.year, hoy.month, 19)
+
+        # Caso A: emitido con estado='emitido' (post-rename de feature/036).
+        cheque_nuevo = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            numero_cheque='EMI_BTN_NEW',
+            fecha_vencimiento=fv,
+            destinatario='Prov A',
+            estado='emitido',
+        )
+        # Caso B: emitido con estado='en_cartera' (rama 039 sola).
+        cheque_viejo = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            numero_cheque='EMI_BTN_OLD',
+            fecha_vencimiento=fv,
+            destinatario='Prov B',
+            estado='en_cartera',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(
+            f'/ventas/cheques/calendario/dia?fecha={fv.isoformat()}'
+            '&tipo=emitido'
+        )
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        # Ambos emitidos deben aparecer.
+        assert 'EMI_BTN_NEW' in html
+        assert 'EMI_BTN_OLD' in html
+        # Y AMBOS deben mostrar el botón "Cambiar estado". Antes del fix,
+        # el sidenav lo escondía cuando estado != 'en_cartera'.
+        assert html.count('Cambiar estado') == 2
+        # Cada uno apunta a su propio endpoint de acciones.
+        assert (
+            f'/ventas/cheques/{cheque_nuevo.id}/acciones?desde_calendario=1'
+            in html
+        )
+        assert (
+            f'/ventas/cheques/{cheque_viejo.id}/acciones?desde_calendario=1'
+            in html
+        )
+
 
 # ---------------------------------------------------------------------------
 # Tests de helpers internos

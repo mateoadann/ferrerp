@@ -263,6 +263,29 @@ class TestChequeModelo:
 
         assert cheque.transiciones_disponibles == []
 
+    def test_transiciones_disponibles_emitido_estado_emitido(self, app):
+        """Un cheque emitido con estado='emitido' (post-rename de
+        feature/036) también puede transicionar a cobrado.
+
+        Defensa anti-rename: el modelo mapea tanto 'en_cartera' como
+        'emitido' al mismo conjunto de transiciones para tipo='emitido'.
+        Esto evita que el sidenav del calendario esconda el botón
+        'Cambiar estado' cuando el estado vivo se llame 'emitido'.
+        """
+        empresa = _crear_empresa()
+        usuario = _crear_usuario(empresa.id)
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            destinatario='Proveedor Post-036',
+        )
+
+        assert cheque.transiciones_disponibles == ['cobrado']
+
 
 # ---------------------------------------------------------------------------
 # Tests de transición de estado (función helper)
