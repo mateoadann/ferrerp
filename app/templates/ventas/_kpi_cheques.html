@@ -85,11 +85,26 @@
 </div>
 <script>
     (function () {
-        const triggers = document.querySelectorAll('#kpi-cheques [data-bs-toggle="tooltip"]');
-        triggers.forEach(function (el) {
-            if (!bootstrap.Tooltip.getInstance(el)) {
-                new bootstrap.Tooltip(el);
+        // Inicializa los tooltips de los KPI. Como este partial se incluye
+        // en `cheques.html` (primer render) ANTES de que se cargue
+        // bootstrap.bundle.min.js (al final de base.html), diferimos a
+        // DOMContentLoaded. En re-renders via HTMX (despues del primer
+        // load) bootstrap ya existe y ejecutamos inmediatamente.
+        function inicializarTooltipsKpi() {
+            if (typeof bootstrap === 'undefined') {
+                return;
             }
-        });
+            const triggers = document.querySelectorAll('#kpi-cheques [data-bs-toggle="tooltip"]');
+            triggers.forEach(function (el) {
+                if (!bootstrap.Tooltip.getInstance(el)) {
+                    new bootstrap.Tooltip(el);
+                }
+            });
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', inicializarTooltipsKpi);
+        } else {
+            inicializarTooltipsKpi();
+        }
     })();
 </script>

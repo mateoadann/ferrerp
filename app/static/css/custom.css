@@ -495,6 +495,14 @@ input[type="number"] {
     font-weight: 500;
 }
 
+/* Celda con numero de cheque: limita el ancho y permite wrap para que
+   numeros muy largos (ej: 25 digitos) no rompan el layout de la tabla. */
+.table-cheque-numero {
+    max-width: 180px;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+}
+
 /* Stock bajo */
 .stock-bajo {
     color: var(--error);

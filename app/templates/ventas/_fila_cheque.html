@@ -1,7 +1,7 @@
 <tr id="cheque-{{ cheque.id }}"
     class="{% if cheque.esta_pendiente and cheque.esta_vencido %}table-danger{% elif cheque.esta_pendiente and cheque.esta_proximo_a_vencer %}table-warning{% endif %}"
     {% if cheque.esta_pendiente and cheque.fecha_vencimiento and not cheque.esta_vencido and cheque.fecha_vencimiento > hoy and cheque.fecha_vencimiento <= en_5_dias %}style="background-color: #fff9c4;"{% endif %}>
-    <td class="table-code">
+    <td class="table-code table-cheque-numero">
         <a href="#"
            hx-get="{{ url_for('ventas.detalle_cheque', id=cheque.id) }}"
            hx-target="#modalChequeContenido"
