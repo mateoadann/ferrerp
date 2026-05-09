@@ -1,0 +1,60 @@
+# FerrERP - Docker Compose para Staging (test pre-produccion)
+# Usa una copia de la DB de produccion para validar migraciones y cambios.
+#
+# Uso:
+#   1. Exportar dump de prod:  make staging-dump
+#   2. Levantar staging:       make staging-up
+#   3. Probar en http://localhost:5002
+#   4. Limpiar:                make staging-down
+
+services:
+  # Aplicacion Flask (modo staging)
+  web:
+    build: .
+    container_name: ferrerp_web_staging
+    ports:
+      - "5002:5000"
+    environment:
+      - FLASK_APP=run.py
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - SECRET_KEY=staging-secret-key
+      - DATABASE_URL=postgresql://ferrerp:ferrerp123@db:5432/ferrerp
+      - APP_NAME=FerrERP (Staging)
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    depends_on:
+      db:
+        condition: service_healthy
+    command: flask run --host=0.0.0.0 --debug
+    networks:
+      - ferrerp_staging_network
+
+  # Base de datos PostgreSQL con datos de produccion
+  db:
+    image: postgres:15-alpine
+    container_name: ferrerp_db_staging
+    environment:
+      - POSTGRES_USER=ferrerp
+      - POSTGRES_PASSWORD=ferrerp123
+      - POSTGRES_DB=ferrerp
+    volumes:
+      - postgres_data_staging:/var/lib/postgresql/data
+      - ./tmp/staging_dump.sql:/docker-entrypoint-initdb.d/01-restore.sql
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ferrerp -d ferrerp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ferrerp_staging_network
+
+volumes:
+  postgres_data_staging:
+
+networks:
+  ferrerp_staging_network:
+    driver: bridge
