@@ -1,5 +1,7 @@
 """Formularios de clientes."""
 
+from decimal import Decimal
+
 from flask_wtf import FlaskForm
 from wtforms import (
     BooleanField,
@@ -20,27 +22,27 @@ class ClienteForm(FlaskForm):
         'Nombre',
         validators=[
             DataRequired(message='El nombre es requerido'),
-            Length(max=100, message='El nombre no puede exceder 100 caracteres')
+            Length(max=100, message='El nombre no puede exceder 100 caracteres'),
         ],
-        render_kw={'placeholder': 'Nombre completo o razón social'}
+        render_kw={'placeholder': 'Nombre completo o razón social'},
     )
 
     dni_cuit = StringField(
         'DNI / CUIT',
         validators=[
             Optional(),
-            Length(max=13, message='El DNI/CUIT no puede exceder 13 caracteres')
+            Length(max=13, message='El DNI/CUIT no puede exceder 13 caracteres'),
         ],
-        render_kw={'placeholder': 'XX-XXXXXXXX-X'}
+        render_kw={'placeholder': 'XX-XXXXXXXX-X'},
     )
 
     telefono = StringField(
         'Teléfono',
         validators=[
             Optional(),
-            Length(max=20, message='El teléfono no puede exceder 20 caracteres')
+            Length(max=20, message='El teléfono no puede exceder 20 caracteres'),
         ],
-        render_kw={'placeholder': 'Ej: 11-1234-5678'}
+        render_kw={'placeholder': 'Ej: 11-1234-5678'},
     )
 
     email = StringField(
@@ -48,46 +50,43 @@ class ClienteForm(FlaskForm):
         validators=[
             Optional(),
             Email(message='Ingresa un email válido'),
-            Length(max=120, message='El email no puede exceder 120 caracteres')
+            Length(max=120, message='El email no puede exceder 120 caracteres'),
         ],
-        render_kw={'placeholder': 'cliente@email.com'}
+        render_kw={'placeholder': 'cliente@email.com'},
     )
 
     direccion = StringField(
         'Dirección',
         validators=[
             Optional(),
-            Length(max=200, message='La dirección no puede exceder 200 caracteres')
+            Length(max=200, message='La dirección no puede exceder 200 caracteres'),
         ],
-        render_kw={'placeholder': 'Calle, número, ciudad'}
+        render_kw={'placeholder': 'Calle, número, ciudad'},
     )
 
     fecha_nacimiento = DateField(
         'Fecha de Nacimiento',
         validators=[Optional()],
-        render_kw={'type': 'date', 'class': 'form-control'}
+        render_kw={'type': 'date', 'class': 'form-control'},
     )
 
     limite_credito = DecimalField(
         'Límite de Crédito',
-        validators=[
-            Optional(),
-            NumberRange(min=0, message='El límite debe ser mayor o igual a 0')
-        ],
+        validators=[Optional(), NumberRange(min=0, message='El límite debe ser mayor o igual a 0')],
         places=2,
         default=0,
         render_kw={
             'placeholder': '0,00',
             'step': '0.01',
             'data-mask': 'money',
-            'inputmode': 'decimal'
-        }
+            'inputmode': 'decimal',
+        },
     )
 
     notas = TextAreaField(
         'Notas',
         validators=[Optional()],
-        render_kw={'placeholder': 'Notas adicionales sobre el cliente', 'rows': 3}
+        render_kw={'placeholder': 'Notas adicionales sobre el cliente', 'rows': 3},
     )
 
     activo = BooleanField('Cliente activo', default=True)
@@ -101,16 +100,18 @@ class PagoCuentaCorrienteForm(FlaskForm):
     monto = DecimalField(
         'Monto a Pagar',
         validators=[
-            DataRequired(message='El monto es requerido'),
-            NumberRange(min=0.01, message='El monto debe ser mayor a 0')
+            Optional(),
+            NumberRange(min=0, message='El monto debe ser mayor o igual a 0'),
         ],
+        default=Decimal('0'),
         places=2,
         render_kw={
             'placeholder': '0,00',
             'step': '0.01',
+            'min': '0',
             'data-mask': 'money',
-            'inputmode': 'decimal'
-        }
+            'inputmode': 'decimal',
+        },
     )
 
     forma_pago = SelectField(
@@ -120,19 +121,62 @@ class PagoCuentaCorrienteForm(FlaskForm):
             ('tarjeta_debito', 'Tarjeta Débito'),
             ('tarjeta_credito', 'Tarjeta Crédito'),
             ('transferencia', 'Transferencia'),
-            ('qr', 'QR')
+            ('qr', 'QR'),
         ],
         default='efectivo',
-        validators=[DataRequired(message='Selecciona una forma de pago')]
+        validators=[DataRequired(message='Selecciona una forma de pago')],
     )
 
     descripcion = StringField(
         'Descripción',
         validators=[
             Optional(),
-            Length(max=200, message='La descripción no puede exceder 200 caracteres')
+            Length(max=200, message='La descripción no puede exceder 200 caracteres'),
         ],
-        render_kw={'placeholder': 'Descripción del pago (opcional)'}
+        render_kw={'placeholder': 'Descripción del pago (opcional)'},
     )
 
     submit = SubmitField('Registrar Pago')
+
+
+class AdelantoCuentaCorrienteForm(FlaskForm):
+    """Formulario para registrar un adelanto de cuenta corriente."""
+
+    monto = DecimalField(
+        'Monto del adelanto',
+        validators=[
+            DataRequired(message='El monto es requerido'),
+            NumberRange(min=0.01, message='El monto debe ser mayor a 0'),
+        ],
+        places=2,
+        render_kw={
+            'placeholder': '0,00',
+            'step': '0.01',
+            'data-mask': 'money',
+            'inputmode': 'decimal',
+        },
+    )
+
+    forma_pago = SelectField(
+        'Forma de Pago',
+        choices=[
+            ('efectivo', 'Efectivo'),
+            ('tarjeta_debito', 'Tarjeta Débito'),
+            ('tarjeta_credito', 'Tarjeta Crédito'),
+            ('transferencia', 'Transferencia'),
+            ('qr', 'QR'),
+        ],
+        default='efectivo',
+        validators=[DataRequired(message='Selecciona una forma de pago')],
+    )
+
+    motivo = StringField(
+        'Motivo del adelanto',
+        validators=[
+            Optional(),
+            Length(max=200, message='El motivo no puede exceder 200 caracteres'),
+        ],
+        render_kw={'placeholder': 'Motivo del adelanto (opcional)'},
+    )
+
+    submit = SubmitField('Registrar Adelanto')

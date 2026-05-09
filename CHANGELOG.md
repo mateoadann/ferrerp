@@ -10,6 +10,15 @@ y el proyecto adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 ## [Unreleased] — En desarrollo (dev)
 
 ### Nuevas funcionalidades
+- Estado de Cuenta PDF con filtros por rango de fechas o desde último saldo cero (#51)
+- Ajuste de saldos CC por actualización masiva de precios con regla "primer pago congela precio por venta" (#51)
+- Preview HTMX de ajustes CC integrado en flujo de actualización masiva (#51)
+- Separación de saldo CC en dos campos independientes: deuda y saldo a favor (#53)
+- Usar saldo a favor para pagar deuda desde la vista de cuenta corriente (#53)
+- Ajuste de stock multi-producto: seleccionar varios productos y aplicar mismo ajuste en lote
+- Navegación por teclado (flechas + Enter) en autocomplete de productos en presupuestos
+- Autocomplete con búsqueda en ajuste de stock (reemplaza select nativo)
+- Links a cuenta corriente del cliente desde movimientos de caja (adelantos)
 - Mejoras UX y fix de paginación HTMX en staging (#49)
 - Autocomplete de clientes con navegación por teclado (#46)
 - Logo de empresa en documentos PDF (#44)
@@ -17,6 +26,10 @@ y el proyecto adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 - Dividir pagos en ventas, descuentos unitarios por producto y descuento inverso con monto exacto (#42)
 
 ### Mejoras
+- Relayout de cuenta corriente: Resumen + Pago/Adelanto con toggle arriba, tabla full-width abajo
+- Color custom #fbad42 para adelantos y saldo a favor en toda la UI
+- Checkbox de recalcular CC marcado por defecto en actualización masiva
+- Mostrar saldo a favor en columna Saldo CC del listado de clientes
 - Optimización de queries y refuerzo de seguridad multi-tenant (#45)
 - Validaciones de seguridad adicionales y correcciones de QA (#44)
 - Números de venta y presupuesto como links con color por estado (#42)
@@ -25,12 +38,16 @@ y el proyecto adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 - Ajuste de layout POS para nueva columna de descuento (#42)
 
 ### Correcciones
+- Fix paginación en rutas con parámetros de path (view_args)
+- Fix consumo de saldo a favor en POS: no auto-llenar al cambiar de forma de pago
 - Conversión segura de Decimal en POS para evitar ConversionSyntax (#48)
 - Anulación de ventas crea egresos en caja y agrupamiento correcto (#42)
 - Validación de pago dividido en modal de conversión y POS (#42)
 - Ordenamiento cronológico de ventas en seed (#42)
 
 ### Migraciones
+- Tabla `ajustes_precio_cuenta_corriente` para auditoría de ajustes CC
+- Columna `saldo_a_favor_monto` en clientes (separación de saldos)
 - Nueva columna de descuento en items de venta
 - Campo `logo` en modelo Empresa
 - Campo `porcentaje_aumento` para actualización masiva de precios

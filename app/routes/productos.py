@@ -9,7 +9,7 @@ from flask_login import current_user, login_required
 from ..extensions import db
 from ..forms.producto_forms import ActualizacionMasivaPreciosForm, ProductoForm
 from ..models import Categoria, Producto
-from ..services import actualizacion_precio_service
+from ..services import actualizacion_precio_service, cuenta_corriente_service
 from ..utils.decorators import admin_required, empresa_aprobada_required
 from ..utils.helpers import es_peticion_htmx, paginar_query
 
@@ -204,6 +204,75 @@ def actualizacion_masiva_preview():
     )
 
 
+@bp.route('/actualizacion-masiva/preview-cc', methods=['POST'])
+@login_required
+@empresa_aprobada_required
+@admin_required
+def actualizacion_masiva_preview_cc():
+    """Preview HTMX de ajustes de cuenta corriente por actualización de precios."""
+    try:
+        categorias_ids_raw = request.form.get('categorias_ids', '[]')
+        categorias_ids = json.loads(categorias_ids_raw)
+        categorias_ids = [int(cid) for cid in categorias_ids if cid]
+    except (json.JSONDecodeError, ValueError):
+        return render_template(
+            'productos/_preview_ajuste_cc.html',
+            error='Error al procesar las categorías seleccionadas.',
+            ajustes=None,
+        )
+
+    if not categorias_ids:
+        return render_template(
+            'productos/_preview_ajuste_cc.html',
+            error='No hay categorías seleccionadas.',
+            ajustes=None,
+        )
+
+    try:
+        porcentaje = Decimal(str(request.form.get('porcentaje', '0')))
+    except Exception:
+        return render_template(
+            'productos/_preview_ajuste_cc.html',
+            error='El porcentaje ingresado no es válido.',
+            ajustes=None,
+        )
+
+    try:
+        ajustes = cuenta_corriente_service.calcular_ajustes_cc(
+            categorias_ids, porcentaje, current_user.empresa_id
+        )
+    except ValueError as e:
+        return render_template(
+            'productos/_preview_ajuste_cc.html',
+            error=str(e),
+            ajustes=None,
+        )
+
+    # Agrupar ajustes por cliente
+    clientes_agrupados = {}
+    for ajuste in ajustes:
+        cliente = ajuste['cliente']
+        if cliente.id not in clientes_agrupados:
+            clientes_agrupados[cliente.id] = {
+                'cliente': cliente,
+                'ventas': [],
+                'total_ajuste': Decimal('0'),
+            }
+        clientes_agrupados[cliente.id]['ventas'].append(ajuste)
+        clientes_agrupados[cliente.id]['total_ajuste'] += ajuste['monto_ajuste']
+
+    clientes_lista = list(clientes_agrupados.values())
+    total_general = sum(c['total_ajuste'] for c in clientes_lista)
+
+    return render_template(
+        'productos/_preview_ajuste_cc.html',
+        ajustes=clientes_lista,
+        total_general=total_general,
+        porcentaje=porcentaje,
+        error=None,
+    )
+
+
 @bp.route('/actualizacion-masiva/aplicar', methods=['POST'])
 @login_required
 @empresa_aprobada_required
@@ -226,20 +295,52 @@ def actualizacion_masiva_aplicar():
 
     actualizar_costo = request.form.get('actualizar_costo') == 'y'
     notas = request.form.get('notas', '').strip() or None
+    ajustar_cc = request.form.get('ajustar_cc') == 'y'
 
     try:
+        # Precalcular ajustes CC antes de modificar precios (si corresponde)
+        ajustes_cc = []
+        if ajustar_cc:
+            ajustes_cc = cuenta_corriente_service.calcular_ajustes_cc(
+                categorias_ids, porcentaje, current_user.empresa_id
+            )
+
+        # Aplicar actualización de precios de productos
+        # Si hay ajustes CC, no hacer commit todavía (transacción atómica)
         cantidad = actualizacion_precio_service.aplicar_actualizacion(
             categorias_ids=categorias_ids,
             porcentaje=porcentaje,
             actualizar_costo=actualizar_costo,
             notas=notas,
+            auto_commit=not ajustar_cc,
         )
+
+        # Aplicar ajustes CC en la misma transacción
+        cantidad_cc = 0
+        if ajustar_cc and ajustes_cc:
+            from ..utils.helpers import ahora_argentina
+
+            cantidad_cc = cuenta_corriente_service.aplicar_ajustes_cc(
+                ajustes=ajustes_cc,
+                usuario_id=current_user.id,
+                fecha_actualizacion=ahora_argentina(),
+                porcentaje=porcentaje,
+            )
+
+        # Commit único si estamos en modo atómico (CC habilitado)
+        if ajustar_cc:
+            db.session.commit()
+
         signo = '+' if porcentaje > 0 else ''
-        flash(
-            f'Se actualizaron {cantidad} productos con un {signo}{porcentaje}%.',
-            'success',
-        )
+        mensaje = f'Se actualizaron {cantidad} productos con un {signo}{porcentaje}%.'
+        if cantidad_cc > 0:
+            mensaje += (
+                f' Se ajustaron {cantidad_cc} deuda{"s" if cantidad_cc != 1 else ""}'
+                f' de cuenta corriente.'
+            )
+        flash(mensaje, 'success')
     except ValueError as e:
+        db.session.rollback()
         flash(str(e), 'danger')
 
     return redirect(url_for('productos.actualizacion_masiva'))

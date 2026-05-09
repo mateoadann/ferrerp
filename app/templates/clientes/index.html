@@ -67,8 +67,14 @@
                         <td>{{ cliente.dni_cuit or '-' }}</td>
                         <td>{{ cliente.telefono or '-' }}</td>
                         <td class="text-end">{{ cliente.limite_credito|currency }}</td>
-                        <td class="text-end {% if cliente.tiene_deuda %}text-danger fw-bold{% endif %}">
-                            {{ cliente.saldo_cuenta_corriente|currency }}
+                        <td class="text-end">
+                            {% if cliente.tiene_deuda %}
+                            <span class="text-danger fw-bold">{{ cliente.saldo_cuenta_corriente|currency }}</span>
+                            {% elif cliente.tiene_saldo_a_favor %}
+                            <span class="fw-bold" style="color: #fbad42;">{{ cliente.saldo_a_favor|currency }}</span>
+                            {% else %}
+                            <span class="text-muted">$0,00</span>
+                            {% endif %}
                         </td>
                         <td class="text-center">
                             {% if cliente.activo %}<span class="badge badge-success">Activo</span>

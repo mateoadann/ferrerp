@@ -4,6 +4,7 @@ Exporta todos los modelos para facilitar su uso.
 """
 
 from .actualizacion_precio import ActualizacionPrecio
+from .ajuste_precio_cc import AjustePrecioCuentaCorriente
 from .caja import Caja, MovimientoCaja
 from .categoria import Categoria
 from .cliente import Cliente
@@ -43,4 +44,5 @@ __all__ = [
     'PresupuestoDetalle',
     'VentaPago',
     'ActualizacionPrecio',
+    'AjustePrecioCuentaCorriente',
 ]

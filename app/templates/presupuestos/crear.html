@@ -26,17 +26,23 @@
                        placeholder="Buscar producto por código o nombre..."
                        x-model="searchQuery"
                        @input.debounce.300ms="searchProducts()"
-                       @keydown.enter="addFirstResult()"
+                       @keydown.arrow-down.prevent="productSelectedIndex = Math.min(productSelectedIndex + 1, searchResults.length - 1)"
+                       @keydown.arrow-up.prevent="productSelectedIndex = Math.max(productSelectedIndex - 1, 0)"
+                       @keydown.enter.prevent="if(productSelectedIndex >= 0 && searchResults[productSelectedIndex]) addToCart(searchResults[productSelectedIndex]); else addFirstResult()"
                        @keydown.escape="clearSearch()">
 
                 <div class="search-results position-absolute bg-white shadow-lg rounded-2 mt-1 w-100"
                      x-show="searchResults.length > 0"
                      x-cloak
-                     style="z-index: 1000; max-height: 300px; overflow-y: auto;">
-                    <template x-for="product in searchResults" :key="product.id">
+                     style="z-index: 1000; max-height: 300px; overflow-y: auto;"
+                     x-effect="if(productSelectedIndex >= 0) $el.children[productSelectedIndex]?.scrollIntoView({block: 'nearest'})">
+                    <template x-for="(product, index) in searchResults" :key="product.id">
                         <div class="search-result-item p-3 border-bottom cursor-pointer"
                              @click="addToCart(product)"
-                             style="cursor: pointer;">
+                             style="cursor: pointer;"
+                             :class="{'bg-primary text-white': productSelectedIndex === index}"
+                             @mouseenter="productSelectedIndex = index"
+                             @mouseleave="productSelectedIndex = -1">
                             <div class="d-flex justify-content-between">
                                 <div>
                                     <span class="badge badge-secondary me-2" x-text="product.codigo"></span>
@@ -44,7 +50,7 @@
                                 </div>
                                 <div class="text-end">
                                     <strong x-text="formatCurrency(product.precio_venta)"></strong>
-                                    <small class="text-muted d-block">
+                                    <small class="d-block" :class="productSelectedIndex === index ? '' : 'text-muted'">
                                         Stock: <span x-text="formatStock(product.stock_actual, product.unidad_medida)"></span>
                                     </small>
                                 </div>
@@ -356,6 +362,7 @@ function presupuestoApp() {
     return {
         searchQuery: '',
         searchResults: [],
+        productSelectedIndex: -1,
         cart: {{ items_existentes|default('[]')|safe }},
         tipoCliente: {% if editando and presupuesto.cliente_id %}'registrado'{% elif editando and presupuesto.cliente_nombre %}'ocasional'{% else %}'sin'{% endif %},
         clienteId: '{{ presupuesto.cliente_id if editando and presupuesto.cliente_id else "" }}',
@@ -551,6 +558,7 @@ function presupuestoApp() {
         },
 
         async searchProducts() {
+            this.productSelectedIndex = -1;
             if (this.searchQuery.length < 2) {
                 this.searchResults = [];
                 return;
@@ -624,6 +632,7 @@ function presupuestoApp() {
         clearSearch() {
             this.searchQuery = '';
             this.searchResults = [];
+            this.productSelectedIndex = -1;
         },
 
         // Búsqueda de clientes por nombre o DNI
