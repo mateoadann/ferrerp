@@ -40,7 +40,10 @@ Variables esperadas:
     <div class="border rounded p-2">
       <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
         <div>
-          <div class="fw-semibold">#{{ cheque.numero_cheque }}</div>
+          <div class="fw-semibold d-flex align-items-center gap-2">
+            <span>#{{ cheque.numero_cheque }}</span>
+            {% include 'ventas/_badge_echeq.html' %}
+          </div>
           {% if cheque.tipo == 'emitido' %}
           <div class="small text-muted">
             <span class="material-symbols-rounded" style="font-size:14px;vertical-align:middle;">account_balance</span>

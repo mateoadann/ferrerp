@@ -683,6 +683,67 @@ class TestCalendarioSidenavDia:
             in html
         )
 
+    def test_sidenav_muestra_badge_echeq(self, app_con_login):
+        """Cheque con tipo_cheque='echeq' debe mostrar el badge 'Echeq' en
+        el sidenav (incluye el partial _badge_echeq.html)."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario(empresa.id)
+        db.session.commit()
+
+        hoy = date.today()
+        fv = date(hoy.year, hoy.month, 20)
+        _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='recibido',
+            numero_cheque='REC_ECHEQ',
+            fecha_vencimiento=fv,
+            tipo_cheque='echeq',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(
+            f'/ventas/cheques/calendario/dia?fecha={fv.isoformat()}'
+            '&tipo=recibido'
+        )
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'REC_ECHEQ' in html
+        # El badge debe estar presente.
+        assert 'badge-echeq' in html
+        assert 'Echeq' in html
+
+    def test_sidenav_no_muestra_badge_si_cheque_fisico(self, app_con_login):
+        """Cheque con tipo_cheque='cheque' (default, fisico) NO debe mostrar
+        el badge: la ausencia ya es la indicacion visual."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario(empresa.id)
+        db.session.commit()
+
+        hoy = date.today()
+        fv = date(hoy.year, hoy.month, 21)
+        _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='recibido',
+            numero_cheque='REC_FISICO',
+            fecha_vencimiento=fv,
+            tipo_cheque='cheque',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(
+            f'/ventas/cheques/calendario/dia?fecha={fv.isoformat()}'
+            '&tipo=recibido'
+        )
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'REC_FISICO' in html
+        # El badge NO debe estar.
+        assert 'badge-echeq' not in html
+
 
 # ---------------------------------------------------------------------------
 # Tests de helpers internos
