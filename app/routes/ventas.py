@@ -1275,6 +1275,114 @@ def cambiar_estado_cheque(id):
     return resp
 
 
+# ---------------------------------------------------------------------------
+# Detalle y edicion de cheque (modal HTMX, generico recibidos/emitidos)
+# ---------------------------------------------------------------------------
+
+
+@bp.route('/cheques/<int:id>/detalle', methods=['GET'])
+@login_required
+@empresa_aprobada_required
+def detalle_cheque(id):
+    """Devuelve el partial del modal con el detalle del cheque (vista lectura)."""
+    cheque = Cheque.query.filter_by(
+        id=id,
+        empresa_id=current_user.empresa_id,
+    ).first_or_404()
+
+    return render_template(
+        'ventas/_modal_detalle_cheque.html',
+        cheque=cheque,
+    )
+
+
+@bp.route('/cheques/<int:id>/editar', methods=['GET', 'POST'])
+@login_required
+@empresa_aprobada_required
+def editar_cheque(id):
+    """Edita un cheque (recibido o emitido) con reglas segun estado.
+
+    Reglas:
+      - Editables siempre: ``destinatario``, ``observaciones``,
+        ``fecha_vencimiento`` (fecha de pago/cobro).
+      - Editables solo si esta vivo (``esta_pendiente``):
+        ``numero_cheque``, ``banco_id``, ``importe``, ``tipo_cheque`` (echeq).
+      - Nunca editables: ``estado``, ``tipo``, ``fecha_emision``,
+        ``cliente_id``, ``referencia_tipo``, ``referencia_id``.
+    """
+    from ..forms.cheque_forms import ChequeEditForm
+
+    cheque = Cheque.query.filter_by(
+        id=id,
+        empresa_id=current_user.empresa_id,
+    ).first_or_404()
+
+    editable_full = cheque.esta_pendiente
+
+    if request.method == 'GET':
+        # Pre-cargar form con datos actuales del cheque.
+        form = ChequeEditForm(
+            data={
+                'numero_cheque': cheque.numero_cheque,
+                'banco_id': cheque.banco_id or 0,
+                'es_echeq': cheque.tipo_cheque == 'echeq',
+                'fecha_vencimiento': cheque.fecha_vencimiento,
+                'importe': cheque.importe,
+                'destinatario': cheque.destinatario,
+                'observaciones': cheque.observaciones,
+            }
+        )
+        return render_template(
+            'ventas/_modal_editar_cheque.html',
+            cheque=cheque,
+            form=form,
+            editable_full=editable_full,
+        )
+
+    # POST: procesar edicion
+    form = ChequeEditForm()
+
+    if not form.validate_on_submit():
+        return render_template(
+            'ventas/_modal_editar_cheque.html',
+            cheque=cheque,
+            form=form,
+            editable_full=editable_full,
+        )
+
+    # Campos siempre editables
+    cheque.fecha_vencimiento = form.fecha_vencimiento.data
+    cheque.observaciones = (form.observaciones.data or '').strip() or None
+    if cheque.tipo == 'emitido':
+        cheque.destinatario = (form.destinatario.data or '').strip() or None
+
+    # Campos editables solo si esta vivo. Cualquier intento de modificar
+    # ``estado``, ``tipo``, ``fecha_emision``, ``cliente_id`` o referencias
+    # se ignora deliberadamente (no se leen del payload).
+    if editable_full:
+        if form.numero_cheque.data:
+            cheque.numero_cheque = form.numero_cheque.data.strip()
+        # banco_id == 0 representa "- Sin banco -" (recibidos sin banco)
+        cheque.banco_id = form.banco_id.data or None
+        cheque.tipo_cheque = 'echeq' if form.es_echeq.data else 'cheque'
+        if form.importe.data is not None:
+            cheque.importe = Decimal(str(form.importe.data))
+
+    db.session.commit()
+
+    flash('Cheque actualizado correctamente.', 'success')
+
+    # Devolver el modal de detalle actualizado y disparar refresh de la fila.
+    resp = make_response(
+        render_template(
+            'ventas/_modal_detalle_cheque.html',
+            cheque=cheque,
+        )
+    )
+    resp.headers['HX-Trigger'] = 'cheques-actualizados'
+    return resp
+
+
 @bp.route('/<int:id>')
 @login_required
 def detalle(id):

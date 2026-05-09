@@ -1680,3 +1680,358 @@ class TestEstadosEmitidos:
             estado='en_cartera',
         )
         assert cheque.esta_pendiente is True
+
+
+# ---------------------------------------------------------------------------
+# Tests de detalle y edicion de cheque (modal HTMX)
+# ---------------------------------------------------------------------------
+
+
+class TestDetalleCheque:
+    """Tests del endpoint GET /ventas/cheques/<id>/detalle."""
+
+    def test_detalle_cheque_recibido(self, app_con_login):
+        """GET detalle devuelve campos del cheque recibido."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        banco = _crear_banco(empresa.id, 'Banco Detalle')
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='recibido',
+            estado='en_cartera',
+            numero_cheque='DET-REC-001',
+            banco_id=banco.id,
+            importe=Decimal('7500.00'),
+            observaciones='Notas del cheque recibido',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(f'/ventas/cheques/{cheque.id}/detalle')
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'DET-REC-001' in html
+        assert 'Banco Detalle' in html
+        assert 'Notas del cheque recibido' in html
+        # Boton de editar presente
+        assert 'Editar' in html
+
+    def test_detalle_cheque_emitido(self, app_con_login):
+        """GET detalle de cheque emitido muestra destinatario y observaciones."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='DET-EMI-001',
+            destinatario='Proveedor Detalle',
+            observaciones='Pago factura X',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(f'/ventas/cheques/{cheque.id}/detalle')
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'DET-EMI-001' in html
+        assert 'Proveedor Detalle' in html
+        assert 'Pago factura X' in html
+
+    def test_detalle_cheque_otra_empresa_404(self, app_con_login):
+        """GET detalle de cheque de otra empresa devuelve 404."""
+        empresa_a = _crear_empresa_aprobada('Empresa A')
+        usuario_a = _crear_usuario_con_email(empresa_a.id, 'a-det@test.com')
+        empresa_b = _crear_empresa_aprobada('Empresa B')
+        usuario_b = _crear_usuario_con_email(empresa_b.id, 'b-det@test.com')
+        db.session.commit()
+
+        cheque_b = _crear_cheque(
+            empresa_id=empresa_b.id,
+            usuario_id=usuario_b.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='OTRA-EMP-001',
+            destinatario='Proveedor X',
+        )
+
+        client = _login_client(app_con_login, usuario_a)
+        resp = client.get(f'/ventas/cheques/{cheque_b.id}/detalle')
+
+        assert resp.status_code == 404
+
+
+class TestEditarCheque:
+    """Tests de los endpoints GET/POST /ventas/cheques/<id>/editar."""
+
+    def test_get_editar_cheque_emitido_vivo(self, app_con_login):
+        """GET editar de cheque vivo precarga form con todos los campos."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        banco = _crear_banco(empresa.id, 'Banco Edicion')
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='EDIT-001',
+            banco_id=banco.id,
+            importe=Decimal('1234.56'),
+            destinatario='Proveedor Edit',
+            observaciones='Obs original',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(f'/ventas/cheques/{cheque.id}/editar')
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        # Valores precargados
+        assert 'EDIT-001' in html
+        assert 'Proveedor Edit' in html
+        assert 'Obs original' in html
+        # Boton Guardar cambios
+        assert 'Guardar cambios' in html
+
+    def test_editar_cheque_emitido_vivo(self, app_con_login):
+        """POST editar permite cambiar todos los campos de un cheque vivo."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        banco_orig = _crear_banco(empresa.id, 'Banco Original')
+        banco_nuevo = _crear_banco(empresa.id, 'Banco Nuevo')
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='ANTES-001',
+            banco_id=banco_orig.id,
+            importe=Decimal('1000.00'),
+            destinatario='Destinatario Antes',
+            observaciones='Antes',
+        )
+        nueva_fecha = (date.today() + timedelta(days=45)).isoformat()
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.post(
+            f'/ventas/cheques/{cheque.id}/editar',
+            data={
+                'numero_cheque': 'DESPUES-001',
+                'banco_id': str(banco_nuevo.id),
+                'es_echeq': 'y',
+                'fecha_vencimiento': nueva_fecha,
+                'importe': '2500.50',
+                'destinatario': 'Destinatario Despues',
+                'observaciones': 'Despues',
+            },
+        )
+
+        assert resp.status_code == 200
+        db.session.refresh(cheque)
+        assert cheque.numero_cheque == 'DESPUES-001'
+        assert cheque.banco_id == banco_nuevo.id
+        assert cheque.tipo_cheque == 'echeq'
+        assert cheque.importe == Decimal('2500.50')
+        assert cheque.destinatario == 'Destinatario Despues'
+        assert cheque.observaciones == 'Despues'
+
+    def test_editar_cheque_emitido_terminal_no_permite_cambiar_numero(
+        self, app_con_login
+    ):
+        """POST a un cheque pagado no cambia numero/banco/importe pero si destinatario/observaciones."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        banco_orig = _crear_banco(empresa.id, 'Banco Orig Terminal')
+        banco_otro = _crear_banco(empresa.id, 'Banco Otro Terminal')
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='pagado',  # Estado terminal
+            numero_cheque='TERMINAL-001',
+            banco_id=banco_orig.id,
+            importe=Decimal('5000.00'),
+            destinatario='Destinatario Original',
+            observaciones='Obs original',
+        )
+        nueva_fecha = (date.today() + timedelta(days=20)).isoformat()
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.post(
+            f'/ventas/cheques/{cheque.id}/editar',
+            data={
+                'numero_cheque': 'INTENTO-CAMBIO',
+                'banco_id': str(banco_otro.id),
+                'es_echeq': 'y',
+                'fecha_vencimiento': nueva_fecha,
+                'importe': '99999.99',
+                'destinatario': 'Destinatario Nuevo',
+                'observaciones': 'Obs nueva',
+            },
+        )
+
+        assert resp.status_code == 200
+        db.session.refresh(cheque)
+        # Campos NO editables en estado terminal: se mantienen
+        assert cheque.numero_cheque == 'TERMINAL-001'
+        assert cheque.banco_id == banco_orig.id
+        assert cheque.importe == Decimal('5000.00')
+        assert cheque.tipo_cheque == 'cheque'
+        # Campos siempre editables: se actualizan
+        assert cheque.destinatario == 'Destinatario Nuevo'
+        assert cheque.observaciones == 'Obs nueva'
+        assert cheque.fecha_vencimiento.isoformat() == nueva_fecha
+
+    def test_editar_cheque_no_permite_cambiar_estado(self, app_con_login):
+        """POST con estado en payload no cambia estado del cheque."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='ESTADO-001',
+            destinatario='Destinatario',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.post(
+            f'/ventas/cheques/{cheque.id}/editar',
+            data={
+                'numero_cheque': 'ESTADO-001',
+                'banco_id': str(cheque.banco_id),
+                'fecha_vencimiento': cheque.fecha_vencimiento.isoformat(),
+                'importe': str(cheque.importe),
+                'destinatario': 'Destinatario',
+                'observaciones': '',
+                # Intentamos forzar el cambio de estado
+                'estado': 'pagado',
+                'tipo': 'recibido',
+            },
+        )
+
+        assert resp.status_code == 200
+        db.session.refresh(cheque)
+        # Estado y tipo se mantienen sin cambios
+        assert cheque.estado == 'emitido'
+        assert cheque.tipo == 'emitido'
+
+    def test_editar_cheque_recibido_terminal_solo_permite_observaciones(
+        self, app_con_login
+    ):
+        """Cheque recibido cobrado: solo se editan obs y fecha de cobro."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        banco = _crear_banco(empresa.id, 'Banco Recibido Term')
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='recibido',
+            estado='cobrado',
+            numero_cheque='REC-COBRADO-001',
+            banco_id=banco.id,
+            importe=Decimal('3000.00'),
+            observaciones='',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.post(
+            f'/ventas/cheques/{cheque.id}/editar',
+            data={
+                'numero_cheque': 'NUEVO-NUM',
+                'banco_id': '0',
+                'fecha_vencimiento': cheque.fecha_vencimiento.isoformat(),
+                'importe': '12345.67',
+                'observaciones': 'Cobrado con demora',
+            },
+        )
+
+        assert resp.status_code == 200
+        db.session.refresh(cheque)
+        # Numero, banco e importe NO cambian (terminal)
+        assert cheque.numero_cheque == 'REC-COBRADO-001'
+        assert cheque.banco_id == banco.id
+        assert cheque.importe == Decimal('3000.00')
+        # Observaciones SI cambia
+        assert cheque.observaciones == 'Cobrado con demora'
+
+    def test_editar_cheque_aislamiento_empresa(self, app_con_login):
+        """POST editar a un cheque de otra empresa devuelve 404."""
+        empresa_a = _crear_empresa_aprobada('Empresa A')
+        usuario_a = _crear_usuario_con_email(empresa_a.id, 'a-edit@test.com')
+        empresa_b = _crear_empresa_aprobada('Empresa B')
+        usuario_b = _crear_usuario_con_email(empresa_b.id, 'b-edit@test.com')
+        db.session.commit()
+
+        cheque_b = _crear_cheque(
+            empresa_id=empresa_b.id,
+            usuario_id=usuario_b.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='AISLAMIENTO-001',
+            destinatario='Proveedor B',
+            observaciones='Obs B',
+        )
+
+        client = _login_client(app_con_login, usuario_a)
+        resp = client.post(
+            f'/ventas/cheques/{cheque_b.id}/editar',
+            data={
+                'numero_cheque': 'HACKEADO',
+                'banco_id': '0',
+                'fecha_vencimiento': cheque_b.fecha_vencimiento.isoformat(),
+                'importe': '1.00',
+                'destinatario': 'Hackeado',
+                'observaciones': 'Hackeado',
+            },
+        )
+
+        assert resp.status_code == 404
+        # El cheque de B sigue intacto
+        db.session.refresh(cheque_b)
+        assert cheque_b.numero_cheque == 'AISLAMIENTO-001'
+        assert cheque_b.destinatario == 'Proveedor B'
+        assert cheque_b.observaciones == 'Obs B'
+
+    def test_listado_cheques_renderiza_link_modal(self, app_con_login):
+        """El listado de cheques debe renderizar el numero como link al modal de detalle."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='LINK-MODAL-001',
+            destinatario='Proveedor Link',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get('/ventas/cheques?tab=por_pagar')
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'LINK-MODAL-001' in html
+        # El link apunta al endpoint de detalle del cheque
+        assert f'/ventas/cheques/{cheque.id}/detalle' in html
+        # Existe el contenedor del modal compartido
+        assert 'modalChequeContenido' in html

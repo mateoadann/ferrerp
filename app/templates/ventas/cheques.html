@@ -187,4 +187,59 @@
 {% if tab == 'por_pagar' %}
 {% include 'ventas/_form_cheque_emitido.html' %}
 {% endif %}
+
+<!-- Modal compartido de detalle / edicion de cheque (contenido cargado por HTMX) -->
+<div class="modal fade" id="modalDetalleCheque" tabindex="-1"
+     aria-labelledby="modalDetalleChequeLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" id="modalChequeContenido">
+            {# Contenido inyectado dinamicamente por GET /cheques/<id>/detalle
+               o GET /cheques/<id>/editar via HTMX. #}
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    // Al cerrar el modal de cheque limpiamos el contenido para que no se
+    // muestre stale al abrir el siguiente. Ademas reinicializamos el helper
+    // money sobre los inputs nuevos cada vez que HTMX inyecta contenido.
+    document.addEventListener('DOMContentLoaded', function () {
+        var modal = document.getElementById('modalDetalleCheque');
+        var contenedor = document.getElementById('modalChequeContenido');
+        if (modal && contenedor) {
+            modal.addEventListener('hidden.bs.modal', function () {
+                contenedor.replaceChildren();
+            });
+        }
+        document.body.addEventListener('htmx:afterSwap', function (evt) {
+            if (evt.detail && evt.detail.target && evt.detail.target.id === 'modalChequeContenido') {
+                evt.detail.target
+                    .querySelectorAll('input[data-mask="money"]')
+                    .forEach(function (input) {
+                        input.dataset.moneyInit = '';
+                        if (typeof initMoneyInput === 'function') {
+                            initMoneyInput(input);
+                        }
+                    });
+            }
+        });
+        // Antes de enviar el form via HTMX, normalizar montos formateados
+        // ("200.000,00") al formato punto-decimal estandar ("200000.00")
+        // para que el backend (DecimalField) los parse correctamente.
+        document.body.addEventListener('htmx:configRequest', function (evt) {
+            var elt = evt.detail && evt.detail.elt;
+            if (!elt || typeof normalizeMoneyValue !== 'function') return;
+            var form = elt.closest('form');
+            if (!form) return;
+            form.querySelectorAll('input[data-mask="money"]').forEach(function (input) {
+                var name = input.getAttribute('name');
+                if (name && evt.detail.parameters[name] !== undefined) {
+                    evt.detail.parameters[name] = normalizeMoneyValue(input.value);
+                }
+            });
+        });
+    });
+})();
+</script>
 {% endblock %}
