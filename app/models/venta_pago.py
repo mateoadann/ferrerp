@@ -21,7 +21,7 @@ class VentaPago(db.Model):
     forma_pago = db.Column(
         db.Enum(
             'efectivo', 'tarjeta_debito', 'tarjeta_credito',
-            'transferencia', 'qr', 'cuenta_corriente',
+            'transferencia', 'qr', 'cuenta_corriente', 'cheque',
             name='forma_pago',
             create_type=False,
         ),
@@ -48,5 +48,6 @@ class VentaPago(db.Model):
             'transferencia': 'Transferencia',
             'qr': 'QR',
             'cuenta_corriente': 'Cuenta Corriente',
+            'cheque': 'Cheque',
         }
         return opciones.get(self.forma_pago, self.forma_pago)

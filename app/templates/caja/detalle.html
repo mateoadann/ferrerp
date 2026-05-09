@@ -99,6 +99,8 @@
                                         <span class="badge badge-orange">QR</span>
                                         {% elif fp.forma_pago == 'cuenta_corriente' %}
                                         <span class="badge badge-warning">Cta. Cte.</span>
+                                        {% elif fp.forma_pago == 'cheque' %}
+                                        <span class="badge badge-secondary">Cheque</span>
                                         {% endif %}
                                     </div>
                                     {% endfor %}
@@ -205,6 +207,7 @@
                                     {% elif forma == 'transferencia' %}Transferencia
                                     {% elif forma == 'qr' %}QR
                                     {% elif forma == 'cuenta_corriente' %}Cuenta Corriente
+                                    {% elif forma == 'cheque' %}Cheque
                                     {% else %}{{ forma }}
                                     {% endif %}
                                 </td>

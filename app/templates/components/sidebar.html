@@ -38,9 +38,15 @@
         </a>
 
         <a href="{{ url_for('ventas.historial') }}"
-           class="nav-item {% if request.endpoint and request.endpoint.startswith('ventas.') and request.endpoint not in ('ventas.punto_de_venta', 'ventas.buscar_producto') %}active{% endif %}">
+           class="nav-item {% if request.endpoint and request.endpoint.startswith('ventas.') and request.endpoint not in ('ventas.punto_de_venta', 'ventas.buscar_producto', 'ventas.cheques', 'ventas.crear_cheque_emitido', 'ventas.cambiar_estado_cheque', 'ventas.acciones_cheque') %}active{% endif %}">
             <span class="material-symbols-rounded">receipt_long</span>
             <span>Ventas</span>
+        </a>
+
+        <a href="{{ url_for('ventas.cheques') }}"
+           class="nav-item {% if request.endpoint and (request.endpoint in ('ventas.cheques', 'ventas.crear_cheque_emitido', 'ventas.cambiar_estado_cheque', 'ventas.acciones_cheque') or request.endpoint.startswith('bancos.')) %}active{% endif %}">
+            <span class="material-symbols-rounded">checkbook</span>
+            <span>Cheques</span>
         </a>
 
         <a href="{{ url_for('presupuestos.index') }}"

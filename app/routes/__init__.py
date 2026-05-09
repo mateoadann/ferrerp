@@ -3,6 +3,7 @@ Blueprints de la aplicación FerrERP.
 """
 
 from .auth import bp as auth_bp
+from .bancos import bp as bancos_bp
 from .caja import bp as caja_bp
 from .clientes import bp as clientes_bp
 from .compras import bp as compras_bp
@@ -19,6 +20,7 @@ from .ventas import bp as ventas_bp
 
 __all__ = [
     'auth_bp',
+    'bancos_bp',
     'dashboard_bp',
     'productos_bp',
     'inventario_bp',

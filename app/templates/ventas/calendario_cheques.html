@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+
+{% block title %}Calendario de cheques - {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .cal-celda {
+    height: 80px;
+    vertical-align: top;
+    padding: 4px 5px 5px;
+    border: 1px solid #dee2e6;
+    background: #fff;
+    overflow: hidden;
+  }
+  .cal-celda.fuera-mes {
+    background: #f8f9fa;
+  }
+  .cal-celda.hoy {
+    border: 2px solid #0d6efd;
+  }
+  .cal-num-dia {
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #495057;
+    margin-bottom: 2px;
+  }
+  .cal-celda.fuera-mes .cal-num-dia {
+    color: #adb5bd;
+  }
+  .cal-celda.hoy .cal-num-dia {
+    color: #0d6efd;
+  }
+  .cal-recuadros {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .cal-recuadro {
+    border: 0;
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    padding: 2px 5px;
+    text-align: left;
+    line-height: 1.1;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+  }
+  .cal-recuadro:hover {
+    filter: brightness(1.07);
+  }
+  .cal-recuadro:focus {
+    outline: 2px solid #0d6efd;
+    outline-offset: 1px;
+  }
+  .recuadro-recibido {
+    background-color: #198754;
+  }
+  .recuadro-emitido {
+    background-color: #dc3545;
+  }
+  .cal-recuadro-monto {
+    font-size: 0.74rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cal-recuadro-cantidad {
+    font-size: 0.62rem;
+    font-weight: 500;
+    opacity: 0.9;
+    white-space: nowrap;
+  }
+  .cal-header-dia {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-align: center;
+    padding: 4px 2px;
+    color: #6c757d;
+    background: #f1f3f5;
+    border: 1px solid #dee2e6;
+  }
+  .cal-mes-titulo {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  table.cal-tabla {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  table.cal-tabla td,
+  table.cal-tabla th {
+    width: 14.28%;
+  }
+  /* Leyenda usa los mismos colores pero formato chip estático */
+  .cal-leyenda-chip {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: #fff;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="d-flex align-items-center gap-2">
+    <a href="{{ url_for('ventas.cheques') }}" class="btn btn-outline-secondary btn-sm" title="Volver al listado">
+      <span class="material-symbols-rounded">arrow_back</span>
+    </a>
+    <h2 class="mb-0">Calendario de cheques</h2>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('ventas.cheques') }}" class="btn btn-outline-secondary btn-sm">
+      <span class="material-symbols-rounded me-1" style="font-size:18px;vertical-align:middle;">list</span>
+      Lista
+    </a>
+  </div>
+</div>
+
+{# Leyenda + filtros #}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 px-1">
+  <div class="d-flex align-items-center gap-3">
+    <span class="cal-leyenda-chip recuadro-recibido">Recibidos</span>
+    <span class="cal-leyenda-chip recuadro-emitido">Emitidos</span>
+    <small class="text-muted">Cada recuadro muestra el total $ del día. Click para ver detalle.</small>
+  </div>
+  <form method="get" action="{{ url_for('ventas.calendario_cheques') }}" class="d-flex align-items-center gap-2">
+    <input
+      type="hidden"
+      name="mes_central"
+      value="{{ '%04d-%02d'|format(mes_central_anio, mes_central_mes) }}"
+    >
+    <label for="filtro-banco" class="form-label mb-0 small text-muted">Por banco:</label>
+    <select
+      id="filtro-banco"
+      name="banco_id"
+      class="form-select form-select-sm"
+      style="min-width: 180px;"
+      onchange="this.form.submit()"
+    >
+      <option value="">Todos los bancos</option>
+      {% for banco in bancos %}
+      <option
+        value="{{ banco.id }}"
+        {% if banco_id_seleccionado == banco.id|string %}selected{% endif %}
+      >{{ banco.nombre }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+{# Botonera de navegación #}
+<div class="d-flex align-items-center justify-content-center gap-2 mb-4">
+  <a href="{{ prev_url }}" class="btn btn-outline-secondary btn-sm">
+    <span class="material-symbols-rounded">chevron_left</span>
+    Mes anterior
+  </a>
+  <a href="{{ hoy_url }}" class="btn btn-outline-primary btn-sm">
+    <span class="material-symbols-rounded me-1" style="font-size:16px;vertical-align:middle;">today</span>
+    Hoy
+  </a>
+  <a href="{{ next_url }}" class="btn btn-outline-secondary btn-sm">
+    Mes siguiente
+    <span class="material-symbols-rounded">chevron_right</span>
+  </a>
+</div>
+
+{# Grilla de 3 meses #}
+<div class="row g-3">
+  {% for mes in meses %}
+  <div class="col-lg-4 col-12">
+    <div class="p-2 border rounded bg-white">
+      <div class="cal-mes-titulo">
+        {{ mes.nombre }} {{ mes.anio }}
+      </div>
+      <table class="cal-tabla">
+        <thead>
+          <tr>
+            {% for letra in ['L', 'M', 'X', 'J', 'V', 'S', 'D'] %}
+            <th class="cal-header-dia">{{ letra }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for semana in mes.semanas %}
+          <tr>
+            {% for dia in semana %}
+            <td class="cal-celda{% if not dia.pertenece_al_mes %} fuera-mes{% endif %}{% if dia.es_hoy %} hoy{% endif %}">
+              {% if dia.fecha is not none %}
+              <div class="cal-num-dia">{{ dia.dia_numero }}</div>
+              <div class="cal-recuadros">
+                {% if dia.pertenece_al_mes and dia.recibidos_cantidad > 0 %}
+                <button
+                  type="button"
+                  class="cal-recuadro recuadro-recibido"
+                  hx-get="{{ url_for('ventas.calendario_cheques_dia') }}?fecha={{ dia.fecha.isoformat() }}&tipo=recibido"
+                  hx-target="#sidenav-cheques-dia"
+                  hx-swap="innerHTML"
+                  data-bs-toggle="offcanvas"
+                  data-bs-target="#sidenav-cheques-dia-offcanvas"
+                  aria-controls="sidenav-cheques-dia-offcanvas"
+                  title="Ver cheques recibidos del {{ dia.fecha.strftime('%d/%m/%Y') }}"
+                >
+                  <span class="cal-recuadro-monto">{{ dia.recibidos_total_fmt }}</span>
+                  <span class="cal-recuadro-cantidad">{{ dia.recibidos_cantidad }}</span>
+                </button>
+                {% endif %}
+                {% if dia.pertenece_al_mes and dia.emitidos_cantidad > 0 %}
+                <button
+                  type="button"
+                  class="cal-recuadro recuadro-emitido"
+                  hx-get="{{ url_for('ventas.calendario_cheques_dia') }}?fecha={{ dia.fecha.isoformat() }}&tipo=emitido{% if banco_id_seleccionado %}&banco_id={{ banco_id_seleccionado }}{% endif %}"
+                  hx-target="#sidenav-cheques-dia"
+                  hx-swap="innerHTML"
+                  data-bs-toggle="offcanvas"
+                  data-bs-target="#sidenav-cheques-dia-offcanvas"
+                  aria-controls="sidenav-cheques-dia-offcanvas"
+                  title="Ver cheques emitidos del {{ dia.fecha.strftime('%d/%m/%Y') }}"
+                >
+                  <span class="cal-recuadro-monto">{{ dia.emitidos_total_fmt }}</span>
+                  <span class="cal-recuadro-cantidad">{{ dia.emitidos_cantidad }}</span>
+                </button>
+                {% endif %}
+              </div>
+              {% else %}
+              <div class="cal-num-dia" style="visibility:hidden;">0</div>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{# Sidenav lateral derecho con detalle del día #}
+<div
+  class="offcanvas offcanvas-end"
+  tabindex="-1"
+  id="sidenav-cheques-dia-offcanvas"
+  aria-labelledby="sidenav-cheques-dia-titulo"
+  style="width: 480px;"
+>
+  <div id="sidenav-cheques-dia">
+    {# Se rellena vía HTMX al hacer click en un recuadro #}
+  </div>
+</div>
+
+{# Container donde HTMX inyecta el modal de cambio de estado.
+   Vive fuera del offcanvas para que el modal se monte limpio en el body. #}
+<div id="modal-acciones-cheque-container"></div>
+
+{% endblock %}

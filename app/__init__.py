@@ -78,6 +78,7 @@ def register_blueprints(app):
     """Registra todos los blueprints de la aplicación."""
     from .routes import (
         auth_bp,
+        bancos_bp,
         caja_bp,
         clientes_bp,
         compras_bp,
@@ -94,6 +95,7 @@ def register_blueprints(app):
     )
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(bancos_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(productos_bp)
     app.register_blueprint(inventario_bp)

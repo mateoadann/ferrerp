@@ -1,0 +1,124 @@
+{# Partial del sidenav lateral con cheques del día (recibidos o emitidos).
+
+Variables esperadas:
+- cheques: lista de Cheque del día/tipo
+- fecha: date del día
+- tipo: 'recibido' | 'emitido'
+- banco_id_actual: str con el banco_id seleccionado (solo aplica a tipo='emitido')
+#}
+{% set total_dia = cheques | sum(attribute='importe') %}
+{% set tipo_label = 'recibidos' if tipo == 'recibido' else 'emitidos' %}
+{% set color_clase = 'text-success' if tipo == 'recibido' else 'text-danger' %}
+
+<div class="offcanvas-header border-bottom">
+  <div>
+    <h5 class="offcanvas-title mb-0" id="sidenav-cheques-dia-titulo">
+      <span class="material-symbols-rounded me-1 align-middle {{ color_clase }}">
+        {% if tipo == 'recibido' %}call_received{% else %}call_made{% endif %}
+      </span>
+      Cheques {{ tipo_label }}
+    </h5>
+    <small class="text-muted">{{ fecha.strftime('%d/%m/%Y') }}</small>
+  </div>
+  <button
+    type="button"
+    class="btn-close"
+    data-bs-dismiss="offcanvas"
+    aria-label="Cerrar"
+  ></button>
+</div>
+
+<div class="offcanvas-body">
+  {% if cheques %}
+  <div class="d-flex justify-content-between align-items-center mb-3 p-2 rounded bg-light">
+    <span class="small text-muted">Total del día:</span>
+    <span class="fw-bold {{ color_clase }}">{{ total_dia|currency }}</span>
+  </div>
+
+  <div class="d-flex flex-column gap-2">
+    {% for cheque in cheques %}
+    <div class="border rounded p-2">
+      <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+        <div>
+          <div class="fw-semibold d-flex align-items-center gap-2">
+            <span>#{{ cheque.numero_cheque }}</span>
+            {% include 'ventas/_badge_echeq.html' %}
+          </div>
+          {% if cheque.tipo == 'emitido' %}
+          <div class="small text-muted">
+            <span class="material-symbols-rounded" style="font-size:14px;vertical-align:middle;">account_balance</span>
+            {{ cheque.banco.nombre if cheque.banco else 'Sin banco' }}
+          </div>
+          {% if cheque.destinatario %}
+          <div class="small text-muted">
+            <span class="material-symbols-rounded" style="font-size:14px;vertical-align:middle;">person</span>
+            {{ cheque.destinatario }}
+          </div>
+          {% endif %}
+          {% else %}
+          {% if cheque.cliente %}
+          <div class="small text-muted">
+            <span class="material-symbols-rounded" style="font-size:14px;vertical-align:middle;">person</span>
+            {{ cheque.cliente.nombre }}
+          </div>
+          {% endif %}
+          {% endif %}
+        </div>
+        <div class="text-end">
+          <div class="fw-bold">{{ cheque.importe|currency }}</div>
+          {% if cheque.estado == 'en_cartera' %}
+          <span class="badge bg-warning text-dark">En cartera</span>
+          {% elif cheque.estado == 'emitido' %}
+          <span class="badge bg-warning text-dark">Emitido</span>
+          {% elif cheque.estado == 'cobrado' %}
+          <span class="badge bg-success">Cobrado</span>
+          {% elif cheque.estado == 'endosado' %}
+          <span class="badge bg-info">Endosado</span>
+          {% elif cheque.estado == 'sin_fondos' %}
+          <span class="badge bg-danger">Sin fondos</span>
+          {% endif %}
+        </div>
+      </div>
+
+      {# El botón aparece para cualquier cheque con transiciones disponibles
+         (estado vivo). transiciones_disponibles ya encapsula la lógica:
+         retorna lista vacía para estados terminales y para emitidos en
+         estado='emitido' (post-merge 036) retorna ['cobrado']. #}
+      {% if cheque.transiciones_disponibles %}
+      <div class="mt-2 d-flex justify-content-end">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-primary"
+          hx-get="{{ url_for('ventas.acciones_cheque', id=cheque.id) }}?desde_calendario=1"
+          hx-target="#modal-acciones-cheque-container"
+          hx-swap="innerHTML"
+          hx-on::after-request="
+            var m = document.getElementById('modalAccionesCheque{{ cheque.id }}');
+            if (m) { (bootstrap.Modal.getOrCreateInstance(m)).show(); }
+          "
+        >
+          <span class="material-symbols-rounded me-1" style="font-size:16px;vertical-align:middle;">swap_horiz</span>
+          Cambiar estado
+        </button>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center text-muted py-4">
+    <span class="material-symbols-rounded" style="font-size:48px;">inbox</span>
+    <p class="mt-2 mb-0">No hay cheques para este día.</p>
+  </div>
+  {% endif %}
+</div>
+
+{# Refresh del sidenav al cambiar el estado de un cheque (HX-Trigger='cheques-actualizados').
+   Mantiene los mismos query params para preservar fecha/tipo/banco. #}
+<div
+  hx-get="{{ url_for('ventas.calendario_cheques_dia') }}?fecha={{ fecha.isoformat() }}&tipo={{ tipo }}{% if tipo == 'emitido' and banco_id_actual %}&banco_id={{ banco_id_actual }}{% endif %}"
+  hx-trigger="cheques-actualizados from:body"
+  hx-target="#sidenav-cheques-dia"
+  hx-swap="innerHTML"
+  style="display:none"
+></div>

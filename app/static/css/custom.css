@@ -143,7 +143,7 @@ body {
     overflow-y: auto;
 }
 
-.nav-item {
+.sidebar-nav .nav-item {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -155,17 +155,17 @@ body {
     transition: all 0.2s;
 }
 
-.nav-item:hover {
+.sidebar-nav .nav-item:hover {
     background-color: var(--sidebar-hover);
     color: var(--sidebar-foreground);
 }
 
-.nav-item.active {
+.sidebar-nav .nav-item.active {
     background-color: var(--sidebar-hover);
     color: var(--sidebar-foreground);
 }
 
-.nav-item.active .material-symbols-rounded {
+.sidebar-nav .nav-item.active .material-symbols-rounded {
     color: var(--sidebar-active);
 }
 
@@ -372,6 +372,22 @@ body {
 .badge-orange {
     background-color: #FFE0B2;
     color: #E65100;
+}
+
+/* Badge especifico para cheques digitales (echeq).
+   Solo se muestra cuando cheque.tipo_cheque == 'echeq'. La ausencia
+   del badge indica un cheque fisico (caso default). */
+.badge-echeq {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background-color: #DBEAFE;
+    color: #1D4ED8;
+}
+
+.badge-echeq .material-symbols-rounded {
+    font-size: 14px;
+    line-height: 1;
 }
 
 /* Buttons */
