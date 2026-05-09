@@ -18,7 +18,7 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from werkzeug.exceptions import HTTPException
 
 from ..extensions import db
@@ -1783,12 +1783,20 @@ def calendario_cheques():
     fecha_inicio = _primer_dia(anio_central, mes_central)
     fecha_fin = _ultimo_dia(anio_m3, mes_m3)
 
-    # Query: solo cheques en cartera (los endosados/cobrados/sin_fondos ya no
+    # Query: solo cheques "vivos" (los endosados/cobrados/sin_fondos ya no
     # son del usuario y no deben sumarse en los totales del calendario).
+    # Filtro defensivo por tipo: para emitidos aceptamos tanto 'en_cartera'
+    # como 'emitido' para sobrevivir al merge con feature/036, que renombra
+    # el estado vivo de cheques emitidos a 'emitido'. Para recibidos sigue
+    # siendo solo 'en_cartera'.
+    estado_vivo_filter = or_(
+        and_(Cheque.tipo == 'recibido', Cheque.estado == 'en_cartera'),
+        and_(Cheque.tipo == 'emitido', Cheque.estado.in_(['en_cartera', 'emitido'])),
+    )
     q = Cheque.query_empresa().filter(
         Cheque.fecha_vencimiento >= fecha_inicio,
         Cheque.fecha_vencimiento <= fecha_fin,
-        Cheque.estado == 'en_cartera',
+        estado_vivo_filter,
     )
     if banco_id_int is not None:
         # Recibidos no se filtran por banco (no tienen banco asociado).
@@ -1866,10 +1874,19 @@ def calendario_cheques_dia():
     except (ValueError, TypeError):
         abort(400, description='Fecha inválida (formato esperado YYYY-MM-DD).')
 
+    # Filtro defensivo de estado por tipo: emitidos aceptan tanto 'en_cartera'
+    # como 'emitido' para sobrevivir al merge con feature/036 (que renombra el
+    # estado vivo de cheques emitidos a 'emitido'). Recibidos sigue solo
+    # 'en_cartera'.
+    if tipo_param == 'emitido':
+        estado_filter = Cheque.estado.in_(['en_cartera', 'emitido'])
+    else:
+        estado_filter = Cheque.estado == 'en_cartera'
+
     q = Cheque.query_empresa().filter(
         Cheque.fecha_vencimiento == fecha_obj,
         Cheque.tipo == tipo_param,
-        Cheque.estado == 'en_cartera',
+        estado_filter,
     )
     # El filtro por banco solo aplica a cheques emitidos (los recibidos no tienen banco).
     if tipo_param == 'emitido' and banco_id_int is not None:

@@ -810,3 +810,88 @@ class TestCalendarioFiltroEstado:
         assert 'SIDE_COB' not in html
         assert 'SIDE_END' not in html
         assert 'SIDE_SIN' not in html
+
+    def test_calendario_incluye_emitidos_estado_emitido(self, app_con_login):
+        """Cheques EMITIDOS con estado='emitido' (post-rename de feature/036)
+        deben sumar en el total del día del calendario.
+
+        Filtro defensivo: para sobrevivir al merge con feature/036 (que
+        renombra el estado vivo de cheques emitidos de 'en_cartera' a
+        'emitido'), el calendario acepta ambos estados para tipo='emitido'.
+        """
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario(empresa.id)
+        db.session.commit()
+
+        hoy = date.today()
+        fv = date(hoy.year, hoy.month, 16)
+
+        # Cheque emitido con el nuevo estado vivo 'emitido' (post feature/036).
+        # Importe identificable: $250.000 → '$250k' compacto.
+        _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            numero_cheque='EMI_NEW_STATE',
+            fecha_vencimiento=fv,
+            destinatario='Proveedor Post-036',
+            importe=Decimal('250000'),
+            estado='emitido',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(
+            f'/ventas/cheques/calendario?mes_central={hoy.year:04d}-{hoy.month:02d}'
+        )
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        # El emitido en estado 'emitido' debe sumar en el total del día.
+        assert '$250k' in html
+        # Y debe aparecer un recuadro emitido (no quedar invisible).
+        assert 'recuadro-emitido' in html
+
+    def test_sidenav_incluye_emitidos_estado_emitido(self, app_con_login):
+        """El sidenav del día con tipo=emitido también acepta estado='emitido'
+        (filtro defensivo para post-rename de feature/036)."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario(empresa.id)
+        db.session.commit()
+
+        hoy = date.today()
+        fv = date(hoy.year, hoy.month, 17)
+
+        # Cheque emitido con el nuevo estado vivo 'emitido' (post feature/036).
+        _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            numero_cheque='SIDE_EMI_NEW',
+            fecha_vencimiento=fv,
+            destinatario='Proveedor Post-036',
+            importe=Decimal('33000'),
+            estado='emitido',
+        )
+        # También un emitido en 'en_cartera' (rama 039 sola): debe seguir
+        # apareciendo. No queremos romper ese caso.
+        _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            numero_cheque='SIDE_EMI_OLD',
+            fecha_vencimiento=fv,
+            destinatario='Proveedor Pre-036',
+            importe=Decimal('44000'),
+            estado='en_cartera',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(
+            f'/ventas/cheques/calendario/dia?fecha={fv.isoformat()}&tipo=emitido'
+        )
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        # Ambos emitidos deben aparecer (defensa anti-rename funciona).
+        assert 'SIDE_EMI_NEW' in html
+        assert 'SIDE_EMI_OLD' in html
