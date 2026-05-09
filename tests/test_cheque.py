@@ -2035,3 +2035,133 @@ class TestEditarCheque:
         assert f'/ventas/cheques/{cheque.id}/detalle' in html
         # Existe el contenedor del modal compartido
         assert 'modalChequeContenido' in html
+
+
+class TestModalDetalleBadgeYCamposVacios:
+    """Tests del modal de detalle: badge Echeq y ocultamiento de
+    campos opcionales vacios (banco, fecha_emision)."""
+
+    def test_modal_detalle_muestra_badge_echeq(self, app_con_login):
+        """El modal debe renderizar el badge cuando tipo_cheque='echeq'."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='ECHEQ-BADGE-001',
+            tipo_cheque='echeq',
+            destinatario='Proveedor Echeq',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(f'/ventas/cheques/{cheque.id}/detalle')
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        # La clase del badge debe estar presente
+        assert 'badge-echeq' in html
+        # El texto visible "Echeq" debe estar presente
+        assert 'Echeq' in html
+
+    def test_modal_detalle_no_muestra_badge_si_cheque_fisico(
+        self, app_con_login
+    ):
+        """El badge NO debe renderizarse cuando tipo_cheque='cheque'."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='emitido',
+            estado='emitido',
+            numero_cheque='FISICO-BADGE-001',
+            tipo_cheque='cheque',
+            destinatario='Proveedor Fisico',
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(f'/ventas/cheques/{cheque.id}/detalle')
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        # La clase del badge NO debe estar
+        assert 'badge-echeq' not in html
+
+    def test_modal_detalle_oculta_banco_si_null(self, app_con_login):
+        """Si el cheque no tiene banco asociado, la fila Banco se oculta."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        db.session.commit()
+
+        # banco_id=None: cheque recibido sin banco (caso valido en 036)
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='recibido',
+            estado='en_cartera',
+            numero_cheque='SIN-BANCO-001',
+            banco_id=None,
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(f'/ventas/cheques/{cheque.id}/detalle')
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        # La fila <dt>Banco</dt> no debe aparecer
+        assert '>Banco</dt>' not in html
+
+    def test_modal_detalle_oculta_fecha_emision_si_null(
+        self, app_con_login
+    ):
+        """Si fecha_emision es null, la fila correspondiente se oculta."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='recibido',
+            estado='en_cartera',
+            numero_cheque='SIN-FE-001',
+            fecha_emision=None,
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(f'/ventas/cheques/{cheque.id}/detalle')
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        # La fila <dt>Fecha emision</dt> no debe aparecer
+        assert '>Fecha emision</dt>' not in html
+
+    def test_modal_detalle_muestra_banco_si_existe(self, app_con_login):
+        """Si el cheque tiene banco, la fila Banco aparece en el modal."""
+        empresa = _crear_empresa_aprobada()
+        usuario = _crear_usuario_con_email(empresa.id)
+        banco = _crear_banco(empresa.id, 'Banco Visible')
+        db.session.commit()
+
+        cheque = _crear_cheque(
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            tipo='recibido',
+            estado='en_cartera',
+            numero_cheque='CON-BANCO-001',
+            banco_id=banco.id,
+        )
+
+        client = _login_client(app_con_login, usuario)
+        resp = client.get(f'/ventas/cheques/{cheque.id}/detalle')
+
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert '>Banco</dt>' in html
+        assert 'Banco Visible' in html

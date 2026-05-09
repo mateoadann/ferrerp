@@ -11,6 +11,7 @@
            class="text-decoration-none">
             {{ cheque.numero_cheque }}
         </a>
+        {% include 'ventas/_badge_echeq.html' %}
     </td>
     {% if tab == 'por_pagar' %}
     <td>{{ cheque.banco.nombre if cheque.banco else '-' }}</td>

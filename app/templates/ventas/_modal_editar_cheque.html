@@ -13,9 +13,10 @@
       hx-swap="innerHTML">
     {{ form.hidden_tag() }}
     <div class="modal-header">
-        <h5 class="modal-title">
-            <span class="material-symbols-rounded me-2">edit</span>
-            Editar cheque #{{ cheque.numero_cheque }}
+        <h5 class="modal-title d-flex align-items-center gap-2">
+            <span class="material-symbols-rounded">edit</span>
+            <span>Editar cheque #{{ cheque.numero_cheque }}</span>
+            {% include 'ventas/_badge_echeq.html' %}
         </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
     </div>

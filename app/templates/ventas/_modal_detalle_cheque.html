@@ -2,9 +2,10 @@
    Renderizado por GET /ventas/cheques/<id>/detalle.
    Se inyecta dentro de #modalChequeContenido (ver cheques.html). #}
 <div class="modal-header">
-    <h5 class="modal-title">
-        <span class="material-symbols-rounded me-2">description</span>
-        Cheque #{{ cheque.numero_cheque }}
+    <h5 class="modal-title d-flex align-items-center gap-2">
+        <span class="material-symbols-rounded">description</span>
+        <span>Cheque #{{ cheque.numero_cheque }}</span>
+        {% include 'ventas/_badge_echeq.html' %}
     </h5>
     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
 </div>
@@ -13,28 +14,23 @@
         <dt class="col-sm-4 text-muted">Tipo</dt>
         <dd class="col-sm-8">
             {% if cheque.tipo == 'recibido' %}Recibido{% else %}Emitido{% endif %}
-            {% if cheque.tipo_cheque == 'echeq' %}
-            <span class="badge bg-info ms-1">Echeq</span>
-            {% endif %}
         </dd>
 
         <dt class="col-sm-4 text-muted">Numero</dt>
         <dd class="col-sm-8">{{ cheque.numero_cheque }}</dd>
 
+        {% if cheque.banco %}
         <dt class="col-sm-4 text-muted">Banco</dt>
-        <dd class="col-sm-8">{{ cheque.banco.nombre if cheque.banco else '-' }}</dd>
+        <dd class="col-sm-8">{{ cheque.banco.nombre }}</dd>
+        {% endif %}
 
         <dt class="col-sm-4 text-muted">Importe</dt>
         <dd class="col-sm-8 fw-bold">{{ cheque.importe|currency }}</dd>
 
+        {% if cheque.fecha_emision %}
         <dt class="col-sm-4 text-muted">Fecha emision</dt>
-        <dd class="col-sm-8">
-            {% if cheque.fecha_emision %}
-            {{ cheque.fecha_emision.strftime('%d/%m/%Y') }}
-            {% else %}
-            -
-            {% endif %}
-        </dd>
+        <dd class="col-sm-8">{{ cheque.fecha_emision.strftime('%d/%m/%Y') }}</dd>
+        {% endif %}
 
         <dt class="col-sm-4 text-muted">
             {% if cheque.tipo == 'recibido' %}Fecha de cobro{% else %}Fecha de pago{% endif %}

@@ -374,6 +374,22 @@ body {
     color: #E65100;
 }
 
+/* Badge especifico para cheques digitales (echeq).
+   Solo se muestra cuando cheque.tipo_cheque == 'echeq'. La ausencia
+   del badge indica un cheque fisico (caso default). */
+.badge-echeq {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background-color: #DBEAFE;
+    color: #1D4ED8;
+}
+
+.badge-echeq .material-symbols-rounded {
+    font-size: 14px;
+    line-height: 1;
+}
+
 /* Buttons */
 .btn {
     display: inline-flex;
