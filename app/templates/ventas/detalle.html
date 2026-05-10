@@ -221,13 +221,16 @@
                         <div class="col-6">
                             <div class="mb-1">
                                 <span class="text-muted small d-block">Número</span>
-                                <a href="{{ url_for('ventas.cheques', tab='por_cobrar') }}"
+                                <a href="#"
+                                   hx-get="{{ url_for('ventas.detalle_cheque', id=cheque.id) }}"
+                                   hx-target="#modalChequeContenido"
+                                   hx-swap="innerHTML"
+                                   data-bs-toggle="modal"
+                                   data-bs-target="#modalDetalleCheque"
                                    class="fw-semibold text-decoration-none">
                                     #{{ cheque.numero_cheque }}
                                 </a>
-                                {% if cheque.tipo_cheque == 'echeq' %}
-                                <span class="badge badge-info ms-1" style="font-size:10px;">echeq</span>
-                                {% endif %}
+                                {% include 'ventas/_badge_echeq.html' %}
                             </div>
                             {% if cheque.banco %}
                             <div class="mb-1">
@@ -345,5 +348,32 @@
         </div>
     </div>
 </div>
+{% endif %}
+
+{# Modal compartido de detalle de cheque (contenido cargado por HTMX
+   al hacer click en el numero de cheque dentro de la tarjeta lateral). #}
+{% if cheques_venta %}
+<div class="modal fade" id="modalDetalleCheque" tabindex="-1"
+     aria-labelledby="modalDetalleChequeLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" id="modalChequeContenido">
+            {# Contenido inyectado dinamicamente por GET /cheques/<id>/detalle. #}
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    document.addEventListener('DOMContentLoaded', function () {
+        var modal = document.getElementById('modalDetalleCheque');
+        var contenedor = document.getElementById('modalChequeContenido');
+        if (modal && contenedor) {
+            modal.addEventListener('hidden.bs.modal', function () {
+                contenedor.replaceChildren();
+            });
+        }
+    });
+})();
+</script>
 {% endif %}
 {% endblock %}
