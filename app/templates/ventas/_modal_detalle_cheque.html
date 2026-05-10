@@ -1,0 +1,107 @@
+{# Partial: contenido del modal de DETALLE de cheque (vista lectura).
+   Renderizado por GET /ventas/cheques/<id>/detalle.
+   Se inyecta dentro de #modalChequeContenido (ver cheques.html). #}
+<div class="modal-header">
+    <h5 class="modal-title d-flex align-items-center gap-2">
+        <span class="material-symbols-rounded">description</span>
+        <span>Cheque #{{ cheque.numero_cheque }}</span>
+        {% include 'ventas/_badge_echeq.html' %}
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+</div>
+<div class="modal-body">
+    <dl class="row mb-0">
+        <dt class="col-sm-4 text-muted">Tipo</dt>
+        <dd class="col-sm-8">
+            {% if cheque.tipo == 'recibido' %}Recibido{% else %}Emitido{% endif %}
+        </dd>
+
+        <dt class="col-sm-4 text-muted">Numero</dt>
+        <dd class="col-sm-8">{{ cheque.numero_cheque }}</dd>
+
+        {% if cheque.banco %}
+        <dt class="col-sm-4 text-muted">Banco</dt>
+        <dd class="col-sm-8">{{ cheque.banco.nombre }}</dd>
+        {% endif %}
+
+        <dt class="col-sm-4 text-muted">Importe</dt>
+        <dd class="col-sm-8 fw-bold">{{ cheque.importe|currency }}</dd>
+
+        {% if cheque.fecha_emision %}
+        <dt class="col-sm-4 text-muted">Fecha emision</dt>
+        <dd class="col-sm-8">{{ cheque.fecha_emision.strftime('%d/%m/%Y') }}</dd>
+        {% endif %}
+
+        <dt class="col-sm-4 text-muted">
+            {% if cheque.tipo == 'recibido' %}Fecha de cobro{% else %}Fecha de pago{% endif %}
+        </dt>
+        <dd class="col-sm-8">
+            {{ cheque.fecha_vencimiento.strftime('%d/%m/%Y') if cheque.fecha_vencimiento else '-' }}
+        </dd>
+
+        <dt class="col-sm-4 text-muted">Estado</dt>
+        <dd class="col-sm-8">
+            {% if cheque.estado in ('en_cartera', 'emitido') %}
+            <span class="badge bg-warning text-dark">{{ cheque|etiqueta_estado_cheque }}</span>
+            {% elif cheque.estado in ('cobrado', 'pagado') %}
+            <span class="badge bg-success">{{ cheque|etiqueta_estado_cheque }}</span>
+            {% elif cheque.estado == 'endosado' %}
+            <span class="badge bg-info">{{ cheque|etiqueta_estado_cheque }}</span>
+            {% elif cheque.estado == 'sin_fondos' %}
+            <span class="badge bg-danger">{{ cheque|etiqueta_estado_cheque }}</span>
+            {% else %}
+            {{ cheque|etiqueta_estado_cheque }}
+            {% endif %}
+        </dd>
+
+        {% if cheque.tipo == 'recibido' %}
+        <dt class="col-sm-4 text-muted">Cliente</dt>
+        <dd class="col-sm-8">{{ cheque.cliente.nombre if cheque.cliente else '-' }}</dd>
+        {% else %}
+        <dt class="col-sm-4 text-muted">Destinatario</dt>
+        <dd class="col-sm-8">{{ cheque.destinatario or '-' }}</dd>
+        {% endif %}
+
+        {% if cheque.referencia_tipo %}
+        <dt class="col-sm-4 text-muted">Referencia</dt>
+        <dd class="col-sm-8">
+            {% if cheque.referencia_tipo == 'venta' and cheque.referencia_id %}
+            <a href="{{ url_for('ventas.detalle', id=cheque.referencia_id) }}">
+                Venta #{{ cheque.referencia_id }}
+            </a>
+            {% elif cheque.referencia_tipo == 'pago_cc' %}
+            Pago de cuenta corriente{% if cheque.referencia_id %} (mov. {{ cheque.referencia_id }}){% endif %}
+            {% elif cheque.referencia_tipo == 'adelanto_cc' %}
+            Adelanto de cuenta corriente{% if cheque.referencia_id %} (mov. {{ cheque.referencia_id }}){% endif %}
+            {% elif cheque.referencia_tipo == 'pago_compra' and cheque.referencia_id %}
+            Pago de compra #{{ cheque.referencia_id }}
+            {% else %}
+            {{ cheque.referencia_tipo }}{% if cheque.referencia_id %} #{{ cheque.referencia_id }}{% endif %}
+            {% endif %}
+        </dd>
+        {% endif %}
+
+        <dt class="col-sm-4 text-muted">Observaciones</dt>
+        <dd class="col-sm-8" style="white-space: pre-wrap;">{{ cheque.observaciones or '-' }}</dd>
+
+        <dt class="col-sm-4 text-muted">Registrado</dt>
+        <dd class="col-sm-8">
+            {{ cheque.created_at|datetime if cheque.created_at else '-' }}
+            {% if cheque.usuario %}
+            <span class="text-muted small">por {{ cheque.usuario.nombre }}</span>
+            {% endif %}
+        </dd>
+    </dl>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+        Cerrar
+    </button>
+    <button type="button" class="btn btn-primary"
+            hx-get="{{ url_for('ventas.editar_cheque', id=cheque.id) }}"
+            hx-target="#modalChequeContenido"
+            hx-swap="innerHTML">
+        <span class="material-symbols-rounded me-2">edit</span>
+        Editar
+    </button>
+</div>

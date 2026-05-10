@@ -78,6 +78,7 @@ def register_blueprints(app):
     """Registra todos los blueprints de la aplicación."""
     from .routes import (
         auth_bp,
+        bancos_bp,
         caja_bp,
         clientes_bp,
         compras_bp,
@@ -94,6 +95,7 @@ def register_blueprints(app):
     )
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(bancos_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(productos_bp)
     app.register_blueprint(inventario_bp)
@@ -223,6 +225,18 @@ def register_template_context(app):
         if value is None:
             return ''
         return value.strftime(format)
+
+    @app.template_filter('etiqueta_estado_cheque')
+    def etiqueta_estado_cheque_filter(cheque):
+        """Devuelve la etiqueta legible del estado según el tipo de cheque.
+
+        Uso en templates: ``{{ cheque|etiqueta_estado_cheque }}``.
+        """
+        from .models.cheque import etiqueta_estado
+
+        if cheque is None:
+            return ''
+        return etiqueta_estado(cheque.tipo, cheque.estado)
 
 
 def register_error_handlers(app):

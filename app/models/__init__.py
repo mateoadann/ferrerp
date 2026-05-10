@@ -4,8 +4,10 @@ Exporta todos los modelos para facilitar su uso.
 """
 
 from .actualizacion_precio import ActualizacionPrecio
+from .banco import Banco
 from .caja import Caja, MovimientoCaja
 from .categoria import Categoria
+from .cheque import Cheque
 from .cliente import Cliente
 from .configuracion import Configuracion
 from .cuenta_corriente import MovimientoCuentaCorriente
@@ -35,7 +37,9 @@ __all__ = [
     'OrdenCompra',
     'OrdenCompraDetalle',
     'MovimientoStock',
+    'Banco',
     'Caja',
+    'Cheque',
     'MovimientoCaja',
     'MovimientoCuentaCorriente',
     'Configuracion',

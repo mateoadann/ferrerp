@@ -5,10 +5,12 @@
 {% block content %}
 <div class="page-header">
     <h2>Historial de Ventas</h2>
-    <a href="{{ url_for('ventas.punto_de_venta') }}" class="btn btn-primary">
-        <span class="material-symbols-rounded me-2">point_of_sale</span>
-        Nueva Venta
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('ventas.punto_de_venta') }}" class="btn btn-primary">
+            <span class="material-symbols-rounded me-2">point_of_sale</span>
+            Nueva Venta
+        </a>
+    </div>
 </div>
 
 <!-- Filtros -->
@@ -178,6 +180,8 @@
                         <span class="badge badge-orange">QR</span>
                         {% elif venta.forma_pago == 'cuenta_corriente' %}
                         <span class="badge badge-warning">Cta. Cte.</span>
+                        {% elif venta.forma_pago == 'cheque' %}
+                        <span class="badge badge-secondary">Cheque</span>
                         {% elif venta.forma_pago == 'dividido' %}
                         <span class="badge badge-info">
                             <span class="material-symbols-rounded" style="font-size:14px;vertical-align:middle;">call_split</span>

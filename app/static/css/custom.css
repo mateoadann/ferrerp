@@ -143,7 +143,7 @@ body {
     overflow-y: auto;
 }
 
-.nav-item {
+.sidebar-nav .nav-item {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -155,17 +155,17 @@ body {
     transition: all 0.2s;
 }
 
-.nav-item:hover {
+.sidebar-nav .nav-item:hover {
     background-color: var(--sidebar-hover);
     color: var(--sidebar-foreground);
 }
 
-.nav-item.active {
+.sidebar-nav .nav-item.active {
     background-color: var(--sidebar-hover);
     color: var(--sidebar-foreground);
 }
 
-.nav-item.active .material-symbols-rounded {
+.sidebar-nav .nav-item.active .material-symbols-rounded {
     color: var(--sidebar-active);
 }
 
@@ -374,6 +374,24 @@ body {
     color: #E65100;
 }
 
+/* Marca minimalista para cheques digitales (echeq): cuadrado
+   redondeado de 20x20 con la letra "E". Solo se renderiza cuando
+   cheque.tipo_cheque == 'echeq'. La ausencia de la marca indica un
+   cheque fisico (caso default). */
+.marca-echeq {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    background-color: #E6F1FB;
+    color: #185FA5;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+}
+
 /* Buttons */
 .btn {
     display: inline-flex;
@@ -475,6 +493,25 @@ input[type="number"] {
 .table-code {
     font-family: var(--font-mono);
     font-weight: 500;
+}
+
+/* Celda con numero de cheque: limita el ancho y trunca con ellipsis
+   para que numeros muy largos (ej: 25 digitos) no rompan el layout.
+   El nro. queda en una sola linea y, al pasar el mouse, el title
+   nativo del navegador muestra el numero completo. El badge Echeq
+   queda al lado, fuera del area truncada. */
+.table-cheque-numero {
+    max-width: 180px;
+    white-space: nowrap;
+}
+
+.table-cheque-numero .cheque-numero-link {
+    display: inline-block;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
 }
 
 /* Stock bajo */

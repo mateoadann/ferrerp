@@ -70,3 +70,9 @@ landing/remotion/out/
 # Others
 features.txt
 Implementación funcional del IVA.md
+
+# Claude Code
+.claude/
+
+# Backups locales (no versionar)
+backups-migracion-lightsail/

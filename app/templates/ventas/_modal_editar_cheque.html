@@ -1,0 +1,130 @@
+{# Partial: contenido del modal de EDICION de cheque.
+   Renderizado por GET /ventas/cheques/<id>/editar (form pre-cargado) o
+   por POST /ventas/cheques/<id>/editar cuando hay errores de validacion.
+   Se inyecta dentro de #modalChequeContenido (ver cheques.html).
+
+   Variables esperadas:
+     cheque       - instancia Cheque
+     form         - ChequeEditForm (con datos cargados)
+     editable_full - bool: si True, permite editar numero/banco/importe/echeq
+   #}
+<form hx-post="{{ url_for('ventas.editar_cheque', id=cheque.id) }}"
+      hx-target="#modalChequeContenido"
+      hx-swap="innerHTML">
+    {{ form.hidden_tag() }}
+    <div class="modal-header">
+        <h5 class="modal-title d-flex align-items-center gap-2">
+            <span class="material-symbols-rounded">edit</span>
+            <span>Editar cheque #{{ cheque.numero_cheque }}</span>
+            {% include 'ventas/_badge_echeq.html' %}
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+    </div>
+    <div class="modal-body">
+        {% if not editable_full %}
+        <div class="alert alert-info d-flex align-items-center gap-2 py-2 mb-3">
+            <span class="material-symbols-rounded">info</span>
+            <div class="small mb-0">
+                Este cheque ya no esta en estado vivo. Solo se pueden modificar
+                {% if cheque.tipo == 'recibido' %}observaciones y fecha de cobro
+                {% else %}destinatario, observaciones y fecha de pago{% endif %}.
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="row g-3">
+            {# Numero de cheque - solo si esta vivo #}
+            <div class="col-md-6">
+                {{ form.numero_cheque.label(class="form-label") }}
+                {% if editable_full %}
+                {{ form.numero_cheque(class="form-control" + (" is-invalid" if form.numero_cheque.errors else "")) }}
+                {% else %}
+                <input type="text" class="form-control" value="{{ cheque.numero_cheque }}" disabled>
+                {% endif %}
+                {% for err in form.numero_cheque.errors %}
+                <div class="invalid-feedback d-block">{{ err }}</div>
+                {% endfor %}
+            </div>
+
+            {# Banco - solo si esta vivo #}
+            <div class="col-md-6">
+                {{ form.banco_id.label(class="form-label") }}
+                {% if editable_full %}
+                {{ form.banco_id(class="form-select" + (" is-invalid" if form.banco_id.errors else "")) }}
+                {% else %}
+                <input type="text" class="form-control"
+                       value="{{ cheque.banco.nombre if cheque.banco else '- Sin banco -' }}"
+                       disabled>
+                {% endif %}
+                {% for err in form.banco_id.errors %}
+                <div class="invalid-feedback d-block">{{ err }}</div>
+                {% endfor %}
+            </div>
+
+            {# Echeq - solo si esta vivo #}
+            {% if editable_full %}
+            <div class="col-12">
+                <div class="form-check">
+                    {{ form.es_echeq(class="form-check-input") }}
+                    {{ form.es_echeq.label(class="form-check-label") }}
+                </div>
+            </div>
+            {% endif %}
+
+            {# Importe - solo si esta vivo #}
+            <div class="col-md-6">
+                {{ form.importe.label(class="form-label") }}
+                {% if editable_full %}
+                {{ form.importe(class="form-control" + (" is-invalid" if form.importe.errors else "")) }}
+                {% else %}
+                <input type="text" class="form-control"
+                       value="{{ cheque.importe|currency }}" disabled>
+                {% endif %}
+                {% for err in form.importe.errors %}
+                <div class="invalid-feedback d-block">{{ err }}</div>
+                {% endfor %}
+            </div>
+
+            {# Fecha de pago / cobro - SIEMPRE editable #}
+            <div class="col-md-6">
+                {{ form.fecha_vencimiento.label(class="form-label") }}
+                {{ form.fecha_vencimiento(class="form-control" + (" is-invalid" if form.fecha_vencimiento.errors else ""), type="date") }}
+                {% for err in form.fecha_vencimiento.errors %}
+                <div class="invalid-feedback d-block">{{ err }}</div>
+                {% endfor %}
+            </div>
+
+            {# Destinatario - SIEMPRE editable (solo emitidos) #}
+            {% if cheque.tipo == 'emitido' %}
+            <div class="col-12">
+                {{ form.destinatario.label(class="form-label") }}
+                {{ form.destinatario(class="form-control" + (" is-invalid" if form.destinatario.errors else "")) }}
+                {% for err in form.destinatario.errors %}
+                <div class="invalid-feedback d-block">{{ err }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {# Observaciones - SIEMPRE editable #}
+            <div class="col-12">
+                {{ form.observaciones.label(class="form-label") }}
+                {{ form.observaciones(class="form-control" + (" is-invalid" if form.observaciones.errors else "")) }}
+                {% for err in form.observaciones.errors %}
+                <div class="invalid-feedback d-block">{{ err }}</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary"
+                hx-get="{{ url_for('ventas.detalle_cheque', id=cheque.id) }}"
+                hx-target="#modalChequeContenido"
+                hx-swap="innerHTML">
+            Cancelar
+        </button>
+        <button type="submit" class="btn btn-primary">
+            <span class="material-symbols-rounded me-2">save</span>
+            Guardar cambios
+        </button>
+    </div>
+</form>

@@ -1,0 +1,12 @@
+{# Marca visual minimalista para distinguir cheques digitales (echeq)
+   de los fisicos. Se renderiza unicamente cuando
+   cheque.tipo_cheque == 'echeq'. Para cheques fisicos (default) NO se
+   muestra nada: la ausencia de la marca ya es la indicacion visual.
+
+   Uso:
+       {% include 'ventas/_badge_echeq.html' %}
+
+   La variable `cheque` debe estar en el contexto. #}
+{% if cheque.tipo_cheque == 'echeq' %}
+<span class="marca-echeq" title="Echeq" aria-label="Echeq">E</span>
+{% endif %}

@@ -1,0 +1,92 @@
+<div class="table-responsive">
+    <table class="table mb-0">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for banco in bancos %}
+            <tr>
+                <td>{{ banco.nombre }}</td>
+                <td>
+                    {% if banco.activo %}
+                    <span class="badge bg-success">Activo</span>
+                    {% else %}
+                    <span class="badge bg-secondary">Inactivo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="d-flex gap-1">
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                title="Editar"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalEditar{{ banco.id }}">
+                            <span class="material-symbols-rounded" style="font-size:18px;">edit</span>
+                        </button>
+                        <form method="POST"
+                              action="{{ url_for('bancos.eliminar', id=banco.id) }}"
+                              class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit"
+                                    class="btn btn-sm btn-outline-danger"
+                                    title="Eliminar"
+                                    onclick="return confirm('Eliminar banco {{ banco.nombre }}?')">
+                                <span class="material-symbols-rounded" style="font-size:18px;">delete</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Modal editar -->
+                    <div class="modal fade" id="modalEditar{{ banco.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="POST" action="{{ url_for('bancos.editar', id=banco.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Editar banco</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Nombre</label>
+                                            <input type="text" name="nombre" class="form-control"
+                                                   value="{{ banco.nombre }}" required maxlength="100"
+                                                   placeholder="Nombre del banco">
+                                        </div>
+                                        <div class="form-check">
+                                            <input type="checkbox" name="activo" class="form-check-input"
+                                                   id="activo{{ banco.id }}" value="y"
+                                                   {% if banco.activo %}checked{% endif %}>
+                                            <label class="form-check-label" for="activo{{ banco.id }}">Activo</label>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="submit" class="btn btn-primary">
+                                            <span class="material-symbols-rounded me-2">save</span>
+                                            Guardar
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="3">
+                    <div class="empty-state">
+                        <span class="material-symbols-rounded">account_balance</span>
+                        <p>No hay bancos registrados</p>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
