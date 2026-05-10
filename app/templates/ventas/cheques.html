@@ -71,12 +71,16 @@
     </div>
 </div>
 
-<!-- Tabla de cheques con auto-refresh tras edicion via evento HTMX -->
+<!-- Tabla de cheques con auto-refresh tras edicion via evento HTMX.
+     hx-disinherit evita que los <a hx-get="/cheques/X/detalle"> internos
+     hereden hx-select="#cheques-tabla-wrapper" y filtren el response del
+     modal a vacio. -->
 <div hx-get="{{ url_for('ventas.cheques', tab=tab, q=q, filtro_kpi=filtro_kpi, orden=orden, dir=direccion) }}"
      hx-trigger="cheques-actualizados from:body"
      hx-target="#cheques-tabla-wrapper"
      hx-swap="outerHTML"
-     hx-select="#cheques-tabla-wrapper">
+     hx-select="#cheques-tabla-wrapper"
+     hx-disinherit="*">
     {% include 'ventas/_tabla_cheques.html' %}
 </div>
 

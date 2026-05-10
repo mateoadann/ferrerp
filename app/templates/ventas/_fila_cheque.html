@@ -8,7 +8,8 @@
            hx-swap="innerHTML"
            data-bs-toggle="modal"
            data-bs-target="#modalDetalleCheque"
-           class="text-decoration-none">
+           class="text-decoration-none cheque-numero-link"
+           title="{{ cheque.numero_cheque }}">
             {{ cheque.numero_cheque }}
         </a>
         {% include 'ventas/_badge_echeq.html' %}
